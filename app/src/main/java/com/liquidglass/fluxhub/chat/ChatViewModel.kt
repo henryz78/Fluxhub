@@ -300,8 +300,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         while (!reader.exhausted()) {
             val line = reader.readUtf8Line() ?: break
             
-            if (line.startsWith("data: ")) {
-                val data = line.removePrefix("data: ").trim()
+            if (line.isBlank()) continue
+            
+            if (line.startsWith("data:")) {
+                val data = line.removePrefix("data:").trim()
                 
                 if (data == "[DONE]") {
                     Log.d(TAG, "Stream completed")
@@ -311,7 +313,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val chunk = json.decodeFromString(ChatResponse.serializer(), data)
                     val deltaContent = chunk.choices.firstOrNull()?.delta?.content
-                    Log.v(TAG, "Chunk parsed: $deltaContent")
                     
                     if (!deltaContent.isNullOrEmpty()) {
                         fullContent += deltaContent
@@ -320,8 +321,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             val index = messages.indexOfFirst { it.id == aiMessageId }
                             if (index >= 0) {
                                 messages[index] = messages[index].copy(content = fullContent)
-                            } else {
-                                Log.w(TAG, "Message with ID $aiMessageId not found during streaming")
                             }
                         }
                     }
@@ -329,15 +328,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.w(TAG, "Failed to parse chunk: $data", e)
                 }
             } else {
-                Log.v(TAG, "Ignored line: $line")
+                // If we receive non-data lines (e.g. valid JSON error), try to parse them
+                if (fullContent.isEmpty()) {
+                     try {
+                        // Check if it's a direct error JSON
+                        // Or just accumulate raw text for debug if it's short
+                        if (line.length < 200) {
+                             Log.d(TAG, "Non-data line: $line")
+                        }
+                     } catch (e: Exception) {}
+                }
             }
         }
         
         response.close()
         Log.d(TAG, "Final content length: ${fullContent.length}")
         
-        // 保存 AI 回复到数据库
-        if (fullContent.isNotEmpty()) {
+        if (fullContent.isEmpty()) {
+            withContext(Dispatchers.Main) {
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                     // Display debug info to user
+                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回。请检查 API Key 和网络。\n(Debug: 200 OK, but no delta content)")
+                }
+            }
+        } else {
+            // 保存 AI 回复到数据库
             messageDao.insertMessage(MessageEntity(
                 id = aiMessageId,
                 conversationId = conversationId,
