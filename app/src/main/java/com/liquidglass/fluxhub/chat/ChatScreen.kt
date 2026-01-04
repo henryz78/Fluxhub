@@ -384,7 +384,13 @@ private fun LiquidGlassChatContent(
                 },
                 onRegenerate = { viewModel.regenerate(message.id) },
                 onDelete = { viewModel.deleteMessage(message.id) },
-                onSpeak = { viewModel.speak(message.content) }
+                onEditAndResend = {
+                    // 将消息内容填入输入框
+                    inputText = message.content
+                    // 删除原消息及其后续回复
+                    viewModel.deleteMessage(message.id)
+                    selectedMessageForMenu = null
+                }
             )
         }
 
@@ -458,14 +464,20 @@ private fun LiquidGlassChatBubble(
             .animateContentSize(), // 添加尺寸变化动画，让气泡生长更顺滑
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // 头像和元信息
-        MessageAvatar(
-            isUser = isUser,
-            modelName = if (!isUser) (message.model ?: viewModel.model) else null,
-            userName = viewModel.userName,
-            userAvatar = viewModel.userAvatar,
-            timestamp = message.timestamp
-        )
+        // 角色标识（简化版，不显示头像）
+        Row(
+            modifier = Modifier.padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = if (isUser) "你" else (message.model ?: viewModel.model),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 10.sp
+                )
+            )
+        }
         
         // 消息气泡
         Box(
@@ -569,8 +581,7 @@ private fun LiquidGlassChatBubble(
                 content = message.content,
                 isUser = isUser,
                 onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) },
-                onSpeak = { viewModel.speak(message.content) }
+                onDelete = { viewModel.deleteMessage(message.id) }
             )
         }
     }

@@ -133,7 +133,6 @@ fun MessageActionButtons(
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
-    onSpeak: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val clipboardManager = LocalClipboard.current
@@ -172,15 +171,6 @@ fun MessageActionButtons(
                 icon = Lucide.RefreshCw,
                 contentDescription = "重新生成",
                 onClick = onRegenerate
-            )
-        }
-        
-        // 语音朗读按钮
-        if (onSpeak != null) {
-            ActionButton(
-                icon = Lucide.Volume2,
-                contentDescription = "语音朗读",
-                onClick = onSpeak
             )
         }
         
@@ -237,8 +227,11 @@ fun MessageActionsSheet(
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
-    onSpeak: (() -> Unit)? = null
+    onEditAndResend: (() -> Unit)? = null  // 新增：编辑并重发
 ) {
+    // 删除确认状态
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -259,6 +252,18 @@ fun MessageActionsSheet(
                 }
             )
             
+            // 编辑并重发 (仅用户消息)
+            if (isUser && onEditAndResend != null) {
+                SheetActionCard(
+                    icon = Lucide.Pencil,
+                    text = "编辑并重发",
+                    onClick = {
+                        onEditAndResend()
+                        onDismiss()
+                    }
+                )
+            }
+            
             // 重新生成 (仅 AI 消息)
             if (!isUser && onRegenerate != null) {
                 SheetActionCard(
@@ -270,21 +275,9 @@ fun MessageActionsSheet(
                     }
                 )
             }
-
-            // 语音朗读
-            if (onSpeak != null) {
-                SheetActionCard(
-                    icon = Lucide.Volume2,
-                    text = "语音朗读",
-                    onClick = {
-                        onSpeak()
-                        onDismiss()
-                    }
-                )
-            }
             
-            // 编辑
-            if (onEdit != null) {
+            // 编辑 (仅 AI 消息)
+            if (!isUser && onEdit != null) {
                 SheetActionCard(
                     icon = Lucide.Pencil,
                     text = "编辑",
@@ -295,17 +288,29 @@ fun MessageActionsSheet(
                 )
             }
             
-            // 删除
+            // 删除（带确认）
             if (onDelete != null) {
-                SheetActionCard(
-                    icon = Lucide.Trash2,
-                    text = "删除",
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    onClick = {
-                        onDelete()
-                        onDismiss()
-                    }
-                )
+                if (showDeleteConfirm) {
+                    // 确认删除状态
+                    SheetActionCard(
+                        icon = Lucide.AlertTriangle,
+                        text = "确认删除？点击删除",
+                        containerColor = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            onDelete()
+                            onDismiss()
+                        }
+                    )
+                } else {
+                    SheetActionCard(
+                        icon = Lucide.Trash2,
+                        text = "删除",
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        onClick = {
+                            showDeleteConfirm = true
+                        }
+                    )
+                }
             }
         }
     }
