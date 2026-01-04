@@ -140,7 +140,7 @@ fun MainScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
-                            Text(
+                            BasicText(
                                 text = "Chat",
                                 style = TextStyle(
                                     fontSize = 10.sp,
@@ -166,7 +166,7 @@ fun MainScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
-                            Text(
+                            BasicText(
                                 text = "Settings",
                                 style = TextStyle(
                                     fontSize = 10.sp,
