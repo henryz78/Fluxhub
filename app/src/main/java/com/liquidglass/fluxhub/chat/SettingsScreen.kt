@@ -58,14 +58,14 @@ fun SettingsScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF1A1A1A),
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             }
         },
-        containerColor = Color(0xFF121212)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -80,7 +80,7 @@ fun SettingsScreen(
                 Text(
                     text = "设置",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
                 )
             }
@@ -88,7 +88,7 @@ fun SettingsScreen(
             Text(
                 text = "API 配置",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onBackground
             )
             
             OutlinedTextField(
@@ -97,12 +97,12 @@ fun SettingsScreen(
                 label = { Text("Base URL") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    focusedBorderColor = Color(0xFF007AFF),
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                    focusedLabelColor = Color(0xFF007AFF)
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
                 )
             )
             
@@ -114,12 +114,12 @@ fun SettingsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    focusedBorderColor = Color(0xFF007AFF),
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                    focusedLabelColor = Color(0xFF007AFF)
+                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    focusedLabelColor = MaterialTheme.colorScheme.primary
                 )
             )
             
@@ -142,29 +142,29 @@ fun SettingsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                            // Refresh Button
                            IconButton(onClick = { viewModel.fetchModels() }) {
-                               Icon(Icons.Default.Refresh, contentDescription = "刷新模型列表", tint = Color.White.copy(0.7f))
+                               Icon(Icons.Default.Refresh, contentDescription = "刷新模型列表", tint = MaterialTheme.colorScheme.onBackground.copy(0.7f))
                            }
                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedTextColor = Color.White,
-                        focusedTextColor = Color.White,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedBorderColor = Color(0xFF007AFF),
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                        focusedLabelColor = Color(0xFF007AFF)
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
                     )
                 )
                 
                 ExposedDropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(Color(0xFF2C2C2C))
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     viewModel.availableModels.forEach { model ->
                         DropdownMenuItem(
-                            text = { Text(model, color = Color.White) },
+                            text = { Text(model, color = MaterialTheme.colorScheme.onSurface) },
                             onClick = {
                                 modelInput = model
                                 expanded = false

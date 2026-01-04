@@ -78,8 +78,9 @@ fun ChatScreen(
     // 当键盘弹出时，延迟滚动到最后一条消息（等待键盘完全弹出）
     LaunchedEffect(isKeyboardVisible) {
         if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(100) // 短暂延迟等待布局更新
-            listState.scrollToItem(viewModel.messages.size - 1)
+            kotlinx.coroutines.delay(200) // 延迟等待布局更新
+            // 使用 animateScrollToItem 可以更好地滚动到列表末尾
+            listState.animateScrollToItem(viewModel.messages.size - 1)
         }
     }
     
