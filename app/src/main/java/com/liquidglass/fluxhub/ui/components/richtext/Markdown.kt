@@ -83,7 +83,7 @@ fun MarkdownBlock(
     var data by remember {
         val preprocessed = preProcess(content)
         val astTree = parser.buildMarkdownTreeFromString(preprocessed)
-        mutableStateOf(preprocessed to astTree)
+        mutableStateOf(preprocessed to astTree, policy = neverEqualPolicy())
     }
 
     // 监听内容变化，在后台线程重新解析AST树
@@ -121,7 +121,11 @@ fun MarkdownBlock(
 
     val (preprocessed, astTree) = data
     ProvideTextStyle(style) {
-        Column(modifier = modifier.padding(start = 4.dp)) {
+        Column(
+            modifier = modifier
+                .padding(start = 4.dp)
+                .animateContentSize() // 顺滑增长
+        ) {
             astTree.children.fastForEach { child ->
                 MarkdownNode(node = child, content = preprocessed, onClickCitation = onClickCitation)
             }

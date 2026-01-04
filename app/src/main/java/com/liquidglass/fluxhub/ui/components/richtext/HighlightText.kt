@@ -1,17 +1,12 @@
 package com.liquidglass.fluxhub.ui.components.richtext
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +26,8 @@ import androidx.compose.ui.util.fastForEach
 val LocalHighlighter = compositionLocalOf<Highlighter> { error("No Highlighter provided") }
 
 private const val MAX_CODE_LENGTH = 8192
+private const val COLLAPSE_THRESHOLD = 12
+private const val COLLAPSE_LINES = 10
 
 @Composable
 fun ProvideHighlighter(content: @Composable () -> Unit) {
@@ -100,17 +97,89 @@ fun HighlightText(
 
     Text(
         modifier = modifier,
-        text = annotatedString,
-        fontSize = fontSize,
-        fontFamily = fontFamily,
-        fontStyle = fontStyle,
-        fontWeight = fontWeight,
-        lineHeight = lineHeight,
-        overflow = overflow,
-        softWrap = softWrap,
-        maxLines = maxLines,
-        minLines = minLines
-    )
+    val lines = remember(code) { code.lines() }
+    val canCollapse = lines.size > COLLAPSE_THRESHOLD
+    var isExpanded by remember { mutableStateOf(false) }
+    
+    val displayCode = if (canCollapse && !isExpanded) {
+        lines.take(COLLAPSE_LINES).joinToString("\n")
+    } else {
+        code
+    }
+
+    // 分级渲染策略：如果代码超长，关闭昂贵的实时高亮计算以保性能
+    val isVeryLong = remember(code) { code.length > 2000 }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Black.copy(alpha = 0.35f)) // 增强背景对比度
+            .padding(10.dp)
+            .animateContentSize()
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // 基础文本层（兜底显示，长代码直接用这个）
+            Text(
+                text = displayCode,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = fontSize,
+                    fontFamily = fontFamily,
+                    fontStyle = fontStyle,
+                    fontWeight = fontWeight,
+                    lineHeight = lineHeight,
+                    color = Color.White.copy(alpha = 0.9f)
+                ),
+                overflow = overflow,
+                softWrap = softWrap,
+                maxLines = maxLines,
+                minLines = minLines
+            )
+            
+            // 高亮层（仅在非超长代码下渲染）
+            if (!isVeryLong) {
+                Text(
+                    text = if (canCollapse && !isExpanded) {
+                        annotatedString.substring(0, displayCode.length.coerceAtMost(annotatedString.length))
+                    } else {
+                        annotatedString
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = fontSize,
+                        fontFamily = fontFamily,
+                        fontStyle = fontStyle,
+                        fontWeight = fontWeight,
+                        lineHeight = lineHeight
+                    ),
+                    overflow = overflow,
+                    softWrap = softWrap,
+                    maxLines = maxLines,
+                    minLines = minLines
+                )
+            }
+        }
+
+        if (canCollapse) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isExpanded) "收起代码" else "展开全文 (${lines.size} 行)",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color.White.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier
+                        .clickable { isExpanded = !isExpanded }
+                        .padding(4.dp)
+                )
+            }
+        }
+    }
 }
 
 fun AnnotatedString.Builder.buildHighlightText(

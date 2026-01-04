@@ -118,20 +118,25 @@ fun ChatScreen(
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
-    // 获取流式消息的状态（用于检测流式更新）
-    val streamingMessage = viewModel.messages.find { it.isStreaming }
-    val isStreaming = streamingMessage != null
-    val lastMessageContent = streamingMessage?.content ?: ""
-    val lastThinkingContent = streamingMessage?.thinkingContent ?: ""
-    
-    // 流式输出时自动滚动到底部（内容或思考过程变化时）
-    LaunchedEffect(lastMessageContent, lastThinkingContent) {
-        if (isStreaming && viewModel.messages.isNotEmpty()) {
-            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            // 如果用户就在底部附近，则自动跟随滚动
-            if (lastVisibleIndex >= viewModel.messages.size - 2) {
-                listState.animateScrollToItem(viewModel.messages.size - 1)
-            }
+    // 智能触底判定扩展逻辑
+    fun LazyListState.isAtBottom(): Boolean {
+        val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
+        // 如果最后一个 Item 可见且其偏移量覆盖了视口底部，则判定为到底了
+        // 这里给出一个 100px 的缓冲区，增强吸附灵敏度
+        return (lastItem.index >= layoutInfo.totalItemsCount - 2) && 
+               (lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + 100)
+    }
+
+    // AI 正在说话或思考时的全时吸附滚动
+    LaunchedEffect(isStreaming, viewModel.isLoading) {
+        if (isStreaming || viewModel.isLoading) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo }
+                .collect { visibleItems ->
+                    if (listState.isAtBottom()) {
+                        // 使用无动画跳转保证性能感和物理吸附感
+                        listState.scrollToItem(viewModel.messages.size - 1)
+                    }
+                }
         }
     }
     
@@ -439,7 +444,8 @@ private fun LiquidGlassChatBubble(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .animateContentSize(), // 添加尺寸变化动画，让气泡生长更顺滑
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         // 头像和元信息
@@ -454,8 +460,15 @@ private fun LiquidGlassChatBubble(
         // 消息气泡
         Box(
             modifier = Modifier
-                .widthIn(max = 400.dp) // 增加最大宽度限制
-                .fillMaxWidth(0.9f)   // 同时保证在小屏上占据足够空间
+                .then(
+                    if (isUser) {
+                        // User 气泡：包裹内容，限制最大宽度
+                        Modifier.widthIn(max = 300.dp)
+                    } else {
+                        // AI 气泡：极致展开，不设硬编码宽度上限
+                        Modifier.fillMaxWidth(0.95f)
+                    }
+                )
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { bubbleShape },
