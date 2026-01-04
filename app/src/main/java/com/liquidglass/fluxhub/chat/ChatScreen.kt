@@ -50,7 +50,6 @@ fun ChatScreen(
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val context = LocalContext.current
     
     // 自动滚动到底部
     LaunchedEffect(viewModel.messages.size) {
@@ -191,17 +190,18 @@ private fun LiquidGlassChatContent(
     val backdrop = rememberLayerBackdrop()
     
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .layerBackdrop(backdrop)
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        // 背景图片
+        // 背景图片 - 注意：layerBackdrop 应用在 Image 上！
         if (backgroundBitmap != null) {
             Image(
                 bitmap = backgroundBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .layerBackdrop(backdrop)  // 关键：layerBackdrop 应用在 Image 上
+                    .fillMaxSize()
             )
         }
         
