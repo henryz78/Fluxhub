@@ -16,7 +16,7 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.shapes.ContinuousRoundedRectangle
+import com.kyant.capsule.ContinuousRoundedRectangle
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Sparkles
