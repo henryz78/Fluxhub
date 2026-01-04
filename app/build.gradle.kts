@@ -84,8 +84,15 @@ dependencies {
     // DataStore for settings
     implementation(libs.androidx.datastore.preferences)
     
-    // Markdown
-    implementation(libs.markdown.m3)
+    // Markdown - JetBrains parser (RikkaHub style)
+    implementation(libs.jetbrains.markdown)
+    
+    // Icons - Lucide
+    implementation(libs.lucide.icons)
+    
+    // Image loading - Coil
+    implementation(libs.coil.compose)
+    implementation(libs.coil.okhttp)
     
     // Liquid Glass Effect
     implementation(libs.capsule)

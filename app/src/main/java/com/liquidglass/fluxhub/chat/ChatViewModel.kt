@@ -111,6 +111,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前会话
     var currentConversationId by mutableStateOf<String?>(null)
         private set
+    var currentConversationTitle by mutableStateOf("新对话")
+        private set
+    
+    // 会话列表
+    val conversations = mutableStateListOf<ConversationEntity>()
     
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -180,11 +185,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadOrCreateConversation() {
         viewModelScope.launch {
+            // 先加载会话列表
+            loadConversationsList()
+            
             val savedId = settingsRepository.currentConversationId.first()
             if (savedId != null) {
                 val conversation = conversationDao.getConversation(savedId)
                 if (conversation != null) {
                     currentConversationId = savedId
+                    currentConversationTitle = conversation.title
                     loadMessages(savedId)
                     return@launch
                 }
@@ -216,8 +225,56 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
             conversationDao.insertConversation(conversation)
             currentConversationId = newId
+            currentConversationTitle = "新对话"
             settingsRepository.setCurrentConversationId(newId)
             messages.clear()
+            loadConversationsList()
+        }
+    }
+    
+    fun switchConversation(conversationId: String) {
+        if (conversationId == currentConversationId) return
+        
+        viewModelScope.launch {
+            val conversation = conversationDao.getConversation(conversationId)
+            if (conversation != null) {
+                currentConversationId = conversationId
+                currentConversationTitle = conversation.title
+                settingsRepository.setCurrentConversationId(conversationId)
+                
+                // 取消正在进行的流式请求
+                currentEventSource?.cancel()
+                isLoading = false
+                
+                // 加载消息
+                messages.clear()
+                loadMessages(conversationId)
+            }
+        }
+    }
+    
+    fun deleteConversation(conversationId: String) {
+        viewModelScope.launch {
+            // 删除消息
+            messageDao.deleteMessagesForConversation(conversationId)
+            // 删除会话
+            conversationDao.deleteConversation(conversationId)
+            
+            // 如果删除的是当前会话，创建新会话
+            if (conversationId == currentConversationId) {
+                createNewConversation()
+            } else {
+                loadConversationsList()
+            }
+        }
+    }
+    
+    private fun loadConversationsList() {
+        viewModelScope.launch {
+            conversationDao.getAllConversations().collect { list ->
+                conversations.clear()
+                conversations.addAll(list)
+            }
         }
     }
     

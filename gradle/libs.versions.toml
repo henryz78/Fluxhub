@@ -17,8 +17,14 @@ serialization = "1.7.3"
 room = "2.7.0-alpha12"
 datastore = "1.1.1"
 
-# Markdown
-markdown = "0.26.0"
+# Markdown (JetBrains - for RikkaHub port)
+jetbrains-markdown = "0.7.3"
+
+# Icons
+lucide-icons = "1.1.0"
+
+# Image loading
+coil = "3.3.0"
 
 [libraries]
 # AndroidX Core
@@ -51,8 +57,15 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # DataStore for settings
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
-# Markdown
-markdown-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdown" }
+# Markdown - JetBrains parser (RikkaHub style)
+jetbrains-markdown = { group = "org.jetbrains", name = "markdown", version.ref = "jetbrains-markdown" }
+
+# Icons - Lucide
+lucide-icons = { group = "com.composables", name = "icons-lucide", version.ref = "lucide-icons" }
+
+# Image loading - Coil
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Liquid Glass
 capsule = { group = "io.github.kyant0", name = "capsule", version = "2.1.2" }
@@ -64,3 +77,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+

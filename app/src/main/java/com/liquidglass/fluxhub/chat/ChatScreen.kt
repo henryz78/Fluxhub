@@ -2,6 +2,7 @@ package com.liquidglass.fluxhub.chat
 
 import android.util.Log
 import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -13,10 +14,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +44,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
-import com.mikepenz.markdown.m3.Markdown
+import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 
 private const val TAG = "ChatScreen"
 
@@ -53,6 +58,8 @@ fun ChatScreen(
 ) {
     var inputText by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
@@ -64,7 +71,6 @@ fun ChatScreen(
     // 流式输出时自动滚动到底部（内容变化时）
     LaunchedEffect(lastMessageContent) {
         if (isStreaming && viewModel.messages.isNotEmpty()) {
-            // 使用 scrollToItem 而不是 animateScrollToItem 以避免动画问题
             listState.scrollToItem(viewModel.messages.size - 1)
         }
     }
@@ -76,11 +82,10 @@ fun ChatScreen(
         }
     }
     
-    // 当键盘弹出时，延迟滚动到最后一条消息（等待键盘完全弹出）
+    // 当键盘弹出时，延迟滚动到最后一条消息
     LaunchedEffect(isKeyboardVisible) {
         if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(200) // 延迟等待布局更新
-            // 使用 animateScrollToItem 可以更好地滚动到列表末尾
+            kotlinx.coroutines.delay(200)
             listState.animateScrollToItem(viewModel.messages.size - 1)
         }
     }
@@ -90,20 +95,43 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             viewModel.sendMessage(inputText)
             inputText = ""
-            keyboardController?.hide() // 收起键盘
+            keyboardController?.hide()
         }
     }
     
-    LiquidGlassChatContent(
-        viewModel = viewModel,
-        inputText = inputText,
-        onInputTextChange = { inputText = it },
-        listState = listState,
-        onNavigateToSettings = onNavigateToSettings,
-        onSend = onSendMessage,
-        backdrop = backdrop,
-        bottomPadding = bottomPadding
-    )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ConversationDrawerContent(
+                conversations = viewModel.conversations,
+                currentConversationId = viewModel.currentConversationId,
+                onSelectConversation = { id ->
+                    viewModel.switchConversation(id)
+                    scope.launch { drawerState.close() }
+                },
+                onDeleteConversation = { id ->
+                    viewModel.deleteConversation(id)
+                },
+                onNewConversation = {
+                    viewModel.createNewConversation()
+                    scope.launch { drawerState.close() }
+                }
+            )
+        },
+        gesturesEnabled = true
+    ) {
+        LiquidGlassChatContent(
+            viewModel = viewModel,
+            inputText = inputText,
+            onInputTextChange = { inputText = it },
+            listState = listState,
+            onNavigateToSettings = onNavigateToSettings,
+            onOpenDrawer = { scope.launch { drawerState.open() } },
+            onSend = onSendMessage,
+            backdrop = backdrop,
+            bottomPadding = bottomPadding
+        )
+    }
 }
 
 @Composable
@@ -113,6 +141,7 @@ private fun LiquidGlassChatContent(
     onInputTextChange: (String) -> Unit,
     listState: LazyListState,
     onNavigateToSettings: () -> Unit,
+    onOpenDrawer: () -> Unit,
     onSend: () -> Unit,
     backdrop: Backdrop,
     bottomPadding: PaddingValues
@@ -130,34 +159,61 @@ private fun LiquidGlassChatContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousCapsule },
-                        effects = {
-                            vibrancy()
-                            blur(4f.dp.toPx())
-                            lens(16f.dp.toPx(), 32f.dp.toPx())
-                        },
-                        highlight = { Highlight.Plain },
-                        onDrawSurface = {
-                            drawRect(Color.White.copy(alpha = 0.15f))
-                        }
-                    )
-                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BasicText(
-                    text = "Fluxhub",
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
+            Row(\r
+                modifier = Modifier\r
+                    .fillMaxWidth()\r
+                    .drawBackdrop(\r
+                        backdrop = backdrop,\r
+                        shape = { ContinuousCapsule },\r
+                        effects = {\r
+                            vibrancy()\r
+                            blur(4f.dp.toPx())\r
+                            lens(16f.dp.toPx(), 32f.dp.toPx())\r
+                        },\r
+                        highlight = { Highlight.Plain },\r
+                        onDrawSurface = {\r
+                            drawRect(Color.White.copy(alpha = 0.15f))\r
+                        }\r
+                    )\r
+                    .padding(horizontal = 16.dp, vertical = 10.dp),\r
+                horizontalArrangement = Arrangement.SpaceBetween,\r
+                verticalAlignment = Alignment.CenterVertically\r
+            ) {\r
+                // 菜单按钮（打开会话列表）\r
+                IconButton(\r
+                    onClick = onOpenDrawer\r
+                ) {\r
+                    Icon(\r
+                        imageVector = Icons.Default.Menu,\r
+                        contentDescription = "会话列表",\r
+                        tint = Color.White,\r
+                        modifier = Modifier.size(24.dp)\r
+                    )\r
+                }\r
+                \r
+                // 会话标题\r
+                BasicText(\r
+                    text = viewModel.currentConversationTitle,\r
+                    style = TextStyle(\r
+                        color = Color.White,\r
+                        fontSize = 18.sp,\r
+                        fontWeight = FontWeight.Medium\r
+                    ),\r
+                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),\r
+                    maxLines = 1\r
+                )\r
+                \r
+                // 新建会话按钮\r
+                IconButton(\r
+                    onClick = { viewModel.createNewConversation() }\r
+                ) {\r
+                    Icon(\r
+                        imageVector = Icons.Default.Add,\r
+                        contentDescription = "新建会话",\r
+                        tint = Color.White,\r
+                        modifier = Modifier.size(24.dp)\r
+                    )\r
+                }
             }
         }
         
@@ -301,7 +357,7 @@ private fun LiquidGlassChatBubble(
                 ) {
                     Column {
                         if (message.content.isNotEmpty()) {
-                            Markdown(
+                            MarkdownBlock(
                                 content = message.content,
                                 modifier = Modifier.wrapContentWidth()
                             )
@@ -404,6 +460,102 @@ private fun LiquidGlassChatInputBar(
                 tint = Color.White,
                 modifier = Modifier.size(22.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun ConversationDrawerContent(
+    conversations: List<com.liquidglass.fluxhub.data.ConversationEntity>,
+    currentConversationId: String?,
+    onSelectConversation: (String) -> Unit,
+    onDeleteConversation: (String) -> Unit,
+    onNewConversation: () -> Unit
+) {
+    ModalDrawerSheet(
+        modifier = Modifier.width(280.dp),
+        drawerContainerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(16.dp)
+        ) {
+            // 标题
+            Text(
+                text = "会话列表",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // 新建会话按钮
+            OutlinedButton(
+                onClick = onNewConversation,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Add, "新建会话")
+                Spacer(Modifier.width(8.dp))
+                Text("新建会话")
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            
+            // 会话列表
+            if (conversations.isEmpty()) {
+                Text(
+                    text = "暂无会话",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(conversations.size) { index ->
+                        val conversation = conversations[index]
+                        val isSelected = conversation.id == currentConversationId
+                        
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectConversation(conversation.id) },
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = conversation.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                // 删除按钮
+                                IconButton(
+                                    onClick = { onDeleteConversation(conversation.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "删除",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
