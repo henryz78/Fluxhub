@@ -385,9 +385,9 @@ private fun LiquidGlassChatContent(
                 onRegenerate = { viewModel.regenerate(message.id) },
                 onDelete = { viewModel.deleteMessage(message.id) },
                 onEditAndResend = {
-                    // 将消息内容填入输入框
-                    inputText = message.content
-                    // 删除原消息及其后续回复
+                    // 将消息内容填入输入框（使用回调）
+                    onInputTextChange(message.content)
+                    // 删除原消息
                     viewModel.deleteMessage(message.id)
                     selectedMessageForMenu = null
                 }

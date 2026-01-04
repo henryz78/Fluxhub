@@ -293,7 +293,7 @@ fun MessageActionsSheet(
                 if (showDeleteConfirm) {
                     // 确认删除状态
                     SheetActionCard(
-                        icon = Lucide.AlertTriangle,
+                        icon = Lucide.TriangleAlert,
                         text = "确认删除？点击删除",
                         containerColor = MaterialTheme.colorScheme.error,
                         onClick = {
