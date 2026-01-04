@@ -52,9 +52,19 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
     
+    // 检测键盘可见性
+    val isKeyboardVisible = rememberIsKeyboardVisible()
+    
     // 自动滚动到底部（每次消息变化时）
     LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
         if (viewModel.messages.isNotEmpty()) {
+            listState.animateScrollToItem(viewModel.messages.size - 1)
+        }
+    }
+    
+    // 当键盘弹出时，滚动到最后一条消息
+    LaunchedEffect(isKeyboardVisible) {
+        if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
             listState.animateScrollToItem(viewModel.messages.size - 1)
         }
     }

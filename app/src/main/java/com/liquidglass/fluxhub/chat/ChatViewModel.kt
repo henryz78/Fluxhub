@@ -23,6 +23,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -108,6 +112,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var currentConversationId by mutableStateOf<String?>(null)
         private set
     
+    // 当前活跃的 EventSource (用于取消)
+    private var currentEventSource: EventSource? = null
+    
     init {
         loadSettings()
         loadOrCreateConversation()
@@ -136,9 +143,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         viewModelScope.launch {
             try {
-                // Ensure base URL doesn't end with slash to append path correctly if needed, 
-                // but usually user provides "https://api.openai.com/v1".
-                // We'll try to hit "$baseUrl/models"
                 val url = "$baseUrl/models"
                 Log.d(TAG, "Fetching models from: $url")
                 
@@ -185,7 +189,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
             }
-            // 创建新会话
             createNewConversation()
         }
     }
@@ -244,13 +247,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         if (apiKey.isBlank()) {
             showErrorMessage("请先配置 API Key")
-            Log.w(TAG, "sendMessage: apiKey is blank")
             return
         }
         
         if (model.isBlank()) {
             showErrorMessage("请先选择模型")
-            Log.w(TAG, "sendMessage: model is blank")
             return
         }
         
@@ -271,7 +272,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 role = "user",
                 content = content
             ))
-            // 更新会话标题（使用第一条消息）
             if (messages.size == 1) {
                 conversationDao.updateConversation(
                     ConversationEntity(
@@ -285,26 +285,122 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         // 添加 AI 消息占位符
         val aiMessageId = UUID.randomUUID().toString()
-        messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "思考中...", isStreaming = true))
+        messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "", isStreaming = true))
         
         isLoading = true
         clearError()
         
-        viewModelScope.launch {
-            try {
-                callNonStreamingApi(aiMessageId, conversationId)
-            } catch (e: Exception) {
-                Log.e(TAG, "API call failed", e)
-                showErrorMessage(e.message ?: "Unknown error")
-                messages.removeAll { it.id == aiMessageId }
-            } finally {
-                isLoading = false
-                val index = messages.indexOfFirst { it.id == aiMessageId }
-                if (index >= 0) {
-                    messages[index] = messages[index].copy(isStreaming = false)
+        // 使用 OkHttp EventSources 进行流式请求
+        callStreamingApiWithEventSource(aiMessageId, conversationId)
+    }
+    
+    private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
+        Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model")
+        
+        val apiMessages = messages
+            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
+            .map { ChatMessage(it.role, it.content) }
+        
+        val requestData = ChatRequest(
+            model = model,
+            messages = apiMessages,
+            stream = true
+        )
+        
+        val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
+        Log.d(TAG, "Request body: $requestBody")
+        
+        val request = Request.Builder()
+            .url("$baseUrl/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Accept", "text/event-stream")
+            .post(requestBody.toRequestBody("application/json".toMediaType()))
+            .build()
+        
+        var fullContent = ""
+        
+        val listener = object : EventSourceListener() {
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                Log.d(TAG, "SSE onOpen: ${response.code}")
+            }
+            
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                if (data == "[DONE]") {
+                    Log.d(TAG, "SSE stream completed")
+                    return
+                }
+                
+                Log.d(TAG, "SSE onEvent: ${data.take(100)}")
+                
+                try {
+                    // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
+                    data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
+                        val chunk = json.decodeFromString(ChatResponse.serializer(), line)
+                        val deltaContent = chunk.choices.firstOrNull()?.delta?.content
+                        
+                        if (!deltaContent.isNullOrEmpty()) {
+                            fullContent += deltaContent
+                            
+                            // 更新 UI
+                            viewModelScope.launch(Dispatchers.Main) {
+                                val index = messages.indexOfFirst { it.id == aiMessageId }
+                                if (index >= 0) {
+                                    messages[index] = messages[index].copy(content = fullContent)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(100)}", e)
+                }
+            }
+            
+            override fun onClosed(eventSource: EventSource) {
+                Log.d(TAG, "SSE onClosed, final content length: ${fullContent.length}")
+                
+                viewModelScope.launch {
+                    isLoading = false
+                    
+                    val index = messages.indexOfFirst { it.id == aiMessageId }
+                    if (index >= 0) {
+                        messages[index] = messages[index].copy(isStreaming = false)
+                    }
+                    
+                    // 保存到数据库
+                    if (fullContent.isNotEmpty()) {
+                        messageDao.insertMessage(MessageEntity(
+                            id = aiMessageId,
+                            conversationId = conversationId,
+                            role = "assistant",
+                            content = fullContent
+                        ))
+                    } else {
+                        // 如果没有内容，显示错误
+                        if (index >= 0) {
+                            messages[index] = messages[index].copy(content = "⚠️ 无内容返回")
+                        }
+                    }
+                }
+            }
+            
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                Log.e(TAG, "SSE onFailure: ${t?.message}, response: ${response?.code}")
+                
+                viewModelScope.launch {
+                    isLoading = false
+                    
+                    val errorMsg = t?.message ?: response?.body?.string()?.take(200) ?: "Unknown error"
+                    showErrorMessage("请求失败: $errorMsg")
+                    
+                    // 移除空的 AI 消息
+                    messages.removeAll { it.id == aiMessageId }
                 }
             }
         }
+        
+        // 使用 EventSources 创建 SSE 连接
+        currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
     }
     
     private fun showErrorMessage(message: String) {
@@ -321,165 +417,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private suspend fun callNonStreamingApi(aiMessageId: String, conversationId: String) = withContext(Dispatchers.IO) {
-        Log.d(TAG, "callNonStreamingApi: using baseUrl=$baseUrl, model=$model")
-        
-        val apiMessages = messages
-            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty() && it.content != "思考中...") }
-            .map { ChatMessage(it.role, it.content) }
-        
-        val request = ChatRequest(
-            model = model,
-            messages = apiMessages,
-            stream = false  // 禁用流式
-        )
-        
-        val requestBody = json.encodeToString(ChatRequest.serializer(), request)
-        Log.d(TAG, "Request body: $requestBody")
-        
-        val httpRequest = Request.Builder()
-            .url("$baseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
-            .addHeader("Content-Type", "application/json")
-            .post(requestBody.toRequestBody("application/json".toMediaType()))
-            .build()
-        
-        Log.d(TAG, "Sending non-streaming request to: ${httpRequest.url}")
-        
-        val response = client.newCall(httpRequest).execute()
-        
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string() ?: ""
-            Log.e(TAG, "API error: ${response.code} - $errorBody")
-            throw Exception("API error: ${response.code}")
-        }
-        
-        val body = response.body?.string() ?: throw Exception("Empty response body")
-        Log.d(TAG, "Response body: ${body.take(500)}")
-        
-        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
-        val assistantContent = chatResponse.choices.firstOrNull()?.message?.content ?: ""
-        
-        response.close()
-        
-        if (assistantContent.isNotEmpty()) {
-            withContext(Dispatchers.Main) {
-                val index = messages.indexOfFirst { it.id == aiMessageId }
-                if (index >= 0) {
-                    messages[index] = messages[index].copy(content = assistantContent)
-                }
-            }
-            
-            // 保存 AI 回复到数据库
-            messageDao.insertMessage(MessageEntity(
-                id = aiMessageId,
-                conversationId = conversationId,
-                role = "assistant",
-                content = assistantContent
-            ))
-        } else {
-            withContext(Dispatchers.Main) {
-                val index = messages.indexOfFirst { it.id == aiMessageId }
-                if (index >= 0) {
-                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回")
-                }
-            }
-        }
-    }
-    
-    private suspend fun collectStreamingResponse(request: Request, aiMessageId: String, conversationId: String) = withContext(Dispatchers.IO) {
-        val response = client.newCall(request).execute()
-        
-        if (!response.isSuccessful) {
-            val errorBody = response.body?.string() ?: ""
-            Log.e(TAG, "API error: ${response.code} - $errorBody")
-            throw Exception("API error: ${response.code}")
-        }
-        
-        val body = response.body ?: throw Exception("Empty response body")
-        val reader = body.source().buffer()
-        
-        var fullContent = ""
-        var lineCount = 0
-        var dataLineCount = 0
-        
-        while (!reader.exhausted()) {
-            val line = reader.readUtf8Line() ?: break
-            lineCount++
-            
-            if (line.isBlank()) continue
-            
-            // Log first few lines for debugging
-            if (lineCount <= 5) {
-                Log.d(TAG, "SSE line $lineCount: ${line.take(100)}")
-            }
-            
-            // Handle both "data:" and "data: " formats
-            val dataPrefix = when {
-                line.startsWith("data: ") -> "data: "
-                line.startsWith("data:") -> "data:"
-                else -> null
-            }
-            
-            if (dataPrefix != null) {
-                dataLineCount++
-                val data = line.removePrefix(dataPrefix).trim()
-                
-                if (data == "[DONE]") {
-                    Log.d(TAG, "Stream completed after $dataLineCount data lines")
-                    break
-                }
-                
-                try {
-                    val chunk = json.decodeFromString(ChatResponse.serializer(), data)
-                    val deltaContent = chunk.choices.firstOrNull()?.delta?.content
-                    
-                    if (!deltaContent.isNullOrEmpty()) {
-                        fullContent += deltaContent
-                        
-                        withContext(Dispatchers.Main) {
-                            val index = messages.indexOfFirst { it.id == aiMessageId }
-                            if (index >= 0) {
-                                messages[index] = messages[index].copy(content = fullContent)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse chunk: ${data.take(100)}", e)
-                }
-            } else {
-                // Log non-data lines for debugging
-                Log.d(TAG, "Non-data line: ${line.take(100)}")
-            }
-        }
-        
-        response.close()
-        Log.d(TAG, "Final: $lineCount total lines, $dataLineCount data lines, ${fullContent.length} chars")
-        
-        if (fullContent.isEmpty()) {
-            withContext(Dispatchers.Main) {
-                val index = messages.indexOfFirst { it.id == aiMessageId }
-                if (index >= 0) {
-                    // Display debug info to user
-                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回 ($lineCount lines, $dataLineCount data)")
-                }
-            }
-        } else {
-            // 保存 AI 回复到数据库
-            messageDao.insertMessage(MessageEntity(
-                id = aiMessageId,
-                conversationId = conversationId,
-                role = "assistant",
-                content = fullContent
-            ))
-        }
-    }
-    
     fun clearError() {
         showError = false
         viewModelScope.launch {
             delay(300)
             error = null
         }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        currentEventSource?.cancel()
     }
 }
