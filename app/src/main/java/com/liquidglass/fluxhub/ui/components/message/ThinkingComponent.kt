@@ -25,9 +25,18 @@ import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 fun ThinkingComponent(
     content: String,
     isThinking: Boolean,
+    backdrop: Backdrop, // 传入外部 backdrop 保持一致
+    shouldCollapse: Boolean = false, // 新增：是否应该自动折叠
     modifier: Modifier = Modifier
 ) {
+    // 使用 LaunchedEffect 监听 shouldCollapse 变化
     var expanded by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(shouldCollapse) {
+        if (shouldCollapse) {
+            expanded = false
+        }
+    }
     
     // 呼吸动画
     val infiniteTransition = rememberInfiniteTransition(label = "thinking")
@@ -45,12 +54,8 @@ fun ThinkingComponent(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .background(
-                color = Color.White.copy(alpha = 0.03f),
-                shape = RoundedCornerShape(16.dp)
-            )
             .drawBackdrop(
-                backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop(), // 实际上应该传入外部的，这里暂用简化版
+                backdrop = backdrop,
                 shape = { RoundedCornerShape(16.dp) },
                 effects = {
                     vibrancy()

@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
@@ -472,7 +475,9 @@ private fun LiquidGlassChatBubble(
                     if (!message.thinkingContent.isNullOrBlank()) {
                         ThinkingComponent(
                             content = message.thinkingContent!!,
-                            isThinking = message.isStreaming && message.content.isEmpty()
+                            isThinking = message.isStreaming && message.content.isEmpty(),
+                            backdrop = backdrop,
+                            shouldCollapse = message.content.isNotEmpty() // 当主内容出现时自动折叠
                         )
                         Spacer(Modifier.height(8.dp))
                     }

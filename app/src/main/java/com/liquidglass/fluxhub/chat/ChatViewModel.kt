@@ -535,8 +535,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
                             
-                            // 更新 UI
-                            viewModelScope.launch(Dispatchers.Main) {
+                            // 更新 UI (使用 copy 触发重绘)
+                            viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
                                     messages[index] = messages[index].copy(thinkingContent = fullThinkingContent)
@@ -547,8 +547,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
                             
-                            // 更新 UI
-                            viewModelScope.launch(Dispatchers.Main) {
+                            // 更新 UI (使用 copy 触发重绘)
+                            viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
                                     messages[index] = messages[index].copy(content = fullContent)
