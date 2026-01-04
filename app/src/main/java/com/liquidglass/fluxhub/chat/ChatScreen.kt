@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -49,6 +50,7 @@ import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
@@ -98,11 +100,11 @@ fun ChatScreen(
     bottomPadding: PaddingValues,
     onNavigateToSettings: () -> Unit = {},
     viewModel: ChatViewModel = viewModel(),
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 ) {
     var inputText by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()

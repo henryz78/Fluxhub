@@ -288,11 +288,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 删除会话
             conversationDao.deleteConversation(conversationId)
             
-            // 如果删除的是当前会话，创建新会话
             if (conversationId == currentConversationId) {
                 createNewConversation()
-            } else {
-                loadConversationsList()
             }
         }
     }
