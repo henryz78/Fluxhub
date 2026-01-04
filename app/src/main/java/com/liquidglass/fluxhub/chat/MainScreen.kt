@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
@@ -46,6 +47,7 @@ fun MainScreen(
     viewModel: ChatViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
     
     val backgroundBitmap = remember {
@@ -86,18 +88,23 @@ fun MainScreen(
             val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
             
             when (selectedTab) {
-                0 -> ChatScreen(
+                0 -> HomeScreen(
+                    backdrop = backdrop,
+                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                    onNavigateToChat = { selectedTab = 1 }
+                )
+                1 -> ChatScreen(
                     backdrop = backdrop,
                     bottomPadding = PaddingValues(bottom = bottomPadding), 
-                    onNavigateToSettings = { selectedTab = 1 },
+                    onNavigateToSettings = { selectedTab = 2 },
                     viewModel = viewModel,
                     listState = chatListState,
                     drawerState = drawerState
                 )
-                1 -> SettingsScreen(
-                    onBack = { selectedTab = 0 },
+                2 -> SettingsScreen(
+                    onBack = { selectedTab = 1 },
                     viewModel = viewModel,
-                    backdrop = backdrop, // 传递 backdrop
+                    backdrop = backdrop,
                     isTab = true,
                     bottomPadding = PaddingValues(bottom = bottomPadding)
                 )
@@ -115,17 +122,17 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .navigationBarsPadding()
-                    .padding(bottom = 24.dp, start = 64.dp, end = 64.dp) // 增加 horizontal padding (48->64)
-                    .widthIn(max = 280.dp) // 限制最大宽度 (400->280)
+                    .padding(bottom = 24.dp, start = 48.dp, end = 48.dp)
+                    .widthIn(max = 360.dp) // 增加最大宽度适应 3 个 Tab
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
                     onTabSelected = { selectedTab = it },
                     backdrop = backdrop,
-                    tabsCount = 2,
+                    tabsCount = 3,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Tab 0: Chat
+                    // Tab 0: Home
                     LiquidBottomTab(
                         onClick = { selectedTab = 0 }
                     ) {
@@ -134,14 +141,14 @@ fun MainScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Chat,
-                                contentDescription = "Chat",
+                                imageVector = Icons.Filled.Home,
+                                contentDescription = "Home",
                                 tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
-                                text = "Chat",
+                                text = "首页",
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
@@ -151,7 +158,7 @@ fun MainScreen(
                         }
                     }
                     
-                    // Tab 1: Settings
+                    // Tab 1: Chat
                     LiquidBottomTab(
                         onClick = { selectedTab = 1 }
                     ) {
@@ -160,18 +167,44 @@ fun MainScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "Settings",
+                                imageVector = Icons.AutoMirrored.Filled.Chat,
+                                contentDescription = "Chat",
                                 tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
-                                text = "Settings",
+                                text = "对话",
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
                                     color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Tab 2: Settings
+                    LiquidBottomTab(
+                        onClick = { selectedTab = 2 }
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            BasicText(
+                                text = "设置",
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray
                                 )
                             )
                         }

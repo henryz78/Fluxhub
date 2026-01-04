@@ -455,7 +455,8 @@ private fun LiquidGlassChatBubble(
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
-    val tintColor = if (isUser) Color(0xFF007AFF) else Color(0xFF34C759)
+    // AI 气泡使用白色 liquid glass 风格
+    val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
     
     Column(
         modifier = Modifier
