@@ -1,12 +1,12 @@
 package com.liquidglass.fluxhub.chat
 
 import android.graphics.BitmapFactory
-import android.graphics.Rect
 import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +45,12 @@ fun MainScreen(
         BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
     }
     
-    val backdrop = rememberLayerBackdrop()
+    // 双 Backdrop 架构：每个页面有自己的 backdrop
+    val chatBackdrop = rememberLayerBackdrop()
+    val settingsBackdrop = rememberLayerBackdrop()
+    
+    // 根据当前激活的 Tab 选择 backdrop
+    val activeBackdrop = if (selectedTab == 0) chatBackdrop else settingsBackdrop
     
     // 监听键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
@@ -55,42 +59,57 @@ fun MainScreen(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 背景图片（共享）
-        if (backgroundBitmap != null) {
-            Image(
-                bitmap = backgroundBitmap.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .layerBackdrop(backdrop)
-                    .fillMaxSize()
-            )
-        }
-        
-        // 内容区域
+        // 内容区域 - 每个页面有自己的 backdrop layer
         Box(modifier = Modifier.fillMaxSize()) {
-            // 根据键盘状态动态调整底部 padding
             val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
             
             when (selectedTab) {
-                0 -> ChatScreen(
-                    backdrop = backdrop,
-                    bottomPadding = PaddingValues(bottom = bottomPadding), 
-                    onNavigateToSettings = { selectedTab = 1 },
-                    viewModel = viewModel
-                )
-                1 -> SettingsScreen(
-                    onBack = { selectedTab = 0 },
-                    viewModel = viewModel,
-                    backdrop = backdrop, // 传递 backdrop
-                    isTab = true,
-                    bottomPadding = PaddingValues(bottom = bottomPadding)
-                )
+                0 -> {
+                    // Chat 页面：壁纸 + 内容，作为 chatBackdrop 的源
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layerBackdrop(chatBackdrop)
+                    ) {
+                        // 壁纸背景
+                        if (backgroundBitmap != null) {
+                            Image(
+                                bitmap = backgroundBitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        // Chat 内容
+                        ChatScreen(
+                            backdrop = chatBackdrop,
+                            bottomPadding = PaddingValues(bottom = bottomPadding),
+                            onNavigateToSettings = { selectedTab = 1 },
+                            viewModel = viewModel
+                        )
+                    }
+                }
+                1 -> {
+                    // Settings 页面：黑色背景 + 内容，作为 settingsBackdrop 的源
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF121212))
+                            .layerBackdrop(settingsBackdrop)
+                    ) {
+                        SettingsScreen(
+                            onBack = { selectedTab = 0 },
+                            viewModel = viewModel,
+                            backdrop = settingsBackdrop,
+                            isTab = true,
+                            bottomPadding = PaddingValues(bottom = bottomPadding)
+                        )
+                    }
+                }
             }
         }
         
-        // 底部导航栏
-        // 键盘弹起时隐藏
+        // 底部导航栏 - 使用当前激活页面的 backdrop
         AnimatedVisibility(
             visible = !isKeyboardVisible,
             enter = slideInVertically { it },
@@ -100,13 +119,13 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .navigationBarsPadding()
-                    .padding(bottom = 24.dp, start = 64.dp, end = 64.dp) // 增加 horizontal padding (48->64)
-                    .widthIn(max = 280.dp) // 限制最大宽度 (400->280)
+                    .padding(bottom = 24.dp, start = 64.dp, end = 64.dp)
+                    .widthIn(max = 280.dp)
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
                     onTabSelected = { selectedTab = it },
-                    backdrop = backdrop,
+                    backdrop = activeBackdrop, // 使用当前激活页面的 backdrop
                     tabsCount = 2,
                     modifier = Modifier.fillMaxWidth()
                 ) {
