@@ -58,7 +58,8 @@ data class Choice(
 
 @Serializable
 data class Delta(
-    val content: String? = null
+    val content: String? = null,
+    val reasoning_content: String? = null
 )
 
 // 用于 UI 显示的消息
@@ -66,6 +67,7 @@ data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
     var content: String,
+    var thinkingContent: String? = null,
     val isStreaming: Boolean = false,
     val model: String? = null,
     val timestamp: Long = System.currentTimeMillis()
@@ -222,6 +224,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     id = entity.id,
                     role = entity.role,
                     content = entity.content,
+                    thinkingContent = entity.thinkingContent,
                     isStreaming = false,
                     model = entity.model,
                     timestamp = entity.timestamp
@@ -407,6 +410,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             id = aiMessageId,
             role = "assistant",
             content = "",
+            thinkingContent = "",
             isStreaming = true,
             model = model
         ))
@@ -457,6 +461,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .build()
         
         var fullContent = ""
+        var fullThinkingContent = ""
         
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
@@ -483,6 +488,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 conversationId = conversationId,
                                 role = "assistant",
                                 content = fullContent,
+                                thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
                                 model = model
                             ))
                         } else {
@@ -503,7 +509,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
                     data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
                         val chunk = json.decodeFromString(ChatResponse.serializer(), line)
-                        val deltaContent = chunk.choices.firstOrNull()?.delta?.content
+                        val delta = chunk.choices.firstOrNull()?.delta
+                        val deltaContent = delta?.content
+                        val deltaReasoning = delta?.reasoning_content
+                        
+                        if (!deltaReasoning.isNullOrEmpty()) {
+                            fullThinkingContent += deltaReasoning
+                            
+                            // 更新 UI
+                            viewModelScope.launch(Dispatchers.Main) {
+                                val index = messages.indexOfFirst { it.id == aiMessageId }
+                                if (index >= 0) {
+                                    messages[index] = messages[index].copy(thinkingContent = fullThinkingContent)
+                                }
+                            }
+                        }
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
@@ -540,6 +560,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             conversationId = conversationId,
                             role = "assistant",
                             content = fullContent,
+                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
                             model = model
                         ))
                     } else {

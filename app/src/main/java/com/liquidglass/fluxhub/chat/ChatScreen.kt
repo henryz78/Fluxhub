@@ -51,13 +51,45 @@ import androidx.compose.foundation.combinedClickable
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
-import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
 import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
+import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
 import kotlinx.coroutines.launch
 
 private const val TAG = "ChatScreen"
 
+@Composable
+fun TypingIndicator(backdrop: Backdrop) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(3) { index ->
+            val infiniteTransition = rememberInfiniteTransition(label = "typing")
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = index * 200, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "alpha"
+            )
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousCapsule },
+                        effects = { vibrancy() },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(alpha = alpha))
+                        }
+                    )
+            )
+        }
+    }
+}
 @Composable
 fun ChatScreen(
     backdrop: Backdrop,
@@ -412,57 +444,47 @@ private fun LiquidGlassChatBubble(
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            if (message.content.isEmpty() && message.isStreaming) {
-                // 显示打字指示器
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(3) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { ContinuousCapsule },
-                                    effects = { vibrancy() },
-                                    onDrawSurface = {
-                                        drawRect(Color.White.copy(alpha = 0.6f))
-                                    }
-                                )
+            // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
+            CompositionLocalProvider(
+                LocalContentColor provides Color.White,
+                LocalTextStyle provides TextStyle(
+                    fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    color = Color.White
+                )
+            ) {
+                Column {
+                    // 1. 如果有思考内容，则显示
+                    if (!message.thinkingContent.isNullOrBlank()) {
+                        ThinkingComponent(
+                            content = message.thinkingContent!!,
+                            isThinking = message.isStreaming && message.content.isEmpty()
                         )
+                        Spacer(Modifier.height(8.dp))
                     }
-                }
-            } else {
-                // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
-                CompositionLocalProvider(
-                    LocalContentColor provides Color.White,
-                    LocalTextStyle provides TextStyle(
-                        fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
-                        fontSize = 16.sp,
-                        lineHeight = 24.sp,
-                        color = Color.White
-                    )
-                ) {
-                    Column {
-                        if (message.content.isNotEmpty()) {
-                            MarkdownBlock(
-                                content = message.content,
-                                modifier = Modifier.wrapContentWidth()
-                            )
-                        }
-                        
-                        // 流式输出时显示光标，放在 Markdown 下方
-                        if (message.isStreaming && message.content.isNotEmpty()) {
-                            BasicText(
-                                text = "▌",
-                                style = TextStyle(
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 16.sp
-                                ),
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
+                    
+                    // 2. 显示主案内容
+                    if (message.content.isNotEmpty()) {
+                        MarkdownBlock(
+                            content = message.content,
+                            style = LocalTextStyle.current
+                        )
+                    } else if (message.isStreaming && (message.thinkingContent.isNullOrBlank())) {
+                        // 如果主内容为空且没有思考内容，显示打字指示器
+                        TypingIndicator(backdrop = backdrop)
+                    }
+                    
+                    // 流式输出时显示光标，放在 Markdown 下方
+                    if (message.isStreaming && message.content.isNotEmpty()) {
+                        BasicText(
+                            text = "▌",
+                            style = TextStyle(
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 16.sp
+                            ),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
             }
