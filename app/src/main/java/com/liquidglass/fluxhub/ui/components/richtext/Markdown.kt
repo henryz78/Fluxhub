@@ -30,12 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
+import androidx.compose.runtime.referentialEqualityPolicy
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
-import com.composables.icons.lucide.Check
-import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -90,7 +89,8 @@ fun MarkdownBlock(
     var data by remember {
         val preprocessed = preProcess(content)
         val astTree = parser.buildMarkdownTreeFromString(preprocessed)
-        mutableStateOf(preprocessed to astTree, policy = neverEqualPolicy())
+        // 使用 referentialEqualityPolicy：只有引用变化时才触发重组
+        mutableStateOf(preprocessed to astTree, policy = referentialEqualityPolicy())
     }
 
     // 监听内容变化，在后台线程重新解析AST树
