@@ -8,9 +8,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -58,26 +58,27 @@ class ChatViewModel : ViewModel() {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    var showError by mutableStateOf(false)
+        private set
     
     // 配置
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("gpt-4o-mini")
     
-    // Liquid Glass 风格开关
-    var useLiquidGlass by mutableStateOf(false)
-    
     fun sendMessage(content: String) {
-        if (content.isBlank() || apiKey.isBlank()) {
-            error = if (apiKey.isBlank()) "请先配置 API Key" else null
-            Log.w(TAG, "sendMessage: apiKey is blank or content is blank")
+        if (content.isBlank()) return
+        
+        if (apiKey.isBlank()) {
+            showErrorMessage("请先配置 API Key")
+            Log.w(TAG, "sendMessage: apiKey is blank")
             return
         }
         
         Log.d(TAG, "sendMessage: $content")
         messages.add(ChatMessage("user", content))
         isLoading = true
-        error = null
+        clearError()
         
         viewModelScope.launch {
             try {
@@ -86,9 +87,24 @@ class ChatViewModel : ViewModel() {
                 messages.add(ChatMessage("assistant", response))
             } catch (e: Exception) {
                 Log.e(TAG, "API call failed", e)
-                error = e.message ?: "Unknown error"
+                showErrorMessage(e.message ?: "Unknown error")
             } finally {
                 isLoading = false
+            }
+        }
+    }
+    
+    private fun showErrorMessage(message: String) {
+        error = message
+        showError = true
+        
+        // 3秒后自动关闭
+        viewModelScope.launch {
+            delay(3000)
+            if (error == message) {
+                showError = false
+                delay(300) // 等待动画完成
+                error = null
             }
         }
     }
@@ -121,7 +137,7 @@ class ChatViewModel : ViewModel() {
         
         if (!response.isSuccessful) {
             Log.e(TAG, "API error: ${response.code} - $body")
-            throw Exception("API error: ${response.code} - $body")
+            throw Exception("API error: ${response.code}")
         }
         
         val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
@@ -129,6 +145,10 @@ class ChatViewModel : ViewModel() {
     }
     
     fun clearError() {
-        error = null
+        showError = false
+        viewModelScope.launch {
+            delay(300)
+            error = null
+        }
     }
 }

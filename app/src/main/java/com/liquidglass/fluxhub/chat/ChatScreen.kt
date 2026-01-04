@@ -2,6 +2,7 @@ package com.liquidglass.fluxhub.chat
 
 import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -48,7 +49,6 @@ import com.liquidglass.fluxhub.components.LiquidButton
 
 private const val TAG = "ChatScreen"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit = {},
@@ -64,117 +64,14 @@ fun ChatScreen(
         }
     }
     
-    // 根据开关选择不同的界面
-    if (viewModel.useLiquidGlass) {
-        Log.d(TAG, "Rendering Liquid Glass style")
-        LiquidGlassChatContent(
-            viewModel = viewModel,
-            inputText = inputText,
-            onInputTextChange = { inputText = it },
-            listState = listState,
-            onNavigateToSettings = onNavigateToSettings
-        )
-    } else {
-        Log.d(TAG, "Rendering standard style")
-        StandardChatContent(
-            viewModel = viewModel,
-            inputText = inputText,
-            onInputTextChange = { inputText = it },
-            listState = listState,
-            onNavigateToSettings = onNavigateToSettings
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun StandardChatContent(
-    viewModel: ChatViewModel,
-    inputText: String,
-    onInputTextChange: (String) -> Unit,
-    listState: LazyListState,
-    onNavigateToSettings: () -> Unit
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Fluxhub") },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, "设置")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1A1A1A),
-                    titleContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                )
-            )
-        },
-        containerColor = Color(0xFF121212)
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Messages
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                items(viewModel.messages) { message ->
-                    StandardChatBubble(message = message)
-                }
-                
-                if (viewModel.isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF007AFF),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Error message
-            viewModel.error?.let { errorMsg ->
-                Snackbar(
-                    modifier = Modifier.padding(16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.clearError() }) {
-                            Text("关闭")
-                        }
-                    }
-                ) {
-                    Text(errorMsg)
-                }
-            }
-            
-            // Input
-            StandardChatInputBar(
-                text = inputText,
-                onTextChange = onInputTextChange,
-                onSend = {
-                    if (inputText.isNotBlank()) {
-                        viewModel.sendMessage(inputText)
-                        onInputTextChange("")
-                    }
-                },
-                enabled = !viewModel.isLoading
-            )
-        }
-    }
+    // 始终使用 Liquid Glass 风格
+    LiquidGlassChatContent(
+        viewModel = viewModel,
+        inputText = inputText,
+        onInputTextChange = { inputText = it },
+        listState = listState,
+        onNavigateToSettings = onNavigateToSettings
+    )
 }
 
 @Composable
@@ -214,29 +111,32 @@ private fun LiquidGlassChatContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
+                .statusBarsPadding()
+                .imePadding() // 键盘弹出时自动调整
         ) {
-            // Top Bar with glass effect - 使用 lens 效果
+            // Top Bar - 椭圆形胶囊状
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(0.dp, 0.dp, 24.dp, 24.dp) },
-                        effects = {
-                            vibrancy()
-                            blur(4f.dp.toPx())
-                            lens(16f.dp.toPx(), 32f.dp.toPx())
-                        },
-                        highlight = { Highlight.Plain },
-                        onDrawSurface = {
-                            drawRect(Color.White.copy(alpha = 0.15f))
-                        }
-                    )
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { ContinuousCapsule }, // 椭圆形
+                            effects = {
+                                vibrancy()
+                                blur(4f.dp.toPx())
+                                lens(16f.dp.toPx(), 32f.dp.toPx())
+                            },
+                            highlight = { Highlight.Plain },
+                            onDrawSurface = {
+                                drawRect(Color.White.copy(alpha = 0.15f))
+                            }
+                        )
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -244,33 +144,35 @@ private fun LiquidGlassChatContent(
                         text = "Fluxhub",
                         style = TextStyle(
                             color = Color.White,
-                            fontSize = 24.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Medium
                         )
                     )
                     
-                    // 使用 LiquidButton 作为设置按钮
+                    // 设置按钮 - 使用正常图标
                     LiquidButton(
                         onClick = onNavigateToSettings,
                         backdrop = backdrop,
-                        modifier = Modifier.height(40.dp),
+                        modifier = Modifier.height(36.dp),
                         tint = Color(0xFF0088FF)
                     ) {
-                        BasicText(
-                            "⚙️",
-                            style = TextStyle(Color.White, 16.sp)
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "设置",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
             
-            // Messages
+            // Messages - 使用 weight 让它占据剩余空间
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
+                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(viewModel.messages) { message ->
@@ -314,83 +216,57 @@ private fun LiquidGlassChatContent(
                 }
             }
             
-            // Error message
-            viewModel.error?.let { errorMsg ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { ContinuousRoundedRectangle(16.dp) },
-                            effects = {
-                                vibrancy()
-                                blur(4f.dp.toPx())
-                            },
-                            onDrawSurface = {
-                                drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
-                            }
-                        )
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+            // Error message with animation
+            AnimatedVisibility(
+                visible = viewModel.showError,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
+            ) {
+                viewModel.error?.let { errorMsg ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousCapsule },
+                                effects = {
+                                    vibrancy()
+                                    blur(4f.dp.toPx())
+                                },
+                                onDrawSurface = {
+                                    drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
+                                }
+                            )
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
                     ) {
                         BasicText(
                             text = errorMsg,
-                            style = TextStyle(Color.White, 14.sp),
-                            modifier = Modifier.weight(1f)
+                            style = TextStyle(Color.White, 14.sp)
                         )
-                        LiquidButton(
-                            onClick = { viewModel.clearError() },
-                            backdrop = backdrop,
-                            modifier = Modifier.height(32.dp),
-                            tint = Color(0xFFFF3B30)
-                        ) {
-                            BasicText("关闭", style = TextStyle(Color.White, 12.sp))
-                        }
                     }
                 }
             }
             
             // Input with glass effect
-            LiquidGlassChatInputBar(
-                text = inputText,
-                onTextChange = onInputTextChange,
-                onSend = {
-                    if (inputText.isNotBlank()) {
-                        viewModel.sendMessage(inputText)
-                        onInputTextChange("")
-                    }
-                },
-                enabled = !viewModel.isLoading,
-                backdrop = backdrop
-            )
-        }
-    }
-}
-
-@Composable
-private fun StandardChatBubble(message: ChatMessage) {
-    val isUser = message.role == "user"
-    val backgroundColor = if (isUser) Color(0xFF007AFF) else Color(0xFF2A2A2A)
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(backgroundColor)
-                .padding(12.dp)
-        ) {
-            Text(text = message.content, color = Color.White, fontSize = 16.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+                LiquidGlassChatInputBar(
+                    text = inputText,
+                    onTextChange = onInputTextChange,
+                    onSend = {
+                        if (inputText.isNotBlank()) {
+                            viewModel.sendMessage(inputText)
+                            onInputTextChange("")
+                        }
+                    },
+                    enabled = !viewModel.isLoading,
+                    backdrop = backdrop
+                )
+            }
         }
     }
 }
@@ -441,62 +317,6 @@ private fun LiquidGlassChatBubble(
 }
 
 @Composable
-private fun StandardChatInputBar(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onSend: () -> Unit,
-    enabled: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1A1A1A))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF2A2A2A))
-                .heightIn(min = 48.dp, max = 120.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            BasicTextField(
-                value = text,
-                onValueChange = onTextChange,
-                enabled = enabled,
-                textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-                cursorBrush = SolidColor(Color(0xFF007AFF)),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { onSend() }),
-                decorationBox = { innerTextField ->
-                    Box {
-                        if (text.isEmpty()) {
-                            Text("输入消息...", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
-                        }
-                        innerTextField()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        
-        IconButton(
-            onClick = onSend,
-            enabled = enabled && text.isNotBlank(),
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(if (text.isNotBlank()) Color(0xFF007AFF) else Color(0xFF2A2A2A))
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Send, "发送", tint = Color.White)
-        }
-    }
-}
-
-@Composable
 private fun LiquidGlassChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
@@ -507,8 +327,7 @@ private fun LiquidGlassChatInputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp)
-            .padding(bottom = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -561,7 +380,7 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Send button using LiquidButton
+        // Send button using LiquidButton with icon
         LiquidButton(
             onClick = onSend,
             backdrop = backdrop,
@@ -569,9 +388,11 @@ private fun LiquidGlassChatInputBar(
             isInteractive = enabled && text.isNotBlank(),
             tint = if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
         ) {
-            BasicText(
-                "➤",
-                style = TextStyle(Color.White, 20.sp)
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Send,
+                contentDescription = "发送",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
             )
         }
     }
