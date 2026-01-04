@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.R
 
 private const val TAG = "ChatScreen"
@@ -59,8 +67,7 @@ fun ChatScreen(
             inputText = inputText,
             onInputTextChange = { inputText = it },
             listState = listState,
-            onNavigateToSettings = onNavigateToSettings,
-            context = context
+            onNavigateToSettings = onNavigateToSettings
         )
     } else {
         Log.d(TAG, "Rendering standard style")
@@ -80,7 +87,7 @@ private fun StandardChatContent(
     viewModel: ChatViewModel,
     inputText: String,
     onInputTextChange: (String) -> Unit,
-    listState: androidx.compose.foundation.lazy.LazyListState,
+    listState: LazyListState,
     onNavigateToSettings: () -> Unit
 ) {
     Scaffold(
@@ -170,146 +177,134 @@ private fun LiquidGlassChatContent(
     viewModel: ChatViewModel,
     inputText: String,
     onInputTextChange: (String) -> Unit,
-    listState: androidx.compose.foundation.lazy.LazyListState,
-    onNavigateToSettings: () -> Unit,
-    context: android.content.Context
+    listState: LazyListState,
+    onNavigateToSettings: () -> Unit
 ) {
-    // 尝试使用 Liquid Glass 效果
-    try {
-        Log.d(TAG, "Loading Liquid Glass components")
-        
-        val backgroundBitmap = remember {
-            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+    val context = LocalContext.current
+    
+    Log.d(TAG, "Loading Liquid Glass components")
+    
+    val backgroundBitmap = remember {
+        BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+    }
+    
+    val backdrop = rememberLayerBackdrop()
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .layerBackdrop(backdrop)
+    ) {
+        // 背景图片
+        if (backgroundBitmap != null) {
+            Image(
+                bitmap = backgroundBitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         
-        val backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
-        
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .com.kyant.backdrop.backdrops.layerBackdrop(backdrop)
+                .systemBarsPadding()
         ) {
-            // 背景图片
-            if (backgroundBitmap != null) {
-                Image(
-                    bitmap = backgroundBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+            // Top Bar with glass effect
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(0.dp, 0.dp, 16.dp, 16.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(16f.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.Black.copy(alpha = 0.3f))
+                        }
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Fluxhub",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "设置",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
             
-            Column(
+            // Messages
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding()
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                // Top Bar with glass effect
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .com.kyant.backdrop.drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { com.kyant.capsule.ContinuousRoundedRectangle(0.dp, 0.dp, 16.dp, 16.dp) },
-                            effects = {
-                                com.kyant.backdrop.effects.vibrancy()
-                                com.kyant.backdrop.effects.blur(16f.dp.toPx())
-                            },
-                            onDrawSurface = {
-                                drawRect(Color.Black.copy(alpha = 0.3f))
-                            }
-                        )
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Fluxhub",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        
-                        IconButton(onClick = onNavigateToSettings) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = "设置",
-                                tint = Color.White
+                items(viewModel.messages) { message ->
+                    LiquidGlassChatBubble(message = message, backdrop = backdrop)
+                }
+                
+                if (viewModel.isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
-                
-                // Messages
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(viewModel.messages) { message ->
-                        LiquidGlassChatBubble(message = message, backdrop = backdrop)
-                    }
-                    
-                    if (viewModel.isLoading) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // Error message
-                viewModel.error?.let { errorMsg ->
-                    Snackbar(
-                        modifier = Modifier.padding(16.dp),
-                        action = {
-                            TextButton(onClick = { viewModel.clearError() }) {
-                                Text("关闭")
-                            }
-                        }
-                    ) {
-                        Text(errorMsg)
-                    }
-                }
-                
-                // Input with glass effect
-                LiquidGlassChatInputBar(
-                    text = inputText,
-                    onTextChange = onInputTextChange,
-                    onSend = {
-                        if (inputText.isNotBlank()) {
-                            viewModel.sendMessage(inputText)
-                            onInputTextChange("")
-                        }
-                    },
-                    enabled = !viewModel.isLoading,
-                    backdrop = backdrop
-                )
             }
+            
+            // Error message
+            viewModel.error?.let { errorMsg ->
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("关闭")
+                        }
+                    }
+                ) {
+                    Text(errorMsg)
+                }
+            }
+            
+            // Input with glass effect
+            LiquidGlassChatInputBar(
+                text = inputText,
+                onTextChange = onInputTextChange,
+                onSend = {
+                    if (inputText.isNotBlank()) {
+                        viewModel.sendMessage(inputText)
+                        onInputTextChange("")
+                    }
+                },
+                enabled = !viewModel.isLoading,
+                backdrop = backdrop
+            )
         }
-    } catch (e: Exception) {
-        Log.e(TAG, "Liquid Glass rendering failed, falling back to standard", e)
-        // 回退到标准样式
-        StandardChatContent(
-            viewModel = viewModel,
-            inputText = inputText,
-            onInputTextChange = onInputTextChange,
-            listState = listState,
-            onNavigateToSettings = onNavigateToSettings
-        )
     }
 }
 
@@ -339,10 +334,10 @@ private fun StandardChatBubble(message: ChatMessage) {
 @Composable
 private fun LiquidGlassChatBubble(
     message: ChatMessage,
-    backdrop: com.kyant.backdrop.Backdrop
+    backdrop: Backdrop
 ) {
     val isUser = message.role == "user"
-    val bubbleShape = com.kyant.capsule.ContinuousRoundedRectangle(16.dp)
+    val bubbleShape = ContinuousRoundedRectangle(16.dp)
     val backgroundColor = if (isUser) {
         Color(0xFF007AFF).copy(alpha = 0.3f)
     } else {
@@ -358,12 +353,12 @@ private fun LiquidGlassChatBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
-                .com.kyant.backdrop.drawBackdrop(
+                .drawBackdrop(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        com.kyant.backdrop.effects.vibrancy()
-                        com.kyant.backdrop.effects.blur(12f.dp.toPx())
+                        vibrancy()
+                        blur(12f.dp.toPx())
                     },
                     onDrawSurface = {
                         drawRect(backgroundColor)
@@ -438,9 +433,9 @@ private fun LiquidGlassChatInputBar(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     enabled: Boolean,
-    backdrop: com.kyant.backdrop.Backdrop
+    backdrop: Backdrop
 ) {
-    val inputShape = com.kyant.capsule.ContinuousRoundedRectangle(24.dp)
+    val inputShape = ContinuousRoundedRectangle(24.dp)
     val containerColor = Color.White.copy(alpha = 0.15f)
     val accentColor = Color(0xFF007AFF)
     
@@ -454,12 +449,12 @@ private fun LiquidGlassChatInputBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .com.kyant.backdrop.drawBackdrop(
+                .drawBackdrop(
                     backdrop = backdrop,
                     shape = { inputShape },
                     effects = {
-                        com.kyant.backdrop.effects.vibrancy()
-                        com.kyant.backdrop.effects.blur(12f.dp.toPx())
+                        vibrancy()
+                        blur(12f.dp.toPx())
                     },
                     onDrawSurface = {
                         drawRect(containerColor)
@@ -493,12 +488,12 @@ private fun LiquidGlassChatInputBar(
             enabled = enabled && text.isNotBlank(),
             modifier = Modifier
                 .size(48.dp)
-                .com.kyant.backdrop.drawBackdrop(
+                .drawBackdrop(
                     backdrop = backdrop,
-                    shape = { com.kyant.capsule.ContinuousRoundedRectangle(24.dp) },
+                    shape = { ContinuousRoundedRectangle(24.dp) },
                     effects = {
-                        com.kyant.backdrop.effects.vibrancy()
-                        com.kyant.backdrop.effects.blur(8f.dp.toPx())
+                        vibrancy()
+                        blur(8f.dp.toPx())
                     },
                     onDrawSurface = {
                         val color = if (text.isNotBlank()) accentColor.copy(alpha = 0.8f) else containerColor
