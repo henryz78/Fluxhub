@@ -125,7 +125,7 @@ fun LiquidButton(
                                     onDragCancel = { 
                                         onPressed(false)
                                     }
-                                ) { _, _ -> }
+                                ) { change, dragAmount -> }
                             }
                         )
                         .then(interactiveHighlight.gestureModifier)

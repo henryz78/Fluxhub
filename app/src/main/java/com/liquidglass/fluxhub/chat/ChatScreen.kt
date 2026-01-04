@@ -58,6 +58,8 @@ import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
 import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
 import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
@@ -473,7 +475,7 @@ private fun LiquidGlassChatBubble(
                     // 背景兜底：即使 backdrop 在长消息下失效，这里也能保证气泡可见
                     drawRoundRect(
                         color = tintColor.copy(alpha = 0.2f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx())
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(with(this) { 20.dp.toPx() })
                     )
                 }
                 .combinedClickable(
