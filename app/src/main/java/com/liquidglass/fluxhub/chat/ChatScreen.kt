@@ -65,6 +65,7 @@ import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
+import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
 
 private const val TAG = "ChatScreen"
 
@@ -121,39 +122,35 @@ fun ChatScreen(
     // 获取流式消息的状态（用于检测流式更新）
     val isStreaming = viewModel.messages.any { it.isStreaming }
 
-    // 智能触底判定扩展逻辑
+    // 智能触底判定扩展逻辑 (参考 RikkaHub)
     fun LazyListState.isAtBottom(): Boolean {
-        val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
-        // 如果最后一个 Item 可见且其偏移量覆盖了视口底部，则判定为到底了
-        // 这里给出一个 100px 的缓冲区，增强吸附灵敏度
-        return (lastItem.index >= layoutInfo.totalItemsCount - 2) && 
-               (lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + 100)
+        val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
+        return lastItem.index >= layoutInfo.totalItemsCount - 2 &&
+               (lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + lastItem.size * 0.15 + 32)
     }
 
-    // AI 正在说话或思考时的全时吸附滚动
-    // 监听最后一条消息的内容变化，确保流式输出时持续滚动
-    val lastMessageContent = viewModel.messages.lastOrNull()?.content ?: ""
-    val lastMessageThinking = viewModel.messages.lastOrNull()?.thinkingContent ?: ""
+    // 自动跟随键盘滚动 (参考 RikkaHub)
+    ImeLazyListAutoScroller(lazyListState = listState)
+
+    // AI 正在说话或思考时的全时吸附滚动 (参考 RikkaHub)
+    val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
+    val messagesUpdated by rememberUpdatedState(viewModel.messages)
     
-    LaunchedEffect(lastMessageContent, lastMessageThinking, viewModel.messages.size) {
-        if (viewModel.messages.isNotEmpty()) {
-            // 始终滚动到最新消息
-            listState.scrollToItem(viewModel.messages.size - 1)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
+            if (!listState.isScrollInProgress && loadingState) {
+                if (listState.isAtBottom()) {
+                    // 滚动到 lastIndex + 10 确保到达真正的底部
+                    listState.requestScrollToItem(messagesUpdated.lastIndex + 10)
+                }
+            }
         }
     }
     
-    // 新消息时滚动到底部 (通常是用户自己发的)
+    // 新消息时滚动到底部
     LaunchedEffect(viewModel.messages.size) {
         if (viewModel.messages.isNotEmpty()) {
-            listState.animateScrollToItem(viewModel.messages.size - 1)
-        }
-    }
-    
-    // 当键盘弹出时，延迟滚动到最后一条消息
-    LaunchedEffect(isKeyboardVisible) {
-        if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(200)
-            listState.animateScrollToItem(viewModel.messages.size - 1)
+            listState.requestScrollToItem(viewModel.messages.lastIndex + 10)
         }
     }
     

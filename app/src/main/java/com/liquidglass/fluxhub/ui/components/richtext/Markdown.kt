@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -28,6 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.Lucide
+import kotlinx.coroutines.launch
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.Dispatchers
@@ -90,29 +96,20 @@ fun MarkdownBlock(
     // 监听内容变化，在后台线程重新解析AST树
     val updatedContent by rememberUpdatedState(content)
     LaunchedEffect(Unit) {
-        var lastProcessedLength = 0
         snapshotFlow { updatedContent }
             .distinctUntilChanged()
-            .mapLatest { it ->
-                val currentLength = it.length
-                
-                // 性能关键：如果内容很短，可以快点解析
-                // 如果内容在流式飞速增长，则大幅降低解析频率
-                if (currentLength > 500) {
-                    val delta = currentLength - lastProcessedLength
-                    if (delta > 0 && delta < 30) {
-                        // 还在流水中，等攒多点或者等会儿
-                        kotlinx.coroutines.delay(600)
-                    } else {
-                        kotlinx.coroutines.delay(300)
-                    }
-                } else if (currentLength > 100) {
-                    kotlinx.coroutines.delay(200)
+            .mapLatest { text ->
+                // 大幅降低延迟，保证流式输出的实时性
+                // 短内容立即解析，长内容稍微等待以避免过于频繁
+                val delayMs = when {
+                    text.length < 200 -> 0L      // 短内容：无延迟
+                    text.length < 1000 -> 50L   // 中等内容：50ms
+                    else -> 100L                 // 长内容：100ms（之前是 300-600ms）
                 }
+                if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
                 
-                val preprocessed = preProcess(it)
+                val preprocessed = preProcess(text)
                 val astTree = parser.buildMarkdownTreeFromString(preprocessed)
-                lastProcessedLength = currentLength
                 preprocessed to astTree
             }
             .catch { it.printStackTrace() }
@@ -498,6 +495,17 @@ private fun CodeBlock(
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    val clipboardManager = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    var showCopied by remember { mutableStateOf(false) }
+    
+    // 复制成功提示自动消失
+    LaunchedEffect(showCopied) {
+        if (showCopied) {
+            kotlinx.coroutines.delay(2000)
+            showCopied = false
+        }
+    }
     
     Column(
         modifier = modifier
@@ -506,19 +514,51 @@ private fun CodeBlock(
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        // 顶部操作栏样式的背景 - 使用深色半透明背景，在玻璃背景下更有辨识度
-        Box(
+        // 顶部操作栏：语言标签 + 复制按钮
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.2f))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // 语言标签
             Text(
                 text = language.uppercase(),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White.copy(alpha = 0.8f) // 统一使用白色，配合 alpha
+                color = Color.White.copy(alpha = 0.8f)
             )
+            
+            // 复制按钮
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable {
+                        scope.launch {
+                            clipboardManager.setClipEntry(
+                                ClipEntry(android.content.ClipData.newPlainText("code", code))
+                            )
+                            showCopied = true
+                        }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = if (showCopied) Lucide.Check else Lucide.Copy,
+                    contentDescription = if (showCopied) "已复制" else "复制代码",
+                    modifier = Modifier.size(12.dp),
+                    tint = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = if (showCopied) "已复制" else "复制",
+                    fontSize = 10.sp,
+                    color = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
+                )
+            }
         }
         
         // 代码内容

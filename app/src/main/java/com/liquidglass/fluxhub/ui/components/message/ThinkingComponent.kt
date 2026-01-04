@@ -2,7 +2,6 @@ package com.liquidglass.fluxhub.ui.components.message
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,35 +20,65 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
 import com.composables.icons.lucide.*
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
+/**
+ * 思考过程展示组件
+ * 参考 RikkaHub 的 ChatMessageReasoning 实现
+ */
 @Composable
 fun ThinkingComponent(
     content: String,
     isThinking: Boolean,
-    backdrop: Backdrop, // 传入外部 backdrop 保持一致
-    shouldCollapse: Boolean = false, // 新增：是否应该自动折叠
+    backdrop: Backdrop,
+    shouldCollapse: Boolean = false,
+    startTime: Long = remember { System.currentTimeMillis() },
     modifier: Modifier = Modifier
 ) {
-    // 使用 LaunchedEffect 监听 shouldCollapse 变化
+    // 折叠状态
     var expanded by remember { mutableStateOf(true) }
     
-    LaunchedEffect(shouldCollapse) {
-        if (shouldCollapse) {
+    // 思考计时器
+    var duration by remember { mutableStateOf(0L) }
+    
+    // 实时更新计时器
+    LaunchedEffect(isThinking) {
+        if (isThinking) {
+            while (isActive) {
+                duration = System.currentTimeMillis() - startTime
+                delay(100)
+            }
+        }
+    }
+    
+    // 自动折叠逻辑
+    LaunchedEffect(shouldCollapse, isThinking) {
+        if (shouldCollapse && !isThinking) {
+            delay(800)
             expanded = false
         }
     }
     
-    // 呼吸动画
-    val infiniteTransition = rememberInfiniteTransition(label = "thinking")
-    val alpha by infiniteTransition.animateFloat(
+    // Shimmer 动画
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerAlpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
+            animation = tween(800, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "alpha"
+        label = "shimmer_alpha"
     )
+    
+    // 格式化时长
+    val durationText = remember(duration) {
+        if (duration > 0) {
+            val seconds = duration / 1000.0
+            "(${String.format("%.1f", seconds)}s)"
+        } else ""
+    }
 
     Column(
         modifier = modifier
@@ -63,10 +92,11 @@ fun ThinkingComponent(
                     blur(2.dp.toPx())
                 },
                 onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.05f))
+                    drawRect(Color.White.copy(alpha = 0.08f))
                 }
             )
             .padding(12.dp)
+            .animateContentSize()
     ) {
         Row(
             modifier = Modifier
@@ -75,29 +105,40 @@ fun ThinkingComponent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Icon(
                     imageVector = Lucide.Sparkles,
                     contentDescription = null,
                     modifier = Modifier
                         .size(14.dp)
-                        .then(if (isThinking) Modifier.alpha(alpha) else Modifier.alpha(0.6f)),
-                    tint = Color.White
+                        .alpha(if (isThinking) shimmerAlpha else 0.6f),
+                    tint = Color(0xFFFFD700)
                 )
-                Spacer(Modifier.width(8.dp))
+                
                 Text(
                     text = if (isThinking) "思考中..." else "已思考",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = Color.White.copy(alpha = if (isThinking) shimmerAlpha else 0.6f),
                     letterSpacing = 0.5.sp
                 )
+                
+                if (durationText.isNotEmpty()) {
+                    Text(
+                        text = durationText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = if (isThinking) shimmerAlpha * 0.7f else 0.5f)
+                    )
+                }
             }
             
-            // 展开/收起图标
             Icon(
                 imageVector = if (expanded) Lucide.ChevronUp else Lucide.ChevronDown,
-                contentDescription = null,
+                contentDescription = if (expanded) "收起" else "展开",
                 modifier = Modifier.size(14.dp),
                 tint = Color.White.copy(alpha = 0.4f)
             )
@@ -105,16 +146,15 @@ fun ThinkingComponent(
 
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
+            enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
+            exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
         ) {
             Column {
                 Spacer(Modifier.height(10.dp))
-                // 使用 MarkdownBlock 渲染思考内容
                 MarkdownBlock(
                     content = content,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = 0.45f),
+                        color = Color.White.copy(alpha = 0.5f),
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
