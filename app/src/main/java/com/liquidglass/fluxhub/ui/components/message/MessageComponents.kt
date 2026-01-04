@@ -35,7 +35,7 @@ fun MessageAvatar(
         when {
             name.contains("gpt") || name.contains("openai") -> Lucide.Zap
             name.contains("claude") -> Lucide.Sparkles
-            name.contains("gemini") -> Lucide.Stars
+            name.contains("gemini") -> Lucide.Star
             name.contains("deepseek") -> Lucide.Compass
             name.contains("qwen") || name.contains("aliyun") -> Lucide.Cloud
             name.contains("llama") || name.contains("meta") -> Lucide.Globe

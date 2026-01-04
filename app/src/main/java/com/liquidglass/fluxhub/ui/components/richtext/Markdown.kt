@@ -40,6 +40,7 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.parser.MarkdownParser
+import com.liquidglass.fluxhub.ui.components.table.DataTable
 
 private val flavour by lazy {
     GFMFlavourDescriptor(
@@ -442,47 +443,28 @@ private fun TableNode(
 ) {
     val headerNode = node.children.find { it.type == GFMElementTypes.HEADER }
     val rowNodes = node.children.filter { it.type == GFMElementTypes.ROW }
-    val columnCount = headerNode?.children?.count { it.type == GFMTokenTypes.CELL } ?: 0
     
-    if (columnCount == 0) return
+    val headers = headerNode?.children?.filter { it.type == GFMTokenTypes.CELL }?.map { cellNode ->
+        @Composable {
+            Paragraph(node = cellNode, content = content, trim = true)
+        }
+    } ?: emptyList()
     
-    val headerCells = headerNode?.children?.filter { it.type == GFMTokenTypes.CELL }?.map { it.getTextInNode(content).trim() } ?: emptyList()
     val rows = rowNodes.map { rowNode ->
-        rowNode.children.filter { it.type == GFMTokenTypes.CELL }.map { it.getTextInNode(content).trim() }
-    }
-    
-    val scrollState = rememberScrollState()
-    
-    Surface(
-        modifier = modifier.padding(vertical = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-    ) {
-        Row(modifier = Modifier.horizontalScroll(scrollState).padding(8.dp)) {
-            // 表头
-            headerCells.forEachIndexed { index, header ->
-                Column(
-                    modifier = Modifier
-                        .widthIn(min = 80.dp, max = 200.dp)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = header,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    rows.forEach { row ->
-                        Text(
-                            text = row.getOrElse(index) { "" },
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        )
-                    }
-                }
+        rowNode.children.filter { it.type == GFMTokenTypes.CELL }.map { cellNode ->
+            @Composable {
+                Paragraph(node = cellNode, content = content, trim = true)
             }
         }
     }
+    
+    if (headers.isEmpty() && rows.isEmpty()) return
+    
+    DataTable(
+        headers = headers,
+        rows = rows,
+        modifier = modifier.padding(vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -496,27 +478,34 @@ private fun CodeBlock(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(12.dp)
     ) {
-        // 语言标签
-        Text(
-            text = language,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        // 顶部操作栏样式的背景
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = language.uppercase(),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
         
         // 代码内容
         SelectionContainer {
-            Row(modifier = Modifier.horizontalScroll(scrollState)) {
-                Text(
-                    text = code,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+            Box(modifier = Modifier.padding(12.dp)) {
+                HighlightText(
+                    code = code,
+                    language = language,
+                    modifier = Modifier.horizontalScroll(scrollState),
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp
                 )
             }
         }

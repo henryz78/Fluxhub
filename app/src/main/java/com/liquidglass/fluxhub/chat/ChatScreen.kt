@@ -49,9 +49,11 @@ import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.foundation.combinedClickable
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
+import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
 import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
 import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
+import com.composables.icons.lucide.*
 import kotlinx.coroutines.launch
 
 private const val TAG = "ChatScreen"
@@ -68,11 +70,6 @@ fun ChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    
-    // 消息操作菜单状态
-    var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
-    val clipboardManager = LocalClipboard.current
-    
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
@@ -115,38 +112,41 @@ fun ChatScreen(
         }
     }
     
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ConversationDrawerContent(
-                conversations = viewModel.conversations,
-                currentConversationId = viewModel.currentConversationId,
-                onSelectConversation = { id ->
-                    viewModel.switchConversation(id)
-                    scope.launch { drawerState.close() }
-                },
-                onDeleteConversation = { id ->
-                    viewModel.deleteConversation(id)
-                },
-                onNewConversation = {
-                    viewModel.createNewConversation()
-                    scope.launch { drawerState.close() }
-                }
+    ProvideHighlighter {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ConversationDrawerContent(
+                    conversations = viewModel.conversations,
+                    currentConversationId = viewModel.currentConversationId,
+                    onSelectConversation = { id ->
+                        viewModel.switchConversation(id)
+                        scope.launch { drawerState.close() }
+                    },
+                    onDeleteConversation = { id ->
+                        viewModel.deleteConversation(id)
+                    },
+                    onNewConversation = {
+                        viewModel.createNewConversation()
+                        scope.launch { drawerState.close() }
+                    }
+                )
+            },
+            gesturesEnabled = true
+        ) {
+            LiquidGlassChatContent(
+                viewModel = viewModel,
+                inputText = inputText,
+                onInputTextChange = { inputText = it },
+                listState = listState,
+                onNavigateToSettings = onNavigateToSettings,
+                onOpenDrawer = { scope.launch { drawerState.open() } },
+                onSend = onSendMessage,
+                backdrop = backdrop,
+                bottomPadding = bottomPadding,
+                scope = scope
             )
-        },
-        gesturesEnabled = true
-    ) {
-        LiquidGlassChatContent(
-            viewModel = viewModel,
-            inputText = inputText,
-            onInputTextChange = { inputText = it },
-            listState = listState,
-            onNavigateToSettings = onNavigateToSettings,
-            onOpenDrawer = { scope.launch { drawerState.open() } },
-            onSend = onSendMessage,
-            backdrop = backdrop,
-            bottomPadding = bottomPadding
-        )
+        }
     }
 }
 
@@ -160,8 +160,13 @@ private fun LiquidGlassChatContent(
     onOpenDrawer: () -> Unit,
     onSend: () -> Unit,
     backdrop: Backdrop,
-    bottomPadding: PaddingValues
+    bottomPadding: PaddingValues,
+    scope: kotlinx.coroutines.CoroutineScope
 ) {
+    // 消息操作菜单状态
+    var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
+    val clipboardManager = LocalClipboard.current
+
     // 主内容区域
     Column(
         modifier = Modifier
@@ -227,7 +232,7 @@ private fun LiquidGlassChatContent(
                                 when {
                                     name.contains("gpt") || name.contains("openai") -> Lucide.Zap
                                     name.contains("claude") -> Lucide.Sparkles
-                                    name.contains("gemini") -> Lucide.Stars
+                                    name.contains("gemini") -> Lucide.Star
                                     name.contains("deepseek") -> Lucide.Compass
                                     else -> Lucide.Bot
                                 }

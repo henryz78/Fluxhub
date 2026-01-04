@@ -281,6 +281,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 loadConversationsList()
             }
         }
+    }
+
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
             messageDao.deleteMessage(messageId)
@@ -328,7 +330,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    
     private fun loadConversationsList() {
         viewModelScope.launch {
             conversationDao.getAllConversations().collect { list ->

@@ -93,6 +93,7 @@ dependencies {
     // Image loading - Coil
     implementation(libs.coil.compose)
     implementation(libs.coil.okhttp)
+    implementation(libs.quickjs)
     
     // Liquid Glass Effect
     implementation(libs.capsule)

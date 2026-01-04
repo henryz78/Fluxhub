@@ -26,6 +26,9 @@ lucide-icons = "1.1.0"
 # Image loading
 coil = "3.3.0"
 
+# QuickJS for syntax highlighting
+quickjs = "3.2.3"
+
 [libraries]
 # AndroidX Core
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core" }
@@ -66,6 +69,9 @@ lucide-icons = { group = "com.composables", name = "icons-lucide", version.ref =
 # Image loading - Coil
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+
+# QuickJS - used for Prism.js highlighting
+quickjs = { group = "wang.harlon.quickjs", name = "wrapper-android", version.ref = "quickjs" }
 
 # Liquid Glass
 capsule = { group = "io.github.kyant0", name = "capsule", version = "2.1.2" }
