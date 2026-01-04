@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -74,6 +75,14 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.sse)
     implementation(libs.kotlinx.serialization.json)
+    
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+    
+    // DataStore for settings
+    implementation(libs.androidx.datastore.preferences)
     
     // Liquid Glass Effect
     implementation(libs.capsule)

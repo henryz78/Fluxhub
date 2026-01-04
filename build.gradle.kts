@@ -5,5 +5,6 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ksp) apply false
     id("com.vanniktech.maven.publish") version "0.35.0" apply false
 }

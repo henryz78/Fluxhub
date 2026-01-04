@@ -18,12 +18,28 @@ fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: ChatViewModel
 ) {
+    // 使用本地状态进行编辑
+    var apiKeyInput by remember { mutableStateOf(viewModel.apiKey) }
+    var baseUrlInput by remember { mutableStateOf(viewModel.baseUrl) }
+    var modelInput by remember { mutableStateOf(viewModel.model) }
+    
+    // 同步 ViewModel 的值
+    LaunchedEffect(viewModel.apiKey) { apiKeyInput = viewModel.apiKey }
+    LaunchedEffect(viewModel.baseUrl) { baseUrlInput = viewModel.baseUrl }
+    LaunchedEffect(viewModel.model) { modelInput = viewModel.model }
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("设置") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        // 保存设置
+                        viewModel.saveApiKey(apiKeyInput)
+                        viewModel.saveBaseUrl(baseUrlInput)
+                        viewModel.saveModel(modelInput)
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
                     }
                 },
@@ -50,8 +66,8 @@ fun SettingsScreen(
             )
             
             OutlinedTextField(
-                value = viewModel.baseUrl,
-                onValueChange = { viewModel.baseUrl = it },
+                value = baseUrlInput,
+                onValueChange = { baseUrlInput = it },
                 label = { Text("Base URL") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -65,8 +81,8 @@ fun SettingsScreen(
             )
             
             OutlinedTextField(
-                value = viewModel.apiKey,
-                onValueChange = { viewModel.apiKey = it },
+                value = apiKeyInput,
+                onValueChange = { apiKeyInput = it },
                 label = { Text("API Key") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -82,8 +98,8 @@ fun SettingsScreen(
             )
             
             OutlinedTextField(
-                value = viewModel.model,
-                onValueChange = { viewModel.model = it },
+                value = modelInput,
+                onValueChange = { modelInput = it },
                 label = { Text("Model") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -102,6 +118,12 @@ fun SettingsScreen(
                 text = "支持 OpenAI 兼容 API（如 OpenAI、DeepSeek、Groq 等）",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f)
+            )
+            
+            Text(
+                text = "设置会自动保存",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.4f)
             )
         }
     }

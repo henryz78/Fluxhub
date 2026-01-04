@@ -1,28 +1,29 @@
 package com.liquidglass.fluxhub.chat
 
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.liquidglass.fluxhub.data.AppDatabase
+import com.liquidglass.fluxhub.data.ConversationEntity
+import com.liquidglass.fluxhub.data.MessageEntity
+import com.liquidglass.fluxhub.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "ChatViewModel"
@@ -56,15 +57,15 @@ data class Delta(
     val content: String? = null
 )
 
-// 用于 UI 显示的消息，支持流式更新
+// 用于 UI 显示的消息
 data class UiMessage(
-    val id: String = java.util.UUID.randomUUID().toString(),
+    val id: String = UUID.randomUUID().toString(),
     val role: String,
     var content: String,
     val isStreaming: Boolean = false
 )
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val json = Json { ignoreUnknownKeys = true }
     
@@ -72,6 +73,11 @@ class ChatViewModel : ViewModel() {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
+    
+    private val database = AppDatabase.getDatabase(application)
+    private val messageDao = database.messageDao()
+    private val conversationDao = database.conversationDao()
+    private val settingsRepository = SettingsRepository(application)
     
     val messages = mutableStateListOf<UiMessage>()
     var isLoading by mutableStateOf(false)
@@ -81,10 +87,96 @@ class ChatViewModel : ViewModel() {
     var showError by mutableStateOf(false)
         private set
     
-    // 配置
+    // 配置（从 DataStore 加载）
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("gpt-4o-mini")
+    
+    // 当前会话
+    var currentConversationId by mutableStateOf<String?>(null)
+        private set
+    
+    init {
+        loadSettings()
+        loadOrCreateConversation()
+    }
+    
+    private fun loadSettings() {
+        viewModelScope.launch {
+            settingsRepository.apiKey.collect { apiKey = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.baseUrl.collect { baseUrl = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.model.collect { model = it }
+        }
+    }
+    
+    private fun loadOrCreateConversation() {
+        viewModelScope.launch {
+            val savedId = settingsRepository.currentConversationId.first()
+            if (savedId != null) {
+                val conversation = conversationDao.getConversation(savedId)
+                if (conversation != null) {
+                    currentConversationId = savedId
+                    loadMessages(savedId)
+                    return@launch
+                }
+            }
+            // 创建新会话
+            createNewConversation()
+        }
+    }
+    
+    private suspend fun loadMessages(conversationId: String) {
+        messageDao.getMessagesForConversation(conversationId).collect { entities ->
+            messages.clear()
+            messages.addAll(entities.map { entity ->
+                UiMessage(
+                    id = entity.id,
+                    role = entity.role,
+                    content = entity.content,
+                    isStreaming = false
+                )
+            })
+        }
+    }
+    
+    fun createNewConversation() {
+        viewModelScope.launch {
+            val newId = UUID.randomUUID().toString()
+            val conversation = ConversationEntity(
+                id = newId,
+                title = "新对话"
+            )
+            conversationDao.insertConversation(conversation)
+            currentConversationId = newId
+            settingsRepository.setCurrentConversationId(newId)
+            messages.clear()
+        }
+    }
+    
+    fun saveApiKey(value: String) {
+        apiKey = value
+        viewModelScope.launch {
+            settingsRepository.setApiKey(value)
+        }
+    }
+    
+    fun saveBaseUrl(value: String) {
+        baseUrl = value
+        viewModelScope.launch {
+            settingsRepository.setBaseUrl(value)
+        }
+    }
+    
+    fun saveModel(value: String) {
+        model = value
+        viewModelScope.launch {
+            settingsRepository.setModel(value)
+        }
+    }
     
     fun sendMessage(content: String) {
         if (content.isBlank()) return
@@ -95,13 +187,37 @@ class ChatViewModel : ViewModel() {
             return
         }
         
+        val conversationId = currentConversationId ?: return
+        
         Log.d(TAG, "sendMessage: $content")
         
         // 添加用户消息
-        messages.add(UiMessage(role = "user", content = content))
+        val userMessageId = UUID.randomUUID().toString()
+        val userMessage = UiMessage(id = userMessageId, role = "user", content = content)
+        messages.add(userMessage)
+        
+        // 保存到数据库
+        viewModelScope.launch {
+            messageDao.insertMessage(MessageEntity(
+                id = userMessageId,
+                conversationId = conversationId,
+                role = "user",
+                content = content
+            ))
+            // 更新会话标题（使用第一条消息）
+            if (messages.size == 1) {
+                conversationDao.updateConversation(
+                    ConversationEntity(
+                        id = conversationId,
+                        title = content.take(30),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
         
         // 添加空的 AI 消息用于流式更新
-        val aiMessageId = java.util.UUID.randomUUID().toString()
+        val aiMessageId = UUID.randomUUID().toString()
         messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "", isStreaming = true))
         
         isLoading = true
@@ -109,15 +225,13 @@ class ChatViewModel : ViewModel() {
         
         viewModelScope.launch {
             try {
-                callStreamingApi(aiMessageId)
+                callStreamingApi(aiMessageId, conversationId)
             } catch (e: Exception) {
                 Log.e(TAG, "API call failed", e)
                 showErrorMessage(e.message ?: "Unknown error")
-                // 移除空的 AI 消息
                 messages.removeAll { it.id == aiMessageId }
             } finally {
                 isLoading = false
-                // 更新消息状态
                 val index = messages.indexOfFirst { it.id == aiMessageId }
                 if (index >= 0) {
                     messages[index] = messages[index].copy(isStreaming = false)
@@ -130,7 +244,6 @@ class ChatViewModel : ViewModel() {
         error = message
         showError = true
         
-        // 3秒后自动关闭
         viewModelScope.launch {
             delay(3000)
             if (error == message) {
@@ -141,10 +254,9 @@ class ChatViewModel : ViewModel() {
         }
     }
     
-    private suspend fun callStreamingApi(aiMessageId: String) {
+    private suspend fun callStreamingApi(aiMessageId: String, conversationId: String) {
         Log.d(TAG, "callStreamingApi: using baseUrl=$baseUrl, model=$model")
         
-        // 构建请求消息（转换为 API 格式）
         val apiMessages = messages
             .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
             .map { ChatMessage(it.role, it.content) }
@@ -168,11 +280,10 @@ class ChatViewModel : ViewModel() {
         
         Log.d(TAG, "Sending streaming request to: ${httpRequest.url}")
         
-        // 使用协程 Flow 处理 SSE
-        collectStreamingResponse(httpRequest, aiMessageId)
+        collectStreamingResponse(httpRequest, aiMessageId, conversationId)
     }
     
-    private suspend fun collectStreamingResponse(request: Request, aiMessageId: String) {
+    private suspend fun collectStreamingResponse(request: Request, aiMessageId: String, conversationId: String) = withContext(Dispatchers.IO) {
         val response = client.newCall(request).execute()
         
         if (!response.isSuccessful) {
@@ -204,10 +315,11 @@ class ChatViewModel : ViewModel() {
                     if (!deltaContent.isNullOrEmpty()) {
                         fullContent += deltaContent
                         
-                        // 更新 UI 中的消息
-                        val index = messages.indexOfFirst { it.id == aiMessageId }
-                        if (index >= 0) {
-                            messages[index] = messages[index].copy(content = fullContent)
+                        withContext(Dispatchers.Main) {
+                            val index = messages.indexOfFirst { it.id == aiMessageId }
+                            if (index >= 0) {
+                                messages[index] = messages[index].copy(content = fullContent)
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -218,6 +330,16 @@ class ChatViewModel : ViewModel() {
         
         response.close()
         Log.d(TAG, "Final content length: ${fullContent.length}")
+        
+        // 保存 AI 回复到数据库
+        if (fullContent.isNotEmpty()) {
+            messageDao.insertMessage(MessageEntity(
+                id = aiMessageId,
+                conversationId = conversationId,
+                role = "assistant",
+                content = fullContent
+            ))
+        }
     }
     
     fun clearError() {
