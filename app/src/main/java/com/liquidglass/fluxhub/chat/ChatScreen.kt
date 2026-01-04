@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,9 +38,13 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.R
+import com.liquidglass.fluxhub.components.LiquidButton
 
 private const val TAG = "ChatScreen"
 
@@ -193,14 +199,14 @@ private fun LiquidGlassChatContent(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        // 背景图片 - 注意：layerBackdrop 应用在 Image 上！
+        // 背景图片
         if (backgroundBitmap != null) {
             Image(
                 bitmap = backgroundBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .layerBackdrop(backdrop)  // 关键：layerBackdrop 应用在 Image 上
+                    .layerBackdrop(backdrop)
                     .fillMaxSize()
             )
         }
@@ -210,39 +216,49 @@ private fun LiquidGlassChatContent(
                 .fillMaxSize()
                 .systemBarsPadding()
         ) {
-            // Top Bar with glass effect
+            // Top Bar with glass effect - 使用 lens 效果
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .drawBackdrop(
                         backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(0.dp, 0.dp, 16.dp, 16.dp) },
+                        shape = { ContinuousRoundedRectangle(0.dp, 0.dp, 24.dp, 24.dp) },
                         effects = {
                             vibrancy()
-                            blur(16f.dp.toPx())
+                            blur(4f.dp.toPx())
+                            lens(16f.dp.toPx(), 32f.dp.toPx())
                         },
+                        highlight = { Highlight.Plain },
                         onDrawSurface = {
-                            drawRect(Color.Black.copy(alpha = 0.3f))
+                            drawRect(Color.White.copy(alpha = 0.15f))
                         }
                     )
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
+                    BasicText(
                         text = "Fluxhub",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     )
                     
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "设置",
-                            tint = Color.White
+                    // 使用 LiquidButton 作为设置按钮
+                    LiquidButton(
+                        onClick = onNavigateToSettings,
+                        backdrop = backdrop,
+                        modifier = Modifier.height(40.dp),
+                        tint = Color(0xFF0088FF)
+                    ) {
+                        BasicText(
+                            "⚙️",
+                            style = TextStyle(Color.White, 16.sp)
                         )
                     }
                 }
@@ -254,7 +270,8 @@ private fun LiquidGlassChatContent(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(viewModel.messages) { message ->
                     LiquidGlassChatBubble(message = message, backdrop = backdrop)
@@ -268,10 +285,30 @@ private fun LiquidGlassChatContent(
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            // Loading indicator with glass effect
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .drawBackdrop(
+                                        backdrop = backdrop,
+                                        shape = { ContinuousCapsule },
+                                        effects = {
+                                            vibrancy()
+                                            blur(4f.dp.toPx())
+                                            lens(8f.dp.toPx(), 16f.dp.toPx())
+                                        },
+                                        onDrawSurface = {
+                                            drawRect(Color.White.copy(alpha = 0.2f))
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
                         }
                     }
                 }
@@ -279,15 +316,42 @@ private fun LiquidGlassChatContent(
             
             // Error message
             viewModel.error?.let { errorMsg ->
-                Snackbar(
-                    modifier = Modifier.padding(16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.clearError() }) {
-                            Text("关闭")
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { ContinuousRoundedRectangle(16.dp) },
+                            effects = {
+                                vibrancy()
+                                blur(4f.dp.toPx())
+                            },
+                            onDrawSurface = {
+                                drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
+                            }
+                        )
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BasicText(
+                            text = errorMsg,
+                            style = TextStyle(Color.White, 14.sp),
+                            modifier = Modifier.weight(1f)
+                        )
+                        LiquidButton(
+                            onClick = { viewModel.clearError() },
+                            backdrop = backdrop,
+                            modifier = Modifier.height(32.dp),
+                            tint = Color(0xFFFF3B30)
+                        ) {
+                            BasicText("关闭", style = TextStyle(Color.White, 12.sp))
                         }
                     }
-                ) {
-                    Text(errorMsg)
                 }
             }
             
@@ -337,36 +401,41 @@ private fun LiquidGlassChatBubble(
     backdrop: Backdrop
 ) {
     val isUser = message.role == "user"
-    val bubbleShape = ContinuousRoundedRectangle(16.dp)
-    val backgroundColor = if (isUser) {
-        Color(0xFF007AFF).copy(alpha = 0.3f)
-    } else {
-        Color.White.copy(alpha = 0.15f)
-    }
+    val bubbleShape = ContinuousRoundedRectangle(20.dp)
+    val tintColor = if (isUser) Color(0xFF007AFF) else Color(0xFF34C759)
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 300.dp)
+                .widthIn(max = 320.dp)
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
                         vibrancy()
-                        blur(12f.dp.toPx())
+                        blur(4f.dp.toPx())
+                        lens(12f.dp.toPx(), 24f.dp.toPx())
                     },
+                    highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(backgroundColor)
+                        drawRect(tintColor.copy(alpha = 0.25f))
                     }
                 )
-                .padding(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Text(text = message.content, color = Color.White, fontSize = 16.sp)
+            BasicText(
+                text = message.content,
+                style = TextStyle(
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp
+                )
+            )
         }
     }
 }
@@ -435,46 +504,55 @@ private fun LiquidGlassChatInputBar(
     enabled: Boolean,
     backdrop: Backdrop
 ) {
-    val inputShape = ContinuousRoundedRectangle(24.dp)
-    val containerColor = Color.White.copy(alpha = 0.15f)
-    val accentColor = Color(0xFF007AFF)
-    
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .padding(bottom = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Input field with glass effect
         Box(
             modifier = Modifier
                 .weight(1f)
                 .drawBackdrop(
                     backdrop = backdrop,
-                    shape = { inputShape },
+                    shape = { ContinuousRoundedRectangle(28.dp) },
                     effects = {
                         vibrancy()
-                        blur(12f.dp.toPx())
+                        blur(4f.dp.toPx())
+                        lens(12f.dp.toPx(), 24f.dp.toPx())
                     },
+                    highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(containerColor)
+                        drawRect(Color.White.copy(alpha = 0.15f))
                     }
                 )
-                .heightIn(min = 48.dp, max = 120.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .heightIn(min = 56.dp, max = 150.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             BasicTextField(
                 value = text,
                 onValueChange = onTextChange,
                 enabled = enabled,
-                textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-                cursorBrush = SolidColor(accentColor),
+                textStyle = TextStyle(
+                    color = Color.White,
+                    fontSize = 16.sp
+                ),
+                cursorBrush = SolidColor(Color(0xFF007AFF)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
                 decorationBox = { innerTextField ->
                     Box {
                         if (text.isEmpty()) {
-                            Text("输入消息...", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                            BasicText(
+                                text = "输入消息...",
+                                style = TextStyle(
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 16.sp
+                                )
+                            )
                         }
                         innerTextField()
                     }
@@ -483,25 +561,18 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        IconButton(
+        // Send button using LiquidButton
+        LiquidButton(
             onClick = onSend,
-            enabled = enabled && text.isNotBlank(),
-            modifier = Modifier
-                .size(48.dp)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { ContinuousRoundedRectangle(24.dp) },
-                    effects = {
-                        vibrancy()
-                        blur(8f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        val color = if (text.isNotBlank()) accentColor.copy(alpha = 0.8f) else containerColor
-                        drawRect(color)
-                    }
-                )
+            backdrop = backdrop,
+            modifier = Modifier.size(56.dp),
+            isInteractive = enabled && text.isNotBlank(),
+            tint = if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
         ) {
-            Icon(Icons.AutoMirrored.Filled.Send, "发送", tint = Color.White)
+            BasicText(
+                "➤",
+                style = TextStyle(Color.White, 20.sp)
+            )
         }
     }
 }
