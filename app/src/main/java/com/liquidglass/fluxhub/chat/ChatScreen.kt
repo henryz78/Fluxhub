@@ -313,7 +313,7 @@ private fun LiquidGlassChatBubble(
         // 头像和元信息
         MessageAvatar(
             isUser = isUser,
-            modelName = if (!isUser) viewModel.selectedModel else null,
+            modelName = if (!isUser) viewModel.model else null,
             timestamp = message.timestamp
         )
         
