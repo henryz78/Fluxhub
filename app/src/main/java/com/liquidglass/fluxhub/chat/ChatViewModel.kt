@@ -211,7 +211,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     id = entity.id,
                     role = entity.role,
                     content = entity.content,
-                    isStreaming = false
+                    isStreaming = false,
+                    timestamp = entity.timestamp
                 )
             })
         }
@@ -268,6 +269,38 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 loadConversationsList()
             }
         }
+    fun deleteMessage(messageId: String) {
+        viewModelScope.launch {
+            messageDao.deleteMessage(messageId)
+            // 自动从 UI 列表中移除 (DAO 会触发 collect)
+        }
+    }
+    
+    fun regenerate(messageId: String) {
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex == -1) return
+        
+        val message = messages[messageIndex]
+        if (message.role != "assistant") return
+        
+        // 查找前一个用户的消息
+        var userMessage: UiMessage? = null
+        for (i in messageIndex - 1 downTo 0) {
+            if (messages[i].role == "user") {
+                userMessage = messages[i]
+                break
+            }
+        }
+        
+        if (userMessage != null) {
+            viewModelScope.launch {
+                // 删除当前 AI 消息
+                messageDao.deleteMessage(messageId)
+                // 重新发送前一个用户消息内容
+                sendMessage(userMessage.content)
+            }
+        }
+    }
     }
     
     private fun loadConversationsList() {

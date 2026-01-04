@@ -29,6 +29,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.ClipEntry
+import android.content.ClipData
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -44,9 +47,11 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import androidx.compose.foundation.combinedClickable
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
 import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
+import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
 import kotlinx.coroutines.launch
 
 private const val TAG = "ChatScreen"
@@ -63,6 +68,10 @@ fun ChatScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    
+    // 消息操作菜单状态
+    var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
+    val clipboardManager = LocalClipboard.current
     
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
@@ -238,9 +247,27 @@ private fun LiquidGlassChatContent(
                 LiquidGlassChatBubble(
                     message = message,
                     backdrop = backdrop,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onLongClick = { selectedMessageForMenu = message }
                 )
             }
+        }
+
+        // 消息长按菜单
+        selectedMessageForMenu?.let { message ->
+            MessageActionsSheet(
+                content = message.content,
+                isUser = message.role == "user",
+                onDismiss = { selectedMessageForMenu = null },
+                onCopy = {
+                    scope.launch {
+                        val clipData = ClipData.newPlainText("message", message.content)
+                        clipboardManager.setClipEntry(ClipEntry(clipData))
+                    }
+                },
+                onRegenerate = { viewModel.regenerate(message.id) },
+                onDelete = { viewModel.deleteMessage(message.id) }
+            )
         }
 
         
@@ -294,11 +321,13 @@ private fun LiquidGlassChatContent(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun LiquidGlassChatBubble(
     message: UiMessage,
     backdrop: Backdrop,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    onLongClick: () -> Unit
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
@@ -333,6 +362,10 @@ private fun LiquidGlassChatBubble(
                     onDrawSurface = {
                         drawRect(tintColor.copy(alpha = 0.25f))
                     }
+                )
+                .combinedClickable(
+                    onClick = { /* 单击动作 */ },
+                    onLongClick = onLongClick
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
@@ -397,9 +430,8 @@ private fun LiquidGlassChatBubble(
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
-                onRegenerate = {
-                    // TODO: 实现重新生成功能
-                }
+                onRegenerate = { viewModel.regenerate(message.id) },
+                onDelete = { viewModel.deleteMessage(message.id) }
             )
         }
     }
