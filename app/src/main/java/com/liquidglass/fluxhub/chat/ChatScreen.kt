@@ -65,7 +65,6 @@ import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.drawscope.drawRoundRect
 
 private const val TAG = "ChatScreen"
 
