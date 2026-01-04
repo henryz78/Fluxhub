@@ -27,7 +27,9 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease --no-configuration-cache
+      env:
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
