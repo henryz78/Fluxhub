@@ -3,14 +3,11 @@ package com.liquidglass.fluxhub
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.liquidglass.fluxhub.ui.chat.ChatScreen
-import com.liquidglass.fluxhub.ui.settings.SettingsScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -19,27 +16,12 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            val navController = rememberNavController()
-            
-            NavHost(
-                navController = navController,
-                startDestination = "chat"
+            val isLightTheme = !isSystemInDarkTheme()
+
+            CompositionLocalProvider(
+                LocalIndication provides ripple(color = if (isLightTheme) Color.Black else Color.White)
             ) {
-                composable("chat") {
-                    ChatScreen(
-                        onNavigateToSettings = {
-                            navController.navigate("settings")
-                        }
-                    )
-                }
-                
-                composable("settings") {
-                    SettingsScreen(
-                        onBack = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
+                MainContent()
             }
         }
     }
