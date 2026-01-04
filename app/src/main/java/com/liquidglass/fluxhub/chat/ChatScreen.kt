@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,11 +56,15 @@ fun ChatScreen(
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
-    // 自动滚动到底部（每次消息变化时）
-    LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
-        if (viewModel.messages.isNotEmpty()) {
+    // 记录上一次的消息数量，用于判断是否有新消息
+    var previousMessageCount by remember { mutableIntStateOf(viewModel.messages.size) }
+    
+    // 只在有新消息时滚动到底部（不在Tab切换时）
+    LaunchedEffect(viewModel.messages.size) {
+        if (viewModel.messages.size > previousMessageCount && viewModel.messages.isNotEmpty()) {
             listState.animateScrollToItem(viewModel.messages.size - 1)
         }
+        previousMessageCount = viewModel.messages.size
     }
     
     // 当键盘弹出时，滚动到最后一条消息
