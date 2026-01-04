@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Settings
@@ -51,6 +53,9 @@ fun MainScreen(
     // 监听键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
+    // 将 listState 提升到 MainScreen 级别，保持滚动位置
+    val chatListState = rememberLazyListState()
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -77,7 +82,8 @@ fun MainScreen(
                     backdrop = backdrop,
                     bottomPadding = PaddingValues(bottom = bottomPadding), 
                     onNavigateToSettings = { selectedTab = 1 },
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    listState = chatListState
                 )
                 1 -> SettingsScreen(
                     onBack = { selectedTab = 0 },

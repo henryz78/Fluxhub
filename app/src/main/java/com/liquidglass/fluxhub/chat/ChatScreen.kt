@@ -47,30 +47,39 @@ fun ChatScreen(
     backdrop: Backdrop,
     bottomPadding: PaddingValues,
     onNavigateToSettings: () -> Unit = {},
-    viewModel: ChatViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel(),
+    listState: LazyListState = rememberLazyListState()
 ) {
     var inputText by remember { mutableStateOf("") }
-    val listState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
     
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
-    // 记录上一次的消息数量，用于判断是否有新消息
-    var previousMessageCount by remember { mutableIntStateOf(viewModel.messages.size) }
+    // 获取最后一条消息的内容（用于检测流式更新）
+    val lastMessageContent = viewModel.messages.lastOrNull()?.content ?: ""
+    val isStreaming = viewModel.messages.lastOrNull()?.isStreaming == true
     
-    // 只在有新消息时滚动到底部（不在Tab切换时）
-    LaunchedEffect(viewModel.messages.size) {
-        if (viewModel.messages.size > previousMessageCount && viewModel.messages.isNotEmpty()) {
-            listState.animateScrollToItem(viewModel.messages.size - 1)
+    // 流式输出时自动滚动到底部（内容变化时）
+    LaunchedEffect(lastMessageContent) {
+        if (isStreaming && viewModel.messages.isNotEmpty()) {
+            // 使用 scrollToItem 而不是 animateScrollToItem 以避免动画问题
+            listState.scrollToItem(viewModel.messages.size - 1)
         }
-        previousMessageCount = viewModel.messages.size
     }
     
-    // 当键盘弹出时，滚动到最后一条消息
+    // 新消息时滚动到底部
+    LaunchedEffect(viewModel.messages.size) {
+        if (viewModel.messages.isNotEmpty()) {
+            listState.scrollToItem(viewModel.messages.size - 1)
+        }
+    }
+    
+    // 当键盘弹出时，延迟滚动到最后一条消息（等待键盘完全弹出）
     LaunchedEffect(isKeyboardVisible) {
         if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
-            listState.animateScrollToItem(viewModel.messages.size - 1)
+            kotlinx.coroutines.delay(100) // 短暂延迟等待布局更新
+            listState.scrollToItem(viewModel.messages.size - 1)
         }
     }
     
