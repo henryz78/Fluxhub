@@ -58,24 +58,42 @@ fun HighlightText(
     minLines: Int = 1,
 ) {
     val highlighter = LocalHighlighter.current
-    var annotatedString by remember(code) { mutableStateOf(AnnotatedString(code)) }
+    var annotatedString by remember { mutableStateOf(AnnotatedString(code)) }
 
     val updatedCode by rememberUpdatedState(code)
     val updatedLanguage by rememberUpdatedState(language)
 
     LaunchedEffect(Unit) {
+        var lastHighlightedCode = ""
         snapshotFlow { updatedCode to updatedLanguage }.collect { (code, lang) ->
+            if (code == lastHighlightedCode) return@collect
+            
             if (code.length <= MAX_CODE_LENGTH) {
+                // 流式输出优化：如果代码正在快速增长，增加防抖
+                // 且如果增量很小（比如不到 10 个字符），可以多等一会儿
+                val delta = code.length - lastHighlightedCode.length
+                if (delta in 1..10 && code.endsWith("\n").not()) {
+                    kotlinx.coroutines.delay(400)
+                } else {
+                    kotlinx.coroutines.delay(200)
+                }
+                
                 try {
                     val tokens = highlighter.highlight(code, lang)
-                    annotatedString = buildAnnotatedString {
+                    val newAnnotatedString = buildAnnotatedString {
                         tokens.fastForEach { token ->
                             buildHighlightText(token, colors)
                         }
                     }
+                    annotatedString = newAnnotatedString
+                    lastHighlightedCode = code
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    // 出错时至少更新纯文本
+                    annotatedString = AnnotatedString(code)
                 }
+            } else {
+                annotatedString = AnnotatedString(code)
             }
         }
     }

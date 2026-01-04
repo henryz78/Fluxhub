@@ -88,11 +88,29 @@ fun MarkdownBlock(
     // 监听内容变化，在后台线程重新解析AST树
     val updatedContent by rememberUpdatedState(content)
     LaunchedEffect(Unit) {
+        var lastProcessedLength = 0
         snapshotFlow { updatedContent }
             .distinctUntilChanged()
-            .mapLatest {
+            .mapLatest { it ->
+                val currentLength = it.length
+                
+                // 性能关键：如果内容很短，可以快点解析
+                // 如果内容在流式飞速增长，则大幅降低解析频率
+                if (currentLength > 500) {
+                    val delta = currentLength - lastProcessedLength
+                    if (delta > 0 && delta < 30) {
+                        // 还在流水中，等攒多点或者等会儿
+                        kotlinx.coroutines.delay(600)
+                    } else {
+                        kotlinx.coroutines.delay(300)
+                    }
+                } else if (currentLength > 100) {
+                    kotlinx.coroutines.delay(200)
+                }
+                
                 val preprocessed = preProcess(it)
                 val astTree = parser.buildMarkdownTreeFromString(preprocessed)
+                lastProcessedLength = currentLength
                 preprocessed to astTree
             }
             .catch { it.printStackTrace() }
@@ -482,18 +500,18 @@ private fun CodeBlock(
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
-        // 顶部操作栏样式的背景
+        // 顶部操作栏样式的背景 - 使用深色半透明背景，在玻璃背景下更有辨识度
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(Color.Black.copy(alpha = 0.2f))
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
             Text(
                 text = language.uppercase(),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                color = Color.White.copy(alpha = 0.8f) // 统一使用白色，配合 alpha
             )
         }
         

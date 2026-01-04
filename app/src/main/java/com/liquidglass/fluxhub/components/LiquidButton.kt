@@ -42,6 +42,7 @@ fun LiquidButton(
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     padding: PaddingValues = PaddingValues(horizontal = 16.dp),
+    onPressed: (Boolean) -> Unit = {},
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -110,6 +111,21 @@ fun LiquidButton(
                 if (isInteractive) {
                     Modifier
                         .then(interactiveHighlight.modifier)
+                        .then(
+                            Modifier.pointerInput(animationScope) {
+                                inspectDragGestures(
+                                    onDragStart = { 
+                                        onPressed(true)
+                                    },
+                                    onDragEnd = { 
+                                        onPressed(false)
+                                    },
+                                    onDragCancel = { 
+                                        onPressed(false)
+                                    }
+                                ) { _, _ -> }
+                            }
+                        )
                         .then(interactiveHighlight.gestureModifier)
                 } else {
                     Modifier

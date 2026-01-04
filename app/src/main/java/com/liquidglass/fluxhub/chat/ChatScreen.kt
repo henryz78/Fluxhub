@@ -109,15 +109,20 @@ fun ChatScreen(
     var inputText by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
+    
+    // 追踪是否有顶部按钮正在被交互，以禁用侧边栏手势
+    var isInteractingWithButtons by remember { mutableStateOf(false) }
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
-    // 获取最后一条消息的内容（用于检测流式更新）
-    val lastMessageContent = viewModel.messages.lastOrNull()?.content ?: ""
-    val isStreaming = viewModel.messages.lastOrNull()?.isStreaming == true
+    // 获取流式消息的状态（用于检测流式更新）
+    val streamingMessage = viewModel.messages.find { it.isStreaming }
+    val isStreaming = streamingMessage != null
+    val lastMessageContent = streamingMessage?.content ?: ""
+    val lastThinkingContent = streamingMessage?.thinkingContent ?: ""
     
-    // 流式输出时自动滚动到底部（内容变化时）
-    LaunchedEffect(lastMessageContent) {
+    // 流式输出时自动滚动到底部（内容或思考过程变化时）
+    LaunchedEffect(lastMessageContent, lastThinkingContent) {
         if (isStreaming && viewModel.messages.isNotEmpty()) {
             val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             // 如果用户就在底部附近，则自动跟随滚动
@@ -169,10 +174,12 @@ fun ChatScreen(
                     onNewConversation = {
                         viewModel.createNewConversation()
                         scope.launch { drawerState.close() }
-                    }
+                    },
+                    onInteractionChanged = { isInteractingWithButtons = it }
                 )
             },
-            gesturesEnabled = true
+            gesturesEnabled = !isInteractingWithButtons,
+            modifier = Modifier.fillMaxSize()
         ) {
             LiquidGlassChatContent(
                 viewModel = viewModel,
@@ -246,7 +253,8 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,
-                    padding = PaddingValues(0.dp) // 需要支持自定义 padding
+                    padding = PaddingValues(0.dp),
+                    onPressed = { isInteractingWithButtons = it }
                 ) {
                     Icon(
                         imageVector = Lucide.Menu,
@@ -306,7 +314,8 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,
-                    padding = PaddingValues(0.dp)
+                    padding = PaddingValues(0.dp),
+                    onPressed = { isInteractingWithButtons = it }
                 ) {
                     Icon(
                         imageVector = Lucide.Plus,
@@ -440,20 +449,29 @@ private fun LiquidGlassChatBubble(
         // 消息气泡
         Box(
             modifier = Modifier
-                .widthIn(max = 320.dp)
+                .widthIn(max = 400.dp) // 增加最大宽度限制
+                .fillMaxWidth(0.9f)   // 同时保证在小屏上占据足够空间
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
                         vibrancy()
-                        blur(4f.dp.toPx())
+                        blur(6f.dp.toPx()) // 稍微增加模糊度以提升文字可读性
                         lens(12f.dp.toPx(), 24f.dp.toPx())
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(tintColor.copy(alpha = 0.25f))
+                        // 提高 alpha 从 0.25 到 0.45，增强对比度
+                        drawRect(tintColor.copy(alpha = 0.45f))
                     }
                 )
+                .drawBehind {
+                    // 背景兜底：即使 backdrop 在长消息下失效，这里也能保证气泡可见
+                    drawRoundRect(
+                        color = tintColor.copy(alpha = 0.2f),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx())
+                    )
+                }
                 .combinedClickable(
                     onClick = { /* 单击动作 */ },
                     onLongClick = onLongClick
@@ -467,7 +485,13 @@ private fun LiquidGlassChatBubble(
                     fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
-                    color = Color.White
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.3f),
+                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                        blurRadius = 4f
+                    )
                 )
             ) {
                 Column {
@@ -610,25 +634,29 @@ private fun ConversationDrawerContent(
     backdrop: Backdrop,
     onSelectConversation: (String) -> Unit,
     onDeleteConversation: (String) -> Unit,
-    onNewConversation: () -> Unit
+    onNewConversation: () -> Unit,
+    onInteractionChanged: (Boolean) -> Unit = {}
 ) {
     ModalDrawerSheet(
-        modifier = Modifier.width(300.dp),
+        modifier = Modifier
+            .width(320.dp)
+            .fillMaxHeight()
+            .padding(vertical = 24.dp, horizontal = 16.dp), // 增加上下左右间距，使其悬浮
         drawerContainerColor = Color.Transparent,
-        drawerShape = RoundedCornerShape(0.dp)
+        drawerShape = RoundedCornerShape(28.dp) // 全圆角，形成药丸感
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .drawBackdrop(
                     backdrop = backdrop,
-                    shape = { RoundedCornerShape(0.dp) },
+                    shape = { RoundedCornerShape(28.dp) },
                     effects = {
                         vibrancy()
                         blur(16f.dp.toPx())
                     },
                     onDrawSurface = {
-                        drawRect(Color.Black.copy(alpha = 0.4f))
+                        drawRect(Color.Black.copy(alpha = 0.45f))
                     }
                 )
         ) {
@@ -668,7 +696,8 @@ private fun ConversationDrawerContent(
                         .fillMaxWidth()
                         .height(50.dp),
                     isInteractive = true,
-                    tint = Color(0xFF007AFF)
+                    tint = Color(0xFF007AFF),
+                    onPressed = onInteractionChanged
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Lucide.Plus, null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -747,15 +776,20 @@ private fun ConversationDrawerContent(
                                     )
                                     
                                     if (isSelected) {
-                                        IconButton(
+                                        LiquidButton(
                                             onClick = { onDeleteConversation(conversation.id) },
-                                            modifier = Modifier.size(32.dp)
+                                            backdrop = backdrop,
+                                            modifier = Modifier.size(32.dp),
+                                            isInteractive = true,
+                                            tint = Color(0xFFFF3B30),
+                                            padding = PaddingValues(0.dp),
+                                            onPressed = onInteractionChanged
                                         ) {
                                             Icon(
                                                 imageVector = Lucide.Trash2,
                                                 contentDescription = "删除",
-                                                tint = Color(0xFFFF3B30).copy(alpha = 0.8f),
-                                                modifier = Modifier.size(16.dp)
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
                                             )
                                         }
                                     }

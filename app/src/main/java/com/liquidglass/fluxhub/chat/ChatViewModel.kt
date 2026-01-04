@@ -224,8 +224,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
             messageDao.getMessagesForConversation(conversationId).collect { entities ->
-                messages.clear()
-                messages.addAll(entities.map { entity ->
+                // 获取当前正在流式输出的消息（如果有）
+                val currentStreamingMessage = messages.find { it.isStreaming }
+                
+                val dbMessages = entities.map { entity ->
                     UiMessage(
                         id = entity.id,
                         role = entity.role,
@@ -235,7 +237,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         model = entity.model,
                         timestamp = entity.timestamp
                     )
-                })
+                }
+                
+                // 组合消息：如果流式消息不在数据库中，则手动加入
+                val finalMessages = if (currentStreamingMessage != null && dbMessages.none { it.id == currentStreamingMessage.id }) {
+                    (dbMessages + currentStreamingMessage).sortedBy { it.timestamp }
+                } else {
+                    dbMessages
+                }
+                
+                // 增量更新 messages 列表，避免频繁 clear 导致 UI 闪烁或状态丢失
+                if (messages.size == finalMessages.size) {
+                    finalMessages.forEachIndexed { index, newMessage ->
+                        if (messages[index] != newMessage) {
+                            messages[index] = newMessage
+                        }
+                    }
+                } else {
+                    messages.clear()
+                    messages.addAll(finalMessages)
+                }
+                
+                Log.d(TAG, "Messages updated: ${messages.size} total (Streaming present: ${currentStreamingMessage != null})")
             }
         }
     }
