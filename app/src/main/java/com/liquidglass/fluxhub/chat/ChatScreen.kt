@@ -474,7 +474,10 @@ private fun LiquidGlassChatBubble(
                     // 背景兜底：即使 backdrop 在长消息下失效，这里也能保证气泡可见
                     drawRoundRect(
                         color = tintColor.copy(alpha = 0.2f),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(with(this) { 20.dp.toPx() })
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            x = with(this) { 20.dp.toPx() },
+                            y = with(this) { 20.dp.toPx() }
+                        )
                     )
                 }
                 .combinedClickable(
