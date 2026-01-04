@@ -1,6 +1,7 @@
 package com.liquidglass.fluxhub.ui.components.richtext
 
 import android.content.Intent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll

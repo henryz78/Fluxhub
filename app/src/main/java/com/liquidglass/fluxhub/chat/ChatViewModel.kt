@@ -12,6 +12,7 @@ import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.SettingsRepository
+import com.liquidglass.fluxhub.utils.TTSHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -126,6 +127,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 会话列表
     val conversations = mutableStateListOf<ConversationEntity>()
+    
+    // TTS 辅助工具
+    private val ttsHelper = TTSHelper(application)
     
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -655,8 +659,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    fun speak(text: String) {
+        ttsHelper.speak(text)
+    }
+
+    fun stopSpeaking() {
+        ttsHelper.stop()
+    }
+
     override fun onCleared() {
         super.onCleared()
         currentEventSource?.cancel()
+        ttsHelper.release()
     }
 }

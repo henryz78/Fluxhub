@@ -3,15 +3,19 @@ package com.liquidglass.fluxhub.ui.components.richtext
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -95,8 +99,6 @@ fun HighlightText(
         }
     }
 
-    Text(
-        modifier = modifier,
     val lines = remember(code) { code.lines() }
     val canCollapse = lines.size > COLLAPSE_THRESHOLD
     var isExpanded by remember { mutableStateOf(false) }
@@ -141,7 +143,7 @@ fun HighlightText(
             if (!isVeryLong) {
                 Text(
                     text = if (canCollapse && !isExpanded) {
-                        annotatedString.substring(0, displayCode.length.coerceAtMost(annotatedString.length))
+                        annotatedString.subSequence(0, displayCode.length.coerceAtMost(annotatedString.length))
                     } else {
                         annotatedString
                     },

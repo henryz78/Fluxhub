@@ -133,6 +133,7 @@ fun MessageActionButtons(
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
+    onSpeak: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val clipboardManager = LocalClipboard.current
@@ -171,6 +172,15 @@ fun MessageActionButtons(
                 icon = Lucide.RefreshCw,
                 contentDescription = "重新生成",
                 onClick = onRegenerate
+            )
+        }
+        
+        // 语音朗读按钮
+        if (onSpeak != null) {
+            ActionButton(
+                icon = Lucide.Volume2,
+                contentDescription = "语音朗读",
+                onClick = onSpeak
             )
         }
         
@@ -226,7 +236,8 @@ fun MessageActionsSheet(
     onCopy: () -> Unit,
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    onSpeak: (() -> Unit)? = null
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -255,6 +266,18 @@ fun MessageActionsSheet(
                     text = "重新生成",
                     onClick = {
                         onRegenerate()
+                        onDismiss()
+                    }
+                )
+            }
+
+            // 语音朗读
+            if (onSpeak != null) {
+                SheetActionCard(
+                    icon = Lucide.Volume2,
+                    text = "语音朗读",
+                    onClick = {
+                        onSpeak()
                         onDismiss()
                     }
                 )

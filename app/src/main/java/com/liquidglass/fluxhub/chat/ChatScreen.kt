@@ -118,6 +118,9 @@ fun ChatScreen(
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
+    // 获取流式消息的状态（用于检测流式更新）
+    val isStreaming = viewModel.messages.any { it.isStreaming }
+
     // 智能触底判定扩展逻辑
     fun LazyListState.isAtBottom(): Boolean {
         val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return false
@@ -374,7 +377,8 @@ private fun LiquidGlassChatContent(
                     }
                 },
                 onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) }
+                onDelete = { viewModel.deleteMessage(message.id) },
+                onSpeak = { viewModel.speak(message.content) }
             )
         }
 
@@ -559,7 +563,8 @@ private fun LiquidGlassChatBubble(
                 content = message.content,
                 isUser = isUser,
                 onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) }
+                onDelete = { viewModel.deleteMessage(message.id) },
+                onSpeak = { viewModel.speak(message.content) }
             )
         }
     }
