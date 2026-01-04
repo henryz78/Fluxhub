@@ -311,6 +311,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val chunk = json.decodeFromString(ChatResponse.serializer(), data)
                     val deltaContent = chunk.choices.firstOrNull()?.delta?.content
+                    Log.v(TAG, "Chunk parsed: $deltaContent")
                     
                     if (!deltaContent.isNullOrEmpty()) {
                         fullContent += deltaContent
@@ -319,12 +320,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             val index = messages.indexOfFirst { it.id == aiMessageId }
                             if (index >= 0) {
                                 messages[index] = messages[index].copy(content = fullContent)
+                            } else {
+                                Log.w(TAG, "Message with ID $aiMessageId not found during streaming")
                             }
                         }
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to parse chunk: $data", e)
                 }
+            } else {
+                Log.v(TAG, "Ignored line: $line")
             }
         }
         

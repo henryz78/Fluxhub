@@ -17,6 +17,9 @@ serialization = "1.7.3"
 room = "2.7.0-alpha12"
 datastore = "1.1.1"
 
+# Markdown
+markdown = "0.26.0"
+
 [libraries]
 # AndroidX Core
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core" }
@@ -47,6 +50,9 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # DataStore for settings
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# Markdown
+markdown-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdown" }
 
 # Liquid Glass
 capsule = { group = "io.github.kyant0", name = "capsule", version = "2.1.2" }

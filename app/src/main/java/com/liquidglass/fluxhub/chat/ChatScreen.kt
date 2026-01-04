@@ -37,6 +37,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.mikepenz.markdown.m3.Markdown
 
 private const val TAG = "ChatScreen"
 
@@ -131,25 +132,6 @@ private fun LiquidGlassChatContent(
                         fontWeight = FontWeight.Medium
                     )
                 )
-                
-                // 设置按钮只在点击时触发回调，本身不再显示在 TopBar 中（因为有底部导航了）
-                // 但为了保持兼容性，或者如果用户希望在 Chat 页面也能快速去设置，可以保留。
-                // 暂时保留，因为 Bottom Tab 可能在 Chat 页面不可见（全屏？）不，Bottom Tab 应该是全局的。
-                // 如果有 Bottom Tab "Settings"，那么 Top Bar 的 settings button 可以移除，或者作为快捷方式。
-                // 现保留作为快捷方式。
-                LiquidButton(
-                    onClick = onNavigateToSettings,
-                    backdrop = backdrop,
-                    modifier = Modifier.height(36.dp),
-                    tint = Color(0xFF0088FF)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "设置",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
         }
         
@@ -159,7 +141,12 @@ private fun LiquidGlassChatContent(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+            contentPadding = PaddingValues(
+                top = 8.dp, 
+                bottom = 8.dp, 
+                start = 8.dp, 
+                end = 8.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(viewModel.messages, key = { it.id }) { message ->
@@ -169,6 +156,7 @@ private fun LiquidGlassChatContent(
                 )
             }
         }
+
         
         // Error message with animation
         AnimatedVisibility(
@@ -274,25 +262,35 @@ private fun LiquidGlassChatBubble(
                     }
                 }
             } else {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    BasicText(
-                        text = message.content,
-                        style = TextStyle(
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            lineHeight = 22.sp
-                        ),
-                        modifier = Modifier.weight(1f, fill = false)
+                // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
+                CompositionLocalProvider(
+                    LocalContentColor provides Color.White,
+                    LocalTextStyle provides TextStyle(
+                        fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        color = Color.White
                     )
-                    
-                    if (message.isStreaming && message.content.isNotEmpty()) {
-                        BasicText(
-                            text = "▌",
-                            style = TextStyle(
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 16.sp
+                ) {
+                    Column {
+                        if (message.content.isNotEmpty()) {
+                            Markdown(
+                                content = message.content,
+                                modifier = Modifier.wrapContentWidth()
                             )
-                        )
+                        }
+                        
+                        // 流式输出时显示光标，放在 Markdown 下方
+                        if (message.isStreaming && message.content.isNotEmpty()) {
+                            BasicText(
+                                text = "▌",
+                                style = TextStyle(
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 16.sp
+                                ),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
             }

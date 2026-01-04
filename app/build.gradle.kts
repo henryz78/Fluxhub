@@ -84,6 +84,9 @@ dependencies {
     // DataStore for settings
     implementation(libs.androidx.datastore.preferences)
     
+    // Markdown
+    implementation(libs.markdown.m3)
+    
     // Liquid Glass Effect
     implementation(libs.capsule)
     implementation(project(":backdrop"))

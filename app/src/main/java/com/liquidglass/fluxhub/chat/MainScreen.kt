@@ -1,12 +1,18 @@
 package com.liquidglass.fluxhub.chat
 
 import android.graphics.BitmapFactory
+import android.graphics.Rect
+import android.view.ViewTreeObserver
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,7 +20,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -35,6 +48,9 @@ fun MainScreen(
     
     val backdrop = rememberLayerBackdrop()
     
+    // 监听键盘可见性
+    val isKeyboardVisible = rememberIsKeyboardVisible()
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -53,58 +69,125 @@ fun MainScreen(
         
         // 内容区域
         Box(modifier = Modifier.fillMaxSize()) {
+            // 根据键盘状态动态调整底部 padding
+            // 当键盘弹起时，底部导航栏隐藏，不需要预留 80dp
+            // 但如果 windowSoftInput=adjustResize，content 本身会被顶上去，不需要额外 padding？
+            // 不，输入框在 ChatScreen 内部处理了。这里主要是为了防止 BottomTabs 遮挡内容。
+            // 当 BottomTabs 隐藏时，padding 应该为 0（或者 system bars padding）
+            val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
+            
             when (selectedTab) {
                 0 -> ChatScreen(
                     backdrop = backdrop,
-                    bottomPadding = PaddingValues(bottom = 80.dp), // 留出导航栏空间
+                    bottomPadding = PaddingValues(bottom = bottomPadding), 
                     onNavigateToSettings = { selectedTab = 1 },
                     viewModel = viewModel
                 )
                 1 -> SettingsScreen(
                     onBack = { selectedTab = 0 },
                     viewModel = viewModel,
+                    backdrop = backdrop,
                     isTab = true,
-                    bottomPadding = PaddingValues(bottom = 80.dp)
+                    bottomPadding = PaddingValues(bottom = bottomPadding)
                 )
             }
         }
         
         // 底部导航栏
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp, start = 16.dp, end = 16.dp)
+        // 键盘弹起时隐藏
+        AnimatedVisibility(
+            visible = !isKeyboardVisible,
+            enter = slideInVertically { it },
+            exit = slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            LiquidBottomTabs(
-                selectedTabIndex = { selectedTab },
-                onTabSelected = { selectedTab = it },
-                backdrop = backdrop,
-                tabsCount = 2,
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp, start = 48.dp, end = 48.dp) // 增加 horizontal padding 缩短长度，提高 bottom padding
+                    .widthIn(max = 400.dp) // 限制最大宽度
             ) {
-                // Tab 0: Chat
-                LiquidBottomTab(
-                    onClick = { selectedTab = 0 }
+                LiquidBottomTabs(
+                    selectedTabIndex = { selectedTab },
+                    onTabSelected = { selectedTab = it },
+                    backdrop = backdrop,
+                    tabsCount = 2,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Chat,
-                        contentDescription = "Chat",
-                        tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray
-                    )
-                }
-                
-                // Tab 1: Settings
-                LiquidBottomTab(
-                    onClick = { selectedTab = 1 }
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Settings",
-                        tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray
-                    )
+                    // Tab 0: Chat
+                    LiquidBottomTab(
+                        onClick = { selectedTab = 0 }
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Chat,
+                                contentDescription = "Chat",
+                                tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Chat",
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Tab 1: Settings
+                    LiquidBottomTab(
+                        onClick = { selectedTab = 1 }
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "Settings",
+                                tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Settings",
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+fun rememberIsKeyboardVisible(): Boolean {
+    val view = LocalView.current
+    var isKeyboardVisible by remember { mutableStateOf(false) }
+    
+    DisposableEffect(view) {
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            val insets = ViewCompat.getRootWindowInsets(view)
+            val isVisible = insets?.isVisible(WindowInsetsCompat.Type.ime()) ?: false
+            isKeyboardVisible = isVisible
+        }
+        
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose {
+            view.viewTreeObserver.removeOnGlobalLayoutListener(listener)
+        }
+    }
+    
+    return isKeyboardVisible
 }
