@@ -13,8 +13,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +57,10 @@ fun MainScreen(
     // 监听键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
+    // 为 ChatScreen 提升 drawerState
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    
     // 将 listState 提升到 MainScreen 级别，保持滚动位置
     val chatListState = rememberLazyListState()
     
@@ -83,7 +91,8 @@ fun MainScreen(
                     bottomPadding = PaddingValues(bottom = bottomPadding), 
                     onNavigateToSettings = { selectedTab = 1 },
                     viewModel = viewModel,
-                    listState = chatListState
+                    listState = chatListState,
+                    drawerState = drawerState
                 )
                 1 -> SettingsScreen(
                     onBack = { selectedTab = 0 },
@@ -96,9 +105,9 @@ fun MainScreen(
         }
         
         // 底部导航栏
-        // 键盘弹起时隐藏
+        // 键盘弹起或侧边栏打开时隐藏
         AnimatedVisibility(
-            visible = !isKeyboardVisible,
+            visible = !isKeyboardVisible && drawerState.isClosed,
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
             modifier = Modifier.align(Alignment.BottomCenter)

@@ -16,10 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.drawBackdrop
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Brain
-import com.composables.icons.lucide.ChevronDown
-import com.composables.icons.lucide.ChevronUp
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.vibrancy
+import com.composables.icons.lucide.*
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 
 @Composable
@@ -54,8 +53,8 @@ fun ThinkingComponent(
                 backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop(), // 实际上应该传入外部的，这里暂用简化版
                 shape = { RoundedCornerShape(16.dp) },
                 effects = {
-                    com.kyant.backdrop.effects.vibrancy()
-                    com.kyant.backdrop.effects.blur(2.dp.toPx())
+                    vibrancy()
+                    blur(2.dp.toPx())
                 },
                 onDrawSurface = {
                     drawRect(Color.White.copy(alpha = 0.05f))

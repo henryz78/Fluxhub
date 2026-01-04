@@ -2,6 +2,7 @@ package com.liquidglass.fluxhub.chat
 
 import android.util.Log
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,6 +52,7 @@ import androidx.compose.foundation.combinedClickable
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
+import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
 import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
 import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
@@ -151,6 +153,7 @@ fun ChatScreen(
                 ConversationDrawerContent(
                     conversations = viewModel.conversations,
                     currentConversationId = viewModel.currentConversationId,
+                    backdrop = backdrop,
                     onSelectConversation = { id ->
                         viewModel.switchConversation(id)
                         scope.launch { drawerState.close() }
@@ -233,14 +236,18 @@ private fun LiquidGlassChatContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 菜单按钮（打开会话列表）
-                IconButton(
-                    onClick = onOpenDrawer
+                LiquidButton(
+                    onClick = onOpenDrawer,
+                    backdrop = backdrop,
+                    modifier = Modifier.size(44.dp),
+                    isInteractive = true,
+                    padding = PaddingValues(0.dp) // 需要支持自定义 padding
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Menu,
+                        imageVector = Lucide.Menu,
                         contentDescription = "会话列表",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
                 
@@ -288,15 +295,19 @@ private fun LiquidGlassChatContent(
                     }
                 }
                 
-                // 新建会话按钮
-                IconButton(
-                    onClick = { viewModel.createNewConversation() }
+                // 新建会话按钮（右上角）
+                LiquidButton(
+                    onClick = { viewModel.createNewConversation() },
+                    backdrop = backdrop,
+                    modifier = Modifier.size(44.dp),
+                    isInteractive = true,
+                    padding = PaddingValues(0.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Lucide.Plus,
                         contentDescription = "新建会话",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -589,88 +600,157 @@ private fun LiquidGlassChatInputBar(
 private fun ConversationDrawerContent(
     conversations: List<com.liquidglass.fluxhub.data.ConversationEntity>,
     currentConversationId: String?,
+    backdrop: Backdrop,
     onSelectConversation: (String) -> Unit,
     onDeleteConversation: (String) -> Unit,
     onNewConversation: () -> Unit
 ) {
     ModalDrawerSheet(
-        modifier = Modifier.width(280.dp),
-        drawerContainerColor = MaterialTheme.colorScheme.surface
+        modifier = Modifier.width(300.dp),
+        drawerContainerColor = Color.Transparent,
+        drawerShape = RoundedCornerShape(0.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .padding(16.dp)
-        ) {
-            // 标题
-            Text(
-                text = "会话列表",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            // 新建会话按钮
-            OutlinedButton(
-                onClick = onNewConversation,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Add, "新建会话")
-                Spacer(Modifier.width(8.dp))
-                Text("新建会话")
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            
-            // 会话列表
-            if (conversations.isEmpty()) {
-                Text(
-                    text = "暂无会话",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 16.dp)
+                .fillMaxSize()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { RoundedCornerShape(0.dp) },
+                    effects = {
+                        vibrancy()
+                        blur(16f.dp.toPx())
+                    },
+                    onDrawSurface = {
+                        drawRect(Color.Black.copy(alpha = 0.4f))
+                    }
                 )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(horizontal = 20.dp)
+                    .statusBarsPadding()
+            ) {
+                // 顶部标题和关闭动作 (虽然抽屉通常划走，但这里可以加个按钮)
+                Row(
+                    modifier = Modifier.padding(vertical = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(conversations.size) { index ->
-                        val conversation = conversations[index]
-                        val isSelected = conversation.id == currentConversationId
-                        
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectConversation(conversation.id) },
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Row(
+                    Icon(
+                        imageVector = Lucide.MessageSquare,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "会话记录",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                }
+                
+                // 新建会话按钮 - 采用玻璃按钮样式
+                LiquidButton(
+                    onClick = onNewConversation,
+                    backdrop = backdrop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    isInteractive = true,
+                    tint = Color(0xFF007AFF)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Lucide.Plus, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("开启新对话", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                
+                Text(
+                    text = "最近会话",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                // 会话列表
+                if (conversations.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "空空如也",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.3f)
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(conversations.size) { index ->
+                            val conversation = conversations[index]
+                            val isSelected = conversation.id == currentConversationId
+                            
+                            Box(
                                 modifier = Modifier
-                                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .drawBackdrop(
+                                        backdrop = backdrop,
+                                        shape = { RoundedCornerShape(12.dp) },
+                                        effects = { vibrancy() },
+                                        onDrawSurface = {
+                                            if (isSelected) {
+                                                drawRect(Color.White.copy(alpha = 0.15f))
+                                            } else {
+                                                drawRect(Color.White.copy(alpha = 0.05f))
+                                            }
+                                        }
+                                    )
+                                    .clickable { onSelectConversation(conversation.id) }
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.CenterStart
                             ) {
-                                Text(
-                                    text = conversation.title,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                
-                                // 删除按钮
-                                IconButton(
-                                    onClick = { onDeleteConversation(conversation.id) },
-                                    modifier = Modifier.size(32.dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "删除",
-                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                        imageVector = if (isSelected) Lucide.MessageCircle else Lucide.MessageSquare,
+                                        contentDescription = null,
+                                        tint = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.6f),
                                         modifier = Modifier.size(18.dp)
                                     )
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = conversation.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    
+                                    if (isSelected) {
+                                        IconButton(
+                                            onClick = { onDeleteConversation(conversation.id) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Lucide.Trash2,
+                                                contentDescription = "删除",
+                                                tint = Color(0xFFFF3B30).copy(alpha = 0.8f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

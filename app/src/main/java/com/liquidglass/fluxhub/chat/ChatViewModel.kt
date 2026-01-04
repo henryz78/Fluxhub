@@ -13,7 +13,9 @@ import com.liquidglass.fluxhub.data.ConversationEntity
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -128,8 +130,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
+    // Flow 采集任务
+    private var messagesJob: Job? = null
+    private var conversationsJob: Job? = null
+    
     init {
         loadSettings()
+        startConversationsCollection()
         loadOrCreateConversation()
     }
     
@@ -199,16 +206,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadOrCreateConversation() {
         viewModelScope.launch {
-            // 先加载会话列表
-            loadConversationsList()
-            
             val savedId = settingsRepository.currentConversationId.first()
             if (savedId != null) {
                 val conversation = conversationDao.getConversation(savedId)
                 if (conversation != null) {
                     currentConversationId = savedId
                     currentConversationTitle = conversation.title
-                    loadMessages(savedId)
+                    startMessagesCollection(savedId)
                     return@launch
                 }
             }
@@ -216,56 +220,63 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private suspend fun loadMessages(conversationId: String) {
-        messageDao.getMessagesForConversation(conversationId).collect { entities ->
-            messages.clear()
-            messages.addAll(entities.map { entity ->
-                UiMessage(
-                    id = entity.id,
-                    role = entity.role,
-                    content = entity.content,
-                    thinkingContent = entity.thinkingContent,
-                    isStreaming = false,
-                    model = entity.model,
-                    timestamp = entity.timestamp
-                )
-            })
+    private fun startMessagesCollection(conversationId: String) {
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
+            messageDao.getMessagesForConversation(conversationId).collect { entities ->
+                messages.clear()
+                messages.addAll(entities.map { entity ->
+                    UiMessage(
+                        id = entity.id,
+                        role = entity.role,
+                        content = entity.content,
+                        thinkingContent = entity.thinkingContent,
+                        isStreaming = false,
+                        model = entity.model,
+                        timestamp = entity.timestamp
+                    )
+                })
+            }
         }
     }
     
     fun createNewConversation() {
+        // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
+        val newId = UUID.randomUUID().toString()
+        currentConversationId = newId
+        currentConversationTitle = "新对话"
+        messages.clear()
+        
+        // 开启新消息采集
+        startMessagesCollection(newId)
+        
         viewModelScope.launch {
-            val newId = UUID.randomUUID().toString()
             val conversation = ConversationEntity(
                 id = newId,
                 title = "新对话"
             )
             conversationDao.insertConversation(conversation)
-            currentConversationId = newId
-            currentConversationTitle = "新对话"
             settingsRepository.setCurrentConversationId(newId)
-            messages.clear()
-            loadConversationsList()
         }
     }
     
     fun switchConversation(conversationId: String) {
         if (conversationId == currentConversationId) return
         
+        // 同步设置以提升响应速度
+        currentConversationId = conversationId
+        messages.clear()
+        
+        // 取消当前流式输出
+        currentEventSource?.cancel()
+        isLoading = false
+        
         viewModelScope.launch {
             val conversation = conversationDao.getConversation(conversationId)
             if (conversation != null) {
-                currentConversationId = conversationId
                 currentConversationTitle = conversation.title
                 settingsRepository.setCurrentConversationId(conversationId)
-                
-                // 取消正在进行的流式请求
-                currentEventSource?.cancel()
-                isLoading = false
-                
-                // 加载消息
-                messages.clear()
-                loadMessages(conversationId)
+                startMessagesCollection(conversationId)
             }
         }
     }
@@ -333,8 +344,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun loadConversationsList() {
-        viewModelScope.launch {
+    private fun startConversationsCollection() {
+        conversationsJob?.cancel()
+        conversationsJob = viewModelScope.launch {
             conversationDao.getAllConversations().collect { list ->
                 conversations.clear()
                 conversations.addAll(list)
@@ -393,14 +405,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 role = "user",
                 content = content
             ))
-            if (messages.size == 1) {
+            
+            // 始终更新会话状态
+            val currentConv = conversationDao.getConversation(conversationId)
+            if (messages.size <= 1) {
+                val newTitle = content.take(50)
                 conversationDao.updateConversation(
                     ConversationEntity(
                         id = conversationId,
-                        title = content.take(30),
+                        title = newTitle,
+                        createdAt = currentConv?.createdAt ?: System.currentTimeMillis(),
                         updatedAt = System.currentTimeMillis()
                     )
                 )
+                currentConversationTitle = newTitle
+            } else {
+                currentConv?.let {
+                    conversationDao.updateConversation(it.copy(updatedAt = System.currentTimeMillis()))
+                }
             }
         }
         
