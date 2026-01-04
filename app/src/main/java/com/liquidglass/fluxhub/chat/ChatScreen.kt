@@ -4,13 +4,11 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,12 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -56,11 +54,21 @@ fun ChatScreen(
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val keyboardController = LocalSoftwareKeyboardController.current
     
-    // 自动滚动到底部
-    LaunchedEffect(viewModel.messages.size) {
+    // 自动滚动到底部（每次消息变化时）
+    LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
         if (viewModel.messages.isNotEmpty()) {
             listState.animateScrollToItem(viewModel.messages.size - 1)
+        }
+    }
+    
+    // 发送消息的处理函数
+    val onSendMessage: () -> Unit = {
+        if (inputText.isNotBlank()) {
+            viewModel.sendMessage(inputText)
+            inputText = ""
+            keyboardController?.hide() // 收起键盘
         }
     }
     
@@ -70,7 +78,8 @@ fun ChatScreen(
         inputText = inputText,
         onInputTextChange = { inputText = it },
         listState = listState,
-        onNavigateToSettings = onNavigateToSettings
+        onNavigateToSettings = onNavigateToSettings,
+        onSend = onSendMessage
     )
 }
 
@@ -80,7 +89,8 @@ private fun LiquidGlassChatContent(
     inputText: String,
     onInputTextChange: (String) -> Unit,
     listState: LazyListState,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onSend: () -> Unit
 ) {
     val context = LocalContext.current
     
@@ -108,11 +118,11 @@ private fun LiquidGlassChatContent(
             )
         }
         
+        // 主内容区域 - 不使用 imePadding，让键盘覆盖而不是推动
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .imePadding() // 键盘弹出时自动调整
         ) {
             // Top Bar - 椭圆形胶囊状
             Box(
@@ -125,7 +135,7 @@ private fun LiquidGlassChatContent(
                         .fillMaxWidth()
                         .drawBackdrop(
                             backdrop = backdrop,
-                            shape = { ContinuousCapsule }, // 椭圆形
+                            shape = { ContinuousCapsule },
                             effects = {
                                 vibrancy()
                                 blur(4f.dp.toPx())
@@ -149,7 +159,6 @@ private fun LiquidGlassChatContent(
                         )
                     )
                     
-                    // 设置按钮 - 使用正常图标
                     LiquidButton(
                         onClick = onNavigateToSettings,
                         backdrop = backdrop,
@@ -166,7 +175,7 @@ private fun LiquidGlassChatContent(
                 }
             }
             
-            // Messages - 使用 weight 让它占据剩余空间
+            // Messages - 占据剩余空间
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -175,44 +184,11 @@ private fun LiquidGlassChatContent(
                 contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(viewModel.messages) { message ->
-                    LiquidGlassChatBubble(message = message, backdrop = backdrop)
-                }
-                
-                if (viewModel.isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Loading indicator with glass effect
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .drawBackdrop(
-                                        backdrop = backdrop,
-                                        shape = { ContinuousCapsule },
-                                        effects = {
-                                            vibrancy()
-                                            blur(4f.dp.toPx())
-                                            lens(8f.dp.toPx(), 16f.dp.toPx())
-                                        },
-                                        onDrawSurface = {
-                                            drawRect(Color.White.copy(alpha = 0.2f))
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    color = Color.White,
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        }
-                    }
+                items(viewModel.messages, key = { it.id }) { message ->
+                    LiquidGlassChatBubble(
+                        message = message,
+                        backdrop = backdrop
+                    )
                 }
             }
             
@@ -248,21 +224,17 @@ private fun LiquidGlassChatContent(
                 }
             }
             
-            // Input with glass effect
+            // Input with glass effect - 使用 imePadding 只在输入框
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .imePadding()
                     .navigationBarsPadding()
             ) {
                 LiquidGlassChatInputBar(
                     text = inputText,
                     onTextChange = onInputTextChange,
-                    onSend = {
-                        if (inputText.isNotBlank()) {
-                            viewModel.sendMessage(inputText)
-                            onInputTextChange("")
-                        }
-                    },
+                    onSend = onSend,
                     enabled = !viewModel.isLoading,
                     backdrop = backdrop
                 )
@@ -273,7 +245,7 @@ private fun LiquidGlassChatContent(
 
 @Composable
 private fun LiquidGlassChatBubble(
-    message: ChatMessage,
+    message: UiMessage,
     backdrop: Backdrop
 ) {
     val isUser = message.role == "user"
@@ -304,14 +276,51 @@ private fun LiquidGlassChatBubble(
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            BasicText(
-                text = message.content,
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp
-                )
-            )
+            if (message.content.isEmpty() && message.isStreaming) {
+                // 显示打字指示器
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { ContinuousCapsule },
+                                    effects = { vibrancy() },
+                                    onDrawSurface = {
+                                        drawRect(Color.White.copy(alpha = 0.6f))
+                                    }
+                                )
+                        )
+                    }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    BasicText(
+                        text = message.content,
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp
+                        ),
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    
+                    // 流式输出时显示光标
+                    if (message.isStreaming && message.content.isNotEmpty()) {
+                        BasicText(
+                            text = "▌",
+                            style = TextStyle(
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 16.sp
+                            )
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -380,7 +389,7 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Send button using LiquidButton with icon
+        // Send button
         LiquidButton(
             onClick = onSend,
             backdrop = backdrop,
