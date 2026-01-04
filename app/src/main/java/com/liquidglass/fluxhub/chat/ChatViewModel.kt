@@ -248,6 +248,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         
+        if (model.isBlank()) {
+            showErrorMessage("请先选择模型")
+            Log.w(TAG, "sendMessage: model is blank")
+            return
+        }
+        
         val conversationId = currentConversationId ?: return
         
         Log.d(TAG, "sendMessage: $content")
@@ -277,16 +283,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
-        // 添加空的 AI 消息用于流式更新
+        // 添加 AI 消息占位符
         val aiMessageId = UUID.randomUUID().toString()
-        messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "", isStreaming = true))
+        messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "思考中...", isStreaming = true))
         
         isLoading = true
         clearError()
         
         viewModelScope.launch {
             try {
-                callStreamingApi(aiMessageId, conversationId)
+                callNonStreamingApi(aiMessageId, conversationId)
             } catch (e: Exception) {
                 Log.e(TAG, "API call failed", e)
                 showErrorMessage(e.message ?: "Unknown error")
@@ -315,17 +321,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private suspend fun callStreamingApi(aiMessageId: String, conversationId: String) {
-        Log.d(TAG, "callStreamingApi: using baseUrl=$baseUrl, model=$model")
+    private suspend fun callNonStreamingApi(aiMessageId: String, conversationId: String) = withContext(Dispatchers.IO) {
+        Log.d(TAG, "callNonStreamingApi: using baseUrl=$baseUrl, model=$model")
         
         val apiMessages = messages
-            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
+            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty() && it.content != "思考中...") }
             .map { ChatMessage(it.role, it.content) }
         
         val request = ChatRequest(
             model = model,
             messages = apiMessages,
-            stream = true
+            stream = false  // 禁用流式
         )
         
         val requestBody = json.encodeToString(ChatRequest.serializer(), request)
@@ -335,13 +341,50 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .url("$baseUrl/chat/completions")
             .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
-            .addHeader("Accept", "text/event-stream")
             .post(requestBody.toRequestBody("application/json".toMediaType()))
             .build()
         
-        Log.d(TAG, "Sending streaming request to: ${httpRequest.url}")
+        Log.d(TAG, "Sending non-streaming request to: ${httpRequest.url}")
         
-        collectStreamingResponse(httpRequest, aiMessageId, conversationId)
+        val response = client.newCall(httpRequest).execute()
+        
+        if (!response.isSuccessful) {
+            val errorBody = response.body?.string() ?: ""
+            Log.e(TAG, "API error: ${response.code} - $errorBody")
+            throw Exception("API error: ${response.code}")
+        }
+        
+        val body = response.body?.string() ?: throw Exception("Empty response body")
+        Log.d(TAG, "Response body: ${body.take(500)}")
+        
+        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
+        val assistantContent = chatResponse.choices.firstOrNull()?.message?.content ?: ""
+        
+        response.close()
+        
+        if (assistantContent.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(content = assistantContent)
+                }
+            }
+            
+            // 保存 AI 回复到数据库
+            messageDao.insertMessage(MessageEntity(
+                id = aiMessageId,
+                conversationId = conversationId,
+                role = "assistant",
+                content = assistantContent
+            ))
+        } else {
+            withContext(Dispatchers.Main) {
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回")
+                }
+            }
+        }
     }
     
     private suspend fun collectStreamingResponse(request: Request, aiMessageId: String, conversationId: String) = withContext(Dispatchers.IO) {
