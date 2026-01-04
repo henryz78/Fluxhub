@@ -83,14 +83,18 @@ fun ChatScreen(
     // 流式输出时自动滚动到底部（内容变化时）
     LaunchedEffect(lastMessageContent) {
         if (isStreaming && viewModel.messages.isNotEmpty()) {
-            listState.scrollToItem(viewModel.messages.size - 1)
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            // 如果用户就在底部附近，则自动跟随滚动
+            if (lastVisibleIndex >= viewModel.messages.size - 2) {
+                listState.animateScrollToItem(viewModel.messages.size - 1)
+            }
         }
     }
     
-    // 新消息时滚动到底部
+    // 新消息时滚动到底部 (通常是用户自己发的)
     LaunchedEffect(viewModel.messages.size) {
         if (viewModel.messages.isNotEmpty()) {
-            listState.scrollToItem(viewModel.messages.size - 1)
+            listState.animateScrollToItem(viewModel.messages.size - 1)
         }
     }
     
@@ -203,17 +207,49 @@ private fun LiquidGlassChatContent(
                     )
                 }
                 
-                // 会话标题
-                BasicText(
-                    text = viewModel.currentConversationTitle,
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                    maxLines = 1
-                )
+                // 会话标题与模型信息
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+                ) {
+                    BasicText(
+                        text = viewModel.currentConversationTitle,
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        maxLines = 1
+                    )
+                    if (viewModel.model.isNotBlank()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val aiIcon = remember(viewModel.model) {
+                                val name = viewModel.model.lowercase()
+                                when {
+                                    name.contains("gpt") || name.contains("openai") -> Lucide.Zap
+                                    name.contains("claude") -> Lucide.Sparkles
+                                    name.contains("gemini") -> Lucide.Stars
+                                    name.contains("deepseek") -> Lucide.Compass
+                                    else -> Lucide.Bot
+                                }
+                            }
+                            Icon(
+                                imageVector = aiIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = Color.White.copy(alpha = 0.6f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            BasicText(
+                                text = viewModel.model,
+                                style = TextStyle(
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 10.sp
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
                 
                 // 新建会话按钮
                 IconButton(
@@ -342,7 +378,9 @@ private fun LiquidGlassChatBubble(
         // 头像和元信息
         MessageAvatar(
             isUser = isUser,
-            modelName = if (!isUser) viewModel.model else null,
+            modelName = if (!isUser) (message.model ?: viewModel.model) else null,
+            userName = viewModel.userName,
+            userAvatar = viewModel.userAvatar,
             timestamp = message.timestamp
         )
         

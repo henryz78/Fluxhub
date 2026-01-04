@@ -25,9 +25,24 @@ import java.util.*
 fun MessageAvatar(
     isUser: Boolean,
     modelName: String? = null,
+    userName: String = "你",
+    userAvatar: String = "",
     timestamp: Long? = null,
     modifier: Modifier = Modifier
 ) {
+    val aiIcon = remember(modelName) {
+        val name = modelName?.lowercase() ?: ""
+        when {
+            name.contains("gpt") || name.contains("openai") -> Lucide.Zap
+            name.contains("claude") -> Lucide.Sparkles
+            name.contains("gemini") -> Lucide.Stars
+            name.contains("deepseek") -> Lucide.Compass
+            name.contains("qwen") || name.contains("aliyun") -> Lucide.Cloud
+            name.contains("llama") || name.contains("meta") -> Lucide.Globe
+            else -> Lucide.Bot
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -44,7 +59,7 @@ fun MessageAvatar(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Lucide.Bot,
+                        imageVector = aiIcon,
                         contentDescription = "AI",
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
@@ -70,7 +85,7 @@ fun MessageAvatar(
             // 用户头像在右侧
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "你",
+                    text = userName,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
                 )
@@ -89,12 +104,19 @@ fun MessageAvatar(
                 color = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Lucide.User,
-                        contentDescription = "用户",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    if (userAvatar.isNotEmpty()) {
+                        Text(
+                            text = userAvatar,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Lucide.User,
+                            contentDescription = "用户",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
             }
         }

@@ -31,6 +31,8 @@ fun SettingsScreen(
     var apiKeyInput by remember { mutableStateOf(viewModel.apiKey) }
     var baseUrlInput by remember { mutableStateOf(viewModel.baseUrl) }
     var modelInput by remember { mutableStateOf(viewModel.model) }
+    var userNameInput by remember { mutableStateOf(viewModel.userName) }
+    var userAvatarInput by remember { mutableStateOf(viewModel.userAvatar) }
     
     // 同步 ViewModel 的值 (仅当 ViewModel 变化且本地未修改时... 但很难判断是否修改。
     // 简单的策略：初始化时设置一次，或者信任 ViewModel 为 source of truth。
@@ -46,6 +48,8 @@ fun SettingsScreen(
     LaunchedEffect(viewModel.apiKey) { apiKeyInput = viewModel.apiKey }
     LaunchedEffect(viewModel.baseUrl) { baseUrlInput = viewModel.baseUrl }
     LaunchedEffect(viewModel.model) { modelInput = viewModel.model }
+    LaunchedEffect(viewModel.userName) { userNameInput = viewModel.userName }
+    LaunchedEffect(viewModel.userAvatar) { userAvatarInput = viewModel.userAvatar }
     
     Scaffold(
         topBar = {
@@ -84,6 +88,50 @@ fun SettingsScreen(
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
                 )
             }
+
+            Text(
+                text = "个人资料",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = userAvatarInput,
+                    onValueChange = { userAvatarInput = it },
+                    label = { Text("头像 (Emoji)") },
+                    modifier = Modifier.width(100.dp),
+                    placeholder = { Text("👤") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+
+                OutlinedTextField(
+                    value = userNameInput,
+                    onValueChange = { userNameInput = it },
+                    label = { Text("昵称") },
+                    modifier = Modifier.weight(1f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
+            )
 
             Text(
                 text = "API 配置",
@@ -196,6 +244,8 @@ fun SettingsScreen(
                     viewModel.saveApiKey(apiKeyInput)
                     viewModel.saveBaseUrl(baseUrlInput)
                     viewModel.saveModel(modelInput)
+                    viewModel.saveUserName(userNameInput)
+                    viewModel.saveUserAvatar(userAvatarInput)
                     if (!isTab) onBack()
                 },
                 backdrop = backdrop,

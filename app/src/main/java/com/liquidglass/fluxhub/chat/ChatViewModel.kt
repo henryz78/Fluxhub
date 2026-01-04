@@ -67,6 +67,7 @@ data class UiMessage(
     val role: String,
     var content: String,
     val isStreaming: Boolean = false,
+    val model: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -109,11 +110,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
     
+    // 用户配置
+    var userName by mutableStateOf("你")
+    var userAvatar by mutableStateOf("")
+
     // 当前会话
     var currentConversationId by mutableStateOf<String?>(null)
-        private set
+    private set
     var currentConversationTitle by mutableStateOf("新对话")
-        private set
+    private set
     
     // 会话列表
     val conversations = mutableStateListOf<ConversationEntity>()
@@ -141,6 +146,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.model.collect { model = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.userName.collect { userName = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.userAvatar.collect { userAvatar = it }
         }
     }
     
@@ -212,6 +223,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     role = entity.role,
                     content = entity.content,
                     isStreaming = false,
+                    model = entity.model,
                     timestamp = entity.timestamp
                 )
             })
@@ -301,7 +313,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun saveUserName(value: String) {
+        userName = value
+        viewModelScope.launch {
+            settingsRepository.setUserName(value)
+        }
     }
+
+    fun saveUserAvatar(value: String) {
+        userAvatar = value
+        viewModelScope.launch {
+            settingsRepository.setUserAvatar(value)
+        }
+    }
+
     
     private fun loadConversationsList() {
         viewModelScope.launch {
@@ -376,7 +402,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         // 添加 AI 消息占位符
         val aiMessageId = UUID.randomUUID().toString()
-        messages.add(UiMessage(id = aiMessageId, role = "assistant", content = "", isStreaming = true))
+        messages.add(UiMessage(
+            id = aiMessageId,
+            role = "assistant",
+            content = "",
+            isStreaming = true,
+            model = model
+        ))
         
         isLoading = true
         clearError()
@@ -449,7 +481,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 id = aiMessageId,
                                 conversationId = conversationId,
                                 role = "assistant",
-                                content = fullContent
+                                content = fullContent,
+                                model = model
                             ))
                         } else {
                             if (index >= 0) {
@@ -505,7 +538,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             id = aiMessageId,
                             conversationId = conversationId,
                             role = "assistant",
-                            content = fullContent
+                            content = fullContent,
+                            model = model
                         ))
                     } else {
                         // 如果没有内容，显示错误
