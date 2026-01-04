@@ -18,8 +18,6 @@ class SettingsRepository(private val context: Context) {
         private val BASE_URL = stringPreferencesKey("base_url")
         private val MODEL = stringPreferencesKey("model")
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
-        private val USER_NAME = stringPreferencesKey("user_name")
-        private val USER_AVATAR = stringPreferencesKey("user_avatar")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -36,14 +34,6 @@ class SettingsRepository(private val context: Context) {
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[CURRENT_CONVERSATION_ID]
-    }
-
-    val userName: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_NAME] ?: "你"
-    }
-
-    val userAvatar: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_AVATAR] ?: ""
     }
     
     suspend fun setApiKey(value: String) {
@@ -71,18 +61,6 @@ class SettingsRepository(private val context: Context) {
             } else {
                 preferences.remove(CURRENT_CONVERSATION_ID)
             }
-        }
-    }
-
-    suspend fun setUserName(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[USER_NAME] = value
-        }
-    }
-
-    suspend fun setUserAvatar(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[USER_AVATAR] = value
         }
     }
 }

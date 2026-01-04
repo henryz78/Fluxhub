@@ -42,6 +42,7 @@ fun HomeScreen(
     backdrop: Backdrop,
     bottomPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToChat: () -> Unit,
+    onQuickPrompt: (String) -> Unit = { },
     viewModel: ChatViewModel = viewModel()
 ) {
     // 统计数据
@@ -209,7 +210,7 @@ fun HomeScreen(
                                         drawRect(Color.White.copy(alpha = 0.15f))
                                     }
                                 )
-                                .clickable { onNavigateToChat() }
+                                .clickable { onQuickPrompt(prompt) }
                                 .padding(horizontal = 16.dp, vertical = 10.dp)
                         ) {
                             BasicText(

@@ -114,9 +114,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
     
-    // 用户配置
-    var userName by mutableStateOf("你")
-    var userAvatar by mutableStateOf("")
 
     // 当前会话
     var currentConversationId by mutableStateOf<String?>(null)
@@ -157,12 +154,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.model.collect { model = it }
         }
-        viewModelScope.launch {
-            settingsRepository.userName.collect { userName = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.userAvatar.collect { userAvatar = it }
-        }
+
     }
     
     fun fetchModels() {
@@ -351,19 +343,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun saveUserName(value: String) {
-        userName = value
-        viewModelScope.launch {
-            settingsRepository.setUserName(value)
-        }
-    }
-
-    fun saveUserAvatar(value: String) {
-        userAvatar = value
-        viewModelScope.launch {
-            settingsRepository.setUserAvatar(value)
-        }
-    }
 
     private fun startConversationsCollection() {
         conversationsJob?.cancel()

@@ -66,6 +66,9 @@ fun MainScreen(
     // 将 listState 提升到 MainScreen 级别，保持滚动位置
     val chatListState = rememberLazyListState()
     
+    // 快捷提示词状态
+    var pendingPrompt by remember { mutableStateOf<String?>(null) }
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -92,6 +95,10 @@ fun MainScreen(
                     backdrop = backdrop,
                     bottomPadding = PaddingValues(bottom = bottomPadding),
                     onNavigateToChat = { selectedTab = 1 },
+                    onQuickPrompt = { prompt ->
+                        pendingPrompt = prompt
+                        selectedTab = 1
+                    },
                     viewModel = viewModel
                 )
                 1 -> ChatScreen(
@@ -100,7 +107,9 @@ fun MainScreen(
                     onNavigateToSettings = { selectedTab = 2 },
                     viewModel = viewModel,
                     listState = chatListState,
-                    drawerState = drawerState
+                    drawerState = drawerState,
+                    initialPrompt = pendingPrompt,
+                    onPromptConsumed = { pendingPrompt = null }
                 )
                 2 -> SettingsScreen(
                     onBack = { selectedTab = 1 },

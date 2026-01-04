@@ -109,9 +109,19 @@ fun ChatScreen(
     onNavigateToSettings: () -> Unit = {},
     viewModel: ChatViewModel = viewModel(),
     listState: LazyListState = rememberLazyListState(),
-    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+    initialPrompt: String? = null,
+    onPromptConsumed: () -> Unit = {}
 ) {
-    var inputText by remember { mutableStateOf("") }
+    var inputText by remember { mutableStateOf(initialPrompt ?: "") }
+    
+    // 消费初始提示词
+    LaunchedEffect(initialPrompt) {
+        if (!initialPrompt.isNullOrBlank()) {
+            inputText = initialPrompt
+            onPromptConsumed()
+        }
+    }
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     
@@ -290,47 +300,46 @@ private fun LiquidGlassChatContent(
                         ),
                         maxLines = 1
                     )
-                    if (viewModel.model.isNotBlank()) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showModelSelector = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val aiIcon = remember(viewModel.model) {
-                                    val name = viewModel.model.lowercase()
-                                    when {
-                                        name.contains("gpt") || name.contains("openai") -> Lucide.Zap
-                                        name.contains("claude") -> Lucide.Sparkles
-                                        name.contains("gemini") -> Lucide.Star
-                                        name.contains("deepseek") -> Lucide.Compass
-                                        else -> Lucide.Bot
-                                    }
+                    // 模型选择器 - 始终显示
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showModelSelector = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val aiIcon = remember(viewModel.model) {
+                                val name = viewModel.model.lowercase()
+                                when {
+                                    name.contains("gpt") || name.contains("openai") -> Lucide.Zap
+                                    name.contains("claude") -> Lucide.Sparkles
+                                    name.contains("gemini") -> Lucide.Star
+                                    name.contains("deepseek") -> Lucide.Compass
+                                    else -> Lucide.Bot
                                 }
-                                Icon(
-                                    imageVector = aiIcon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(10.dp),
-                                    tint = Color.White.copy(alpha = 0.8f)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                BasicText(
-                                    text = viewModel.model,
-                                    style = TextStyle(
-                                        color = Color.White.copy(alpha = 0.8f),
-                                        fontSize = 10.sp
-                                    ),
-                                    maxLines = 1
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Lucide.ChevronDown,
-                                    contentDescription = "切换模型",
-                                    modifier = Modifier.size(10.dp),
-                                    tint = Color.White.copy(alpha = 0.6f)
-                                )
                             }
+                            Icon(
+                                imageVector = aiIcon,
+                                contentDescription = null,
+                                modifier = Modifier.size(10.dp),
+                                tint = Color.White.copy(alpha = 0.8f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            BasicText(
+                                text = viewModel.model.ifBlank { "选择模型" },
+                                style = TextStyle(
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 10.sp
+                                ),
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Lucide.ChevronDown,
+                                contentDescription = "切换模型",
+                                modifier = Modifier.size(10.dp),
+                                tint = Color.White.copy(alpha = 0.6f)
+                            )
                         }
                     }
                 }
@@ -447,37 +456,41 @@ private fun LiquidGlassChatContent(
                             modifier = Modifier.padding(vertical = 16.dp)
                         )
                     } else {
-                        viewModel.availableModels.forEach { modelName ->
-                            val isSelected = modelName == viewModel.model
-                            Card(
-                                onClick = {
-                                    viewModel.saveModel(modelName)
-                                    showModelSelector = false
-                                },
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) 
-                                        MaterialTheme.colorScheme.primaryContainer 
-                                    else 
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = modelName,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 300.dp)
+                        ) {
+                            items(viewModel.availableModels) { modelName ->
+                                val isSelected = modelName == viewModel.model
+                                Card(
+                                    onClick = {
+                                        viewModel.saveModel(modelName)
+                                        showModelSelector = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) 
+                                            MaterialTheme.colorScheme.primaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.surfaceVariant
                                     )
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Lucide.Check,
-                                            contentDescription = "已选择",
-                                            tint = MaterialTheme.colorScheme.primary
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = modelName,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                         )
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Lucide.Check,
+                                                contentDescription = "已选择",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -550,8 +563,8 @@ private fun LiquidGlassChatBubble(
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
-    // AI 气泡使用白色 liquid glass 风格
-    val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
+    // 用户气泡蓝色，AI 气泡深色半透明背景提高可读性
+    val tintColor = if (isUser) Color(0xFF007AFF) else Color(0xFF1C1C1E)
     
     Column(
         modifier = Modifier
@@ -597,8 +610,8 @@ private fun LiquidGlassChatBubble(
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        // 提高 alpha 从 0.25 到 0.45，增强对比度
-                        drawRect(tintColor.copy(alpha = 0.45f))
+                        // AI 气泡使用深色背景提高白字可见性
+                        drawRect(tintColor.copy(alpha = if (isUser) 0.45f else 0.75f))
                     }
                 )
                 .drawBehind {
@@ -890,7 +903,10 @@ private fun ConversationDrawerContent(
                                             }
                                         }
                                     )
-                                    .clickable { onSelectConversation(conversation.id) }
+                                    .combinedClickable(
+                                        onClick = { onSelectConversation(conversation.id) },
+                                        onLongClick = { onDeleteConversation(conversation.id) }
+                                    )
                                     .padding(horizontal = 12.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
@@ -913,25 +929,6 @@ private fun ConversationDrawerContent(
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    
-                                    if (isSelected) {
-                                        LiquidButton(
-                                            onClick = { onDeleteConversation(conversation.id) },
-                                            backdrop = backdrop,
-                                            modifier = Modifier.size(32.dp),
-                                            isInteractive = true,
-                                            tint = Color(0xFFFF3B30),
-                                            padding = PaddingValues(0.dp),
-                                            onPressed = onInteractionChanged
-                                        ) {
-                                            Icon(
-                                                imageVector = Lucide.Trash2,
-                                                contentDescription = "删除",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
                                 }
                             }
                         }

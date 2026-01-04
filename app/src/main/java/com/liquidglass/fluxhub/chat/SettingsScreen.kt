@@ -12,9 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.foundation.background
-import androidx.compose.ui.Alignment
 import com.kyant.backdrop.Backdrop
 import com.liquidglass.fluxhub.components.LiquidButton
 
@@ -30,26 +27,9 @@ fun SettingsScreen(
     // 使用本地状态进行编辑
     var apiKeyInput by remember { mutableStateOf(viewModel.apiKey) }
     var baseUrlInput by remember { mutableStateOf(viewModel.baseUrl) }
-    var modelInput by remember { mutableStateOf(viewModel.model) }
-    var userNameInput by remember { mutableStateOf(viewModel.userName) }
-    var userAvatarInput by remember { mutableStateOf(viewModel.userAvatar) }
-    
-    // 同步 ViewModel 的值 (仅当 ViewModel 变化且本地未修改时... 但很难判断是否修改。
-    // 简单的策略：初始化时设置一次，或者信任 ViewModel 为 source of truth。
-    // 如果用户正在输入，ViewModel 不会变（除非后台更新）。
-    // 但如果 ViewModel 是初始值空字符串，然后异步加载了真实值，我们需要更新本地状态。
-    // 问题是：如果用户手快，在异步加载完成前输入了，然后异步加载完成了（覆盖了用户输入）。
-    // DataStore 读取通常很快。
-    // 为了防止"恢复默认"，我们只在 viewModel 的值不等于默认值时更新，或者...
-    // 其实更好的做法是直接用 viewModel 的属性作为 TextField 的 value，但为了"保存"按钮的语义，我们需要 buffer。
-    // 修正策略：只在 viewModel 值变化时更新，这点 LaunchedEffect 已经做到了。
-    // 可能是 DataStore 读取失败返回了默认值？
     
     LaunchedEffect(viewModel.apiKey) { apiKeyInput = viewModel.apiKey }
     LaunchedEffect(viewModel.baseUrl) { baseUrlInput = viewModel.baseUrl }
-    LaunchedEffect(viewModel.model) { modelInput = viewModel.model }
-    LaunchedEffect(viewModel.userName) { userNameInput = viewModel.userName }
-    LaunchedEffect(viewModel.userAvatar) { userAvatarInput = viewModel.userAvatar }
     
     Scaffold(
         topBar = {
@@ -75,12 +55,11 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(bottomPadding) // 避开底部导航
+                .padding(bottomPadding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (isTab) {
-                // Tab 模式下显示标题，增加顶部边距
                 Text(
                     text = "设置",
                     style = MaterialTheme.typography.headlineMedium,
@@ -88,50 +67,6 @@ fun SettingsScreen(
                     modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
                 )
             }
-
-            Text(
-                text = "个人资料",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = userAvatarInput,
-                    onValueChange = { userAvatarInput = it },
-                    label = { Text("头像 (Emoji)") },
-                    modifier = Modifier.width(100.dp),
-                    placeholder = { Text("👤") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-
-                OutlinedTextField(
-                    value = userNameInput,
-                    onValueChange = { userNameInput = it },
-                    label = { Text("昵称") },
-                    modifier = Modifier.weight(1f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-            }
-
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
-            )
 
             Text(
                 text = "API 配置",
@@ -171,65 +106,6 @@ fun SettingsScreen(
                 )
             )
             
-            // Model Selection with Dropdown
-            var expanded by remember { mutableStateOf(false) }
-            
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = modelInput,
-                    onValueChange = { modelInput = it },
-                    label = { Text("Model") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(), // Properly anchor the menu
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                           // Refresh Button
-                           IconButton(onClick = { viewModel.fetchModels() }) {
-                               Icon(Icons.Default.Refresh, contentDescription = "刷新模型列表", tint = MaterialTheme.colorScheme.onBackground.copy(0.7f))
-                           }
-                           ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    viewModel.availableModels.forEach { model ->
-                        DropdownMenuItem(
-                            text = { Text(model, color = MaterialTheme.colorScheme.onSurface) },
-                            onClick = {
-                                modelInput = model
-                                expanded = false
-                            },
-                             contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                        )
-                    }
-                    if (viewModel.availableModels.isEmpty()) {
-                         DropdownMenuItem(
-                            text = { Text("正在加载或无模型...", color = Color.Gray) },
-                            onClick = { },
-                            enabled = false
-                        )
-                    }
-                }
-            }
-            
             Spacer(modifier = Modifier.weight(1f))
             
             Text(
@@ -238,14 +114,10 @@ fun SettingsScreen(
                 color = Color.White.copy(alpha = 0.6f)
             )
             
-            // 保存按钮 - 使用 LiquidButton
             LiquidButton(
                 onClick = {
                     viewModel.saveApiKey(apiKeyInput)
                     viewModel.saveBaseUrl(baseUrlInput)
-                    viewModel.saveModel(modelInput)
-                    viewModel.saveUserName(userNameInput)
-                    viewModel.saveUserAvatar(userAvatarInput)
                     if (!isTab) onBack()
                 },
                 backdrop = backdrop,
