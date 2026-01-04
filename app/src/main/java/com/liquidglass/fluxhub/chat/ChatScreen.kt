@@ -206,6 +206,7 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LiquidGlassChatContent(
     viewModel: ChatViewModel,
