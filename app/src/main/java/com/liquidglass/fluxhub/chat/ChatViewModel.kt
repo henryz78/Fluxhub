@@ -66,7 +66,8 @@ data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
     var content: String,
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 @Serializable

@@ -45,6 +45,9 @@ import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
+import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
+import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
+import kotlinx.coroutines.launch
 
 private const val TAG = "ChatScreen"
 
@@ -159,60 +162,60 @@ private fun LiquidGlassChatContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Row(\r
-                modifier = Modifier\r
-                    .fillMaxWidth()\r
-                    .drawBackdrop(\r
-                        backdrop = backdrop,\r
-                        shape = { ContinuousCapsule },\r
-                        effects = {\r
-                            vibrancy()\r
-                            blur(4f.dp.toPx())\r
-                            lens(16f.dp.toPx(), 32f.dp.toPx())\r
-                        },\r
-                        highlight = { Highlight.Plain },\r
-                        onDrawSurface = {\r
-                            drawRect(Color.White.copy(alpha = 0.15f))\r
-                        }\r
-                    )\r
-                    .padding(horizontal = 16.dp, vertical = 10.dp),\r
-                horizontalArrangement = Arrangement.SpaceBetween,\r
-                verticalAlignment = Alignment.CenterVertically\r
-            ) {\r
-                // 菜单按钮（打开会话列表）\r
-                IconButton(\r
-                    onClick = onOpenDrawer\r
-                ) {\r
-                    Icon(\r
-                        imageVector = Icons.Default.Menu,\r
-                        contentDescription = "会话列表",\r
-                        tint = Color.White,\r
-                        modifier = Modifier.size(24.dp)\r
-                    )\r
-                }\r
-                \r
-                // 会话标题\r
-                BasicText(\r
-                    text = viewModel.currentConversationTitle,\r
-                    style = TextStyle(\r
-                        color = Color.White,\r
-                        fontSize = 18.sp,\r
-                        fontWeight = FontWeight.Medium\r
-                    ),\r
-                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),\r
-                    maxLines = 1\r
-                )\r
-                \r
-                // 新建会话按钮\r
-                IconButton(\r
-                    onClick = { viewModel.createNewConversation() }\r
-                ) {\r
-                    Icon(\r
-                        imageVector = Icons.Default.Add,\r
-                        contentDescription = "新建会话",\r
-                        tint = Color.White,\r
-                        modifier = Modifier.size(24.dp)\r
-                    )\r
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousCapsule },
+                        effects = {
+                            vibrancy()
+                            blur(4f.dp.toPx())
+                            lens(16f.dp.toPx(), 32f.dp.toPx())
+                        },
+                        highlight = { Highlight.Plain },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(alpha = 0.15f))
+                        }
+                    )
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 菜单按钮（打开会话列表）
+                IconButton(
+                    onClick = onOpenDrawer
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "会话列表",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                
+                // 会话标题
+                BasicText(
+                    text = viewModel.currentConversationTitle,
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                    maxLines = 1
+                )
+                
+                // 新建会话按钮
+                IconButton(
+                    onClick = { viewModel.createNewConversation() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "新建会话",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
@@ -234,7 +237,8 @@ private fun LiquidGlassChatContent(
             items(viewModel.messages, key = { it.id }) { message ->
                 LiquidGlassChatBubble(
                     message = message,
-                    backdrop = backdrop
+                    backdrop = backdrop,
+                    viewModel = viewModel
                 )
             }
         }
@@ -293,18 +297,27 @@ private fun LiquidGlassChatContent(
 @Composable
 private fun LiquidGlassChatBubble(
     message: UiMessage,
-    backdrop: Backdrop
+    backdrop: Backdrop,
+    viewModel: ChatViewModel
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
     val tintColor = if (isUser) Color(0xFF007AFF) else Color(0xFF34C759)
     
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
+        // 头像和元信息
+        MessageAvatar(
+            isUser = isUser,
+            modelName = if (!isUser) viewModel.selectedModel else null,
+            timestamp = message.timestamp
+        )
+        
+        // 消息气泡
         Box(
             modifier = Modifier
                 .widthIn(max = 320.dp)
@@ -377,6 +390,17 @@ private fun LiquidGlassChatBubble(
                     }
                 }
             }
+        }
+        
+        // AI 消息显示操作按钮 (非流式时)
+        if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
+            MessageActionButtons(
+                content = message.content,
+                isUser = isUser,
+                onRegenerate = {
+                    // TODO: 实现重新生成功能
+                }
+            )
         }
     }
 }

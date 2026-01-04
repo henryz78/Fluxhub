@@ -540,3 +540,9 @@ private fun ASTNode.nextSibling(): ASTNode? {
         parent.children[index + 1]
     } else null
 }
+
+// 扩展函数：从文本中获取节点内容
+private fun ASTNode.getTextInNode(text: String): String {
+    return text.substring(startOffset, endOffset)
+}
+
