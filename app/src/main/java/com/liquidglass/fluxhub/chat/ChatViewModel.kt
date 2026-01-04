@@ -1,5 +1,6 @@
 package com.liquidglass.fluxhub.chat
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +18,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
+
+private const val TAG = "ChatViewModel"
 
 @Serializable
 data class ChatMessage(
@@ -61,12 +64,17 @@ class ChatViewModel : ViewModel() {
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("gpt-4o-mini")
     
+    // Liquid Glass 风格开关
+    var useLiquidGlass by mutableStateOf(false)
+    
     fun sendMessage(content: String) {
         if (content.isBlank() || apiKey.isBlank()) {
             error = if (apiKey.isBlank()) "请先配置 API Key" else null
+            Log.w(TAG, "sendMessage: apiKey is blank or content is blank")
             return
         }
         
+        Log.d(TAG, "sendMessage: $content")
         messages.add(ChatMessage("user", content))
         isLoading = true
         error = null
@@ -74,8 +82,10 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val response = callApi()
+                Log.d(TAG, "API response received: ${response.take(100)}...")
                 messages.add(ChatMessage("assistant", response))
             } catch (e: Exception) {
+                Log.e(TAG, "API call failed", e)
                 error = e.message ?: "Unknown error"
             } finally {
                 isLoading = false
@@ -84,6 +94,8 @@ class ChatViewModel : ViewModel() {
     }
     
     private suspend fun callApi(): String = withContext(Dispatchers.IO) {
+        Log.d(TAG, "callApi: using baseUrl=$baseUrl, model=$model")
+        
         val request = ChatRequest(
             model = model,
             messages = messages.toList(),
@@ -91,19 +103,24 @@ class ChatViewModel : ViewModel() {
         )
         
         val requestBody = json.encodeToString(ChatRequest.serializer(), request)
-            .toRequestBody("application/json".toMediaType())
+        Log.d(TAG, "Request body: $requestBody")
         
         val httpRequest = Request.Builder()
             .url("$baseUrl/chat/completions")
             .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
-            .post(requestBody)
+            .post(requestBody.toRequestBody("application/json".toMediaType()))
             .build()
+        
+        Log.d(TAG, "Sending request to: ${httpRequest.url}")
         
         val response = client.newCall(httpRequest).execute()
         val body = response.body?.string() ?: ""
         
+        Log.d(TAG, "Response code: ${response.code}, body length: ${body.length}")
+        
         if (!response.isSuccessful) {
+            Log.e(TAG, "API error: ${response.code} - $body")
             throw Exception("API error: ${response.code} - $body")
         }
         

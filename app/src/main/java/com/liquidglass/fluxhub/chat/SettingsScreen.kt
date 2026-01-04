@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,13 +29,13 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.8f),
+                    containerColor = Color(0xFF1A1A1A),
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
             )
         },
-        containerColor = Color.Black
+        containerColor = Color(0xFF121212)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -43,6 +44,45 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Liquid Glass 开关
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF2A2A2A)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Liquid Glass 风格",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "启用后使用玻璃模糊效果",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    Switch(
+                        checked = viewModel.useLiquidGlass,
+                        onCheckedChange = { viewModel.useLiquidGlass = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFF007AFF)
+                        )
+                    )
+                }
+            }
+            
+            Divider(color = Color.White.copy(alpha = 0.1f))
+            
             Text(
                 text = "API 配置",
                 style = MaterialTheme.typography.titleMedium,
