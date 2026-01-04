@@ -62,6 +62,8 @@ import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
 import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
 import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawRoundRect
 
 private const val TAG = "ChatScreen"
 
@@ -191,7 +193,8 @@ fun ChatScreen(
                 onSend = onSendMessage,
                 backdrop = backdrop,
                 bottomPadding = bottomPadding,
-                scope = scope
+                scope = scope,
+                onInteractionChanged = { isInteractingWithButtons = it }
             )
         }
     }
@@ -208,7 +211,8 @@ private fun LiquidGlassChatContent(
     onSend: () -> Unit,
     backdrop: Backdrop,
     bottomPadding: PaddingValues,
-    scope: kotlinx.coroutines.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope,
+    onInteractionChanged: (Boolean) -> Unit
 ) {
     // 消息操作菜单状态
     var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
@@ -254,7 +258,7 @@ private fun LiquidGlassChatContent(
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,
                     padding = PaddingValues(0.dp),
-                    onPressed = { isInteractingWithButtons = it }
+                    onPressed = onInteractionChanged
                 ) {
                     Icon(
                         imageVector = Lucide.Menu,
@@ -315,7 +319,7 @@ private fun LiquidGlassChatContent(
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,
                     padding = PaddingValues(0.dp),
-                    onPressed = { isInteractingWithButtons = it }
+                    onPressed = onInteractionChanged
                 ) {
                     Icon(
                         imageVector = Lucide.Plus,
