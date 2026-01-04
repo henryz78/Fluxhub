@@ -121,28 +121,54 @@ fun HighlightText(
             .animateContentSize()
     ) {
         // 单层渲染：优先使用高亮版本，超长代码使用纯文本
-        Text(
-            text = if (isVeryLong) displayCode else {
-                if (canCollapse && !isExpanded) {
-                    annotatedString.subSequence(0, displayCode.length.coerceAtMost(annotatedString.length))
-                } else {
-                    annotatedString
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = fontSize,
-                fontFamily = fontFamily,
-                fontStyle = fontStyle,
-                fontWeight = fontWeight,
-                lineHeight = lineHeight,
-                color = Color.White.copy(alpha = 0.9f)
-            ),
-            overflow = overflow,
-            softWrap = softWrap,
-            maxLines = maxLines,
-            minLines = minLines
-        )
+        val textToDisplay: CharSequence = if (isVeryLong) {
+            displayCode
+        } else if (canCollapse && !isExpanded) {
+            val endIndex = displayCode.length.coerceAtMost(annotatedString.length)
+            if (endIndex > 0 && endIndex <= annotatedString.length) {
+                annotatedString.subSequence(0, endIndex)
+            } else {
+                annotatedString
+            }
+        } else {
+            annotatedString
+        }
+        
+        // 根据实际类型调用正确的 Text 重载
+        when (textToDisplay) {
+            is AnnotatedString -> Text(
+                text = textToDisplay,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = fontSize,
+                    fontFamily = fontFamily,
+                    fontStyle = fontStyle,
+                    fontWeight = fontWeight,
+                    lineHeight = lineHeight,
+                    color = Color.White.copy(alpha = 0.9f)
+                ),
+                overflow = overflow,
+                softWrap = softWrap,
+                maxLines = maxLines,
+                minLines = minLines
+            )
+            else -> Text(
+                text = textToDisplay.toString(),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = fontSize,
+                    fontFamily = fontFamily,
+                    fontStyle = fontStyle,
+                    fontWeight = fontWeight,
+                    lineHeight = lineHeight,
+                    color = Color.White.copy(alpha = 0.9f)
+                ),
+                overflow = overflow,
+                softWrap = softWrap,
+                maxLines = maxLines,
+                minLines = minLines
+            )
+        }
 
         if (canCollapse) {
             Box(
