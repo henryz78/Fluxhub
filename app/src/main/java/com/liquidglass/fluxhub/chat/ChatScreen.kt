@@ -1,9 +1,7 @@
 package com.liquidglass.fluxhub.chat
 
-import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.animation.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -22,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
@@ -33,8 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -42,13 +36,14 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
-import com.liquidglass.fluxhub.R
 import com.liquidglass.fluxhub.components.LiquidButton
 
 private const val TAG = "ChatScreen"
 
 @Composable
 fun ChatScreen(
+    backdrop: Backdrop,
+    bottomPadding: PaddingValues,
     onNavigateToSettings: () -> Unit = {},
     viewModel: ChatViewModel = viewModel()
 ) {
@@ -72,14 +67,15 @@ fun ChatScreen(
         }
     }
     
-    // 始终使用 Liquid Glass 风格
     LiquidGlassChatContent(
         viewModel = viewModel,
         inputText = inputText,
         onInputTextChange = { inputText = it },
         listState = listState,
         onNavigateToSettings = onNavigateToSettings,
-        onSend = onSendMessage
+        onSend = onSendMessage,
+        backdrop = backdrop,
+        bottomPadding = bottomPadding
     )
 }
 
@@ -90,155 +86,135 @@ private fun LiquidGlassChatContent(
     onInputTextChange: (String) -> Unit,
     listState: LazyListState,
     onNavigateToSettings: () -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    backdrop: Backdrop,
+    bottomPadding: PaddingValues
 ) {
-    val context = LocalContext.current
-    
-    Log.d(TAG, "Loading Liquid Glass components")
-    
-    val backgroundBitmap = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
-    }
-    
-    val backdrop = rememberLayerBackdrop()
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    // 主内容区域
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(bottomPadding) // 避开底部导航栏
     ) {
-        // 背景图片
-        if (backgroundBitmap != null) {
-            Image(
-                bitmap = backgroundBitmap.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .layerBackdrop(backdrop)
-                    .fillMaxSize()
-            )
-        }
-        
-        // 主内容区域 - 不使用 imePadding，让键盘覆盖而不是推动
-        Column(
+        // Top Bar - 椭圆形胶囊状
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Top Bar - 椭圆形胶囊状
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousCapsule },
+                        effects = {
+                            vibrancy()
+                            blur(4f.dp.toPx())
+                            lens(16f.dp.toPx(), 32f.dp.toPx())
+                        },
+                        highlight = { Highlight.Plain },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(alpha = 0.15f))
+                        }
+                    )
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
+                BasicText(
+                    text = "Fluxhub",
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                
+                // 设置按钮只在点击时触发回调，本身不再显示在 TopBar 中（因为有底部导航了）
+                // 但为了保持兼容性，或者如果用户希望在 Chat 页面也能快速去设置，可以保留。
+                // 暂时保留，因为 Bottom Tab 可能在 Chat 页面不可见（全屏？）不，Bottom Tab 应该是全局的。
+                // 如果有 Bottom Tab "Settings"，那么 Top Bar 的 settings button 可以移除，或者作为快捷方式。
+                // 现保留作为快捷方式。
+                LiquidButton(
+                    onClick = onNavigateToSettings,
+                    backdrop = backdrop,
+                    modifier = Modifier.height(36.dp),
+                    tint = Color(0xFF0088FF)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "设置",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+        
+        // Messages - 占据剩余空间
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(viewModel.messages, key = { it.id }) { message ->
+                LiquidGlassChatBubble(
+                    message = message,
+                    backdrop = backdrop
+                )
+            }
+        }
+        
+        // Error message with animation
+        AnimatedVisibility(
+            visible = viewModel.showError,
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it }
+        ) {
+            viewModel.error?.let { errorMsg ->
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                         .drawBackdrop(
                             backdrop = backdrop,
                             shape = { ContinuousCapsule },
                             effects = {
                                 vibrancy()
                                 blur(4f.dp.toPx())
-                                lens(16f.dp.toPx(), 32f.dp.toPx())
                             },
-                            highlight = { Highlight.Plain },
                             onDrawSurface = {
-                                drawRect(Color.White.copy(alpha = 0.15f))
+                                drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
                             }
                         )
-                        .padding(horizontal = 24.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
                     BasicText(
-                        text = "Fluxhub",
-                        style = TextStyle(
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                    
-                    LiquidButton(
-                        onClick = onNavigateToSettings,
-                        backdrop = backdrop,
-                        modifier = Modifier.height(36.dp),
-                        tint = Color(0xFF0088FF)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "设置",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-            
-            // Messages - 占据剩余空间
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(viewModel.messages, key = { it.id }) { message ->
-                    LiquidGlassChatBubble(
-                        message = message,
-                        backdrop = backdrop
+                        text = errorMsg,
+                        style = TextStyle(Color.White, 14.sp)
                     )
                 }
             }
-            
-            // Error message with animation
-            AnimatedVisibility(
-                visible = viewModel.showError,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                viewModel.error?.let { errorMsg ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { ContinuousCapsule },
-                                effects = {
-                                    vibrancy()
-                                    blur(4f.dp.toPx())
-                                },
-                                onDrawSurface = {
-                                    drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
-                                }
-                            )
-                            .padding(horizontal = 20.dp, vertical = 12.dp)
-                    ) {
-                        BasicText(
-                            text = errorMsg,
-                            style = TextStyle(Color.White, 14.sp)
-                        )
-                    }
-                }
-            }
-            
-            // Input with glass effect - 使用 imePadding 只在输入框
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding()
-                    .navigationBarsPadding()
-            ) {
-                LiquidGlassChatInputBar(
-                    text = inputText,
-                    onTextChange = onInputTextChange,
-                    onSend = onSend,
-                    enabled = !viewModel.isLoading,
-                    backdrop = backdrop
-                )
-            }
+        }
+        
+        // Input with glass effect
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding() // 保持键盘适配
+        ) {
+            LiquidGlassChatInputBar(
+                text = inputText,
+                onTextChange = onInputTextChange,
+                onSend = onSend,
+                enabled = !viewModel.isLoading,
+                backdrop = backdrop
+            )
         }
     }
 }
@@ -309,7 +285,6 @@ private fun LiquidGlassChatBubble(
                         modifier = Modifier.weight(1f, fill = false)
                     )
                     
-                    // 流式输出时显示光标
                     if (message.isStreaming && message.content.isNotEmpty()) {
                         BasicText(
                             text = "▌",
