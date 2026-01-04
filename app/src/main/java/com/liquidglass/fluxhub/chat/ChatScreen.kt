@@ -731,10 +731,11 @@ private fun ConversationDrawerContent(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.width(12.dp))
-                                    Text(
+                                    BasicText(
                                         text = conversation.title,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)
+                                        ),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
