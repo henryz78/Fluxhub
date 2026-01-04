@@ -131,15 +131,13 @@ fun ChatScreen(
     }
 
     // AI 正在说话或思考时的全时吸附滚动
+    // 使用安全的轮询模式，避免 snapshotFlow + scrollToItem 死循环
     LaunchedEffect(isStreaming, viewModel.isLoading) {
-        if (isStreaming || viewModel.isLoading) {
-            snapshotFlow { listState.layoutInfo.visibleItemsInfo }
-                .collect { visibleItems ->
-                    if (listState.isAtBottom()) {
-                        // 使用无动画跳转保证性能感和物理吸附感
-                        listState.scrollToItem(viewModel.messages.size - 1)
-                    }
-                }
+        while (isStreaming || viewModel.isLoading) {
+            if (viewModel.messages.isNotEmpty() && listState.isAtBottom()) {
+                listState.scrollToItem(viewModel.messages.size - 1)
+            }
+            kotlinx.coroutines.delay(100) // 100ms 轮询间隔，平衡性能与响应速度
         }
     }
     
