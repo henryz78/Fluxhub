@@ -61,16 +61,14 @@ fun MainScreen(
                 bitmap = backgroundBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .layerBackdrop(backdrop)
+                    .fillMaxSize()
             )
         }
         
-        // 内容区域（应用 layerBackdrop，使其成为背景模糊的源）
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .layerBackdrop(backdrop)
-        ) {
+        // 内容区域
+        Box(modifier = Modifier.fillMaxSize()) {
             // 根据键盘状态动态调整底部 padding
             val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
             
