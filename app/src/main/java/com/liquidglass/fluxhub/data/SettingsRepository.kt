@@ -29,7 +29,7 @@ class SettingsRepository(private val context: Context) {
     }
     
     val model: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[MODEL] ?: "gpt-4o-mini"
+        preferences[MODEL] ?: ""
     }
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->

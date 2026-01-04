@@ -102,7 +102,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 配置（从 DataStore 加载）
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
-    var model by mutableStateOf("gpt-4o-mini")
+    var model by mutableStateOf("") // 默认为空，用户需要选择
     
     // 当前会话
     var currentConversationId by mutableStateOf<String?>(null)
@@ -357,17 +357,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val reader = body.source().buffer()
         
         var fullContent = ""
+        var lineCount = 0
+        var dataLineCount = 0
         
         while (!reader.exhausted()) {
             val line = reader.readUtf8Line() ?: break
+            lineCount++
             
             if (line.isBlank()) continue
             
-            if (line.startsWith("data:")) {
-                val data = line.removePrefix("data:").trim()
+            // Log first few lines for debugging
+            if (lineCount <= 5) {
+                Log.d(TAG, "SSE line $lineCount: ${line.take(100)}")
+            }
+            
+            // Handle both "data:" and "data: " formats
+            val dataPrefix = when {
+                line.startsWith("data: ") -> "data: "
+                line.startsWith("data:") -> "data:"
+                else -> null
+            }
+            
+            if (dataPrefix != null) {
+                dataLineCount++
+                val data = line.removePrefix(dataPrefix).trim()
                 
                 if (data == "[DONE]") {
-                    Log.d(TAG, "Stream completed")
+                    Log.d(TAG, "Stream completed after $dataLineCount data lines")
                     break
                 }
                 
@@ -386,31 +402,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse chunk: $data", e)
+                    Log.w(TAG, "Failed to parse chunk: ${data.take(100)}", e)
                 }
             } else {
-                // If we receive non-data lines (e.g. valid JSON error), try to parse them
-                if (fullContent.isEmpty()) {
-                     try {
-                        // Check if it's a direct error JSON
-                        // Or just accumulate raw text for debug if it's short
-                        if (line.length < 200) {
-                             Log.d(TAG, "Non-data line: $line")
-                        }
-                     } catch (e: Exception) {}
-                }
+                // Log non-data lines for debugging
+                Log.d(TAG, "Non-data line: ${line.take(100)}")
             }
         }
         
         response.close()
-        Log.d(TAG, "Final content length: ${fullContent.length}")
+        Log.d(TAG, "Final: $lineCount total lines, $dataLineCount data lines, ${fullContent.length} chars")
         
         if (fullContent.isEmpty()) {
             withContext(Dispatchers.Main) {
                 val index = messages.indexOfFirst { it.id == aiMessageId }
                 if (index >= 0) {
-                     // Display debug info to user
-                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回。请检查 API Key 和网络。\n(Debug: 200 OK, but no delta content)")
+                    // Display debug info to user
+                    messages[index] = messages[index].copy(content = "⚠️ 无内容返回 ($lineCount lines, $dataLineCount data)")
                 }
             }
         } else {
