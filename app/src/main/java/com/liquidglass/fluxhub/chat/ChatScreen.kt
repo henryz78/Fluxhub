@@ -1,12 +1,11 @@
 package com.liquidglass.fluxhub.chat
 
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,24 +16,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.capsule.ContinuousRoundedRectangle
-import com.liquidglass.fluxhub.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onNavigateToSettings: () -> Unit = {},
@@ -42,13 +33,6 @@ fun ChatScreen(
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val context = LocalContext.current
-    
-    val backgroundBitmap = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
-    }
-    
-    val backdrop = rememberLayerBackdrop()
     
     // 自动滚动到底部
     LaunchedEffect(viewModel.messages.size) {
@@ -57,64 +41,29 @@ fun ChatScreen(
         }
     }
     
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .layerBackdrop(backdrop)
-    ) {
-        // 背景图片
-        if (backgroundBitmap != null) {
-            Image(
-                bitmap = backgroundBitmap.asImageBitmap(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Fluxhub") },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Filled.Settings, "设置")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF1A1A1A),
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
             )
-        }
-        
+        },
+        containerColor = Color(0xFF121212)
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
+                .padding(padding)
         ) {
-            // Top Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(0.dp, 0.dp, 16.dp, 16.dp) },
-                        effects = {
-                            vibrancy()
-                            blur(16f.dp.toPx())
-                        },
-                        onDrawSurface = {
-                            drawRect(Color.Black.copy(alpha = 0.3f))
-                        }
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Fluxhub",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "设置",
-                            tint = Color.White
-                        )
-                    }
-                }
-            }
-            
             // Messages
             LazyColumn(
                 state = listState,
@@ -124,10 +73,7 @@ fun ChatScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 items(viewModel.messages) { message ->
-                    ChatBubble(
-                        message = message,
-                        backdrop = backdrop
-                    )
+                    ChatBubble(message = message)
                 }
                 
                 if (viewModel.isLoading) {
@@ -139,7 +85,7 @@ fun ChatScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
-                                color = Color.White,
+                                color = Color(0xFF007AFF),
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -171,24 +117,19 @@ fun ChatScreen(
                         inputText = ""
                     }
                 },
-                enabled = !viewModel.isLoading,
-                backdrop = backdrop
+                enabled = !viewModel.isLoading
             )
         }
     }
 }
 
 @Composable
-private fun ChatBubble(
-    message: ChatMessage,
-    backdrop: com.kyant.backdrop.Backdrop
-) {
+private fun ChatBubble(message: ChatMessage) {
     val isUser = message.role == "user"
-    val bubbleShape = ContinuousRoundedRectangle(16.dp)
     val backgroundColor = if (isUser) {
-        Color(0xFF007AFF).copy(alpha = 0.3f)
+        Color(0xFF007AFF)
     } else {
-        Color.White.copy(alpha = 0.15f)
+        Color(0xFF2A2A2A)
     }
     
     Row(
@@ -200,22 +141,14 @@ private fun ChatBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { bubbleShape },
-                    effects = {
-                        vibrancy()
-                        blur(12f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        drawRect(backgroundColor)
-                    }
-                )
+                .clip(RoundedCornerShape(16.dp))
+                .background(backgroundColor)
                 .padding(12.dp)
         ) {
-            BasicText(
+            Text(
                 text = message.content,
-                style = TextStyle(color = Color.White, fontSize = 16.sp)
+                color = Color.White,
+                fontSize = 16.sp
             )
         }
     }
@@ -226,16 +159,12 @@ private fun ChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
-    enabled: Boolean,
-    backdrop: com.kyant.backdrop.Backdrop
+    enabled: Boolean
 ) {
-    val inputShape = ContinuousRoundedRectangle(24.dp)
-    val containerColor = Color.White.copy(alpha = 0.15f)
-    val accentColor = Color(0xFF007AFF)
-    
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(Color(0xFF1A1A1A))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -244,17 +173,8 @@ private fun ChatInputBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { inputShape },
-                    effects = {
-                        vibrancy()
-                        blur(12f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        drawRect(containerColor)
-                    }
-                )
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF2A2A2A))
                 .heightIn(min = 48.dp, max = 120.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
@@ -266,18 +186,16 @@ private fun ChatInputBar(
                     color = Color.White,
                     fontSize = 16.sp
                 ),
-                cursorBrush = SolidColor(accentColor),
+                cursorBrush = SolidColor(Color(0xFF007AFF)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
                 decorationBox = { innerTextField ->
                     Box {
                         if (text.isEmpty()) {
-                            BasicText(
+                            Text(
                                 text = "输入消息...",
-                                style = TextStyle(
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 16.sp
-                                )
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 16.sp
                             )
                         }
                         innerTextField()
@@ -293,17 +211,9 @@ private fun ChatInputBar(
             enabled = enabled && text.isNotBlank(),
             modifier = Modifier
                 .size(48.dp)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { ContinuousRoundedRectangle(24.dp) },
-                    effects = {
-                        vibrancy()
-                        blur(8f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        val color = if (text.isNotBlank()) accentColor.copy(alpha = 0.8f) else containerColor
-                        drawRect(color)
-                    }
+                .clip(RoundedCornerShape(24.dp))
+                .background(
+                    if (text.isNotBlank()) Color(0xFF007AFF) else Color(0xFF2A2A2A)
                 )
         ) {
             Icon(
