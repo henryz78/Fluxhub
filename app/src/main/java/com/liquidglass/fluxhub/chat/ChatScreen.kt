@@ -54,6 +54,7 @@ import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
@@ -118,8 +119,6 @@ fun ChatScreen(
     var isInteractingWithButtons by remember { mutableStateOf(false) }
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
-    // 模型选择器状态
-    var showModelSelector by remember { mutableStateOf(false) }
     // 获取流式消息的状态（用于检测流式更新）
     val isStreaming = viewModel.messages.any { it.isStreaming }
 
@@ -224,6 +223,8 @@ private fun LiquidGlassChatContent(
     // 消息操作菜单状态
     var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
     val clipboardManager = LocalClipboard.current
+    // 模型选择器状态
+    var showModelSelector by remember { mutableStateOf(false) }
 
     // 主内容区域
     Column(

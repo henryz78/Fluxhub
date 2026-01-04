@@ -267,7 +267,7 @@ fun HomeScreen(
                                         }
                                     )
                                     .clickable { 
-                                        viewModel.loadConversation(conversation.id)
+                                        viewModel.switchConversation(conversation.id)
                                         onNavigateToChat()
                                     }
                                     .padding(16.dp)
