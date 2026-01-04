@@ -294,6 +294,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         callStreamingApiWithEventSource(aiMessageId, conversationId)
     }
     
+    fun stopStreaming() {
+        currentEventSource?.cancel()
+        isLoading = false
+        
+        // 标记最后一条消息为非流式
+        val lastMessage = messages.lastOrNull()
+        if (lastMessage?.isStreaming == true) {
+            val index = messages.indexOfLast { it.isStreaming }
+            if (index >= 0) {
+                messages[index] = messages[index].copy(isStreaming = false)
+            }
+        }
+    }
+    
     private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
         Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model")
         
@@ -327,7 +341,34 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 if (data == "[DONE]") {
-                    Log.d(TAG, "SSE stream completed")
+                    Log.d(TAG, "SSE stream completed with [DONE], content length: ${fullContent.length}")
+                    
+                    // 收到 [DONE] 时主动完成处理
+                    viewModelScope.launch {
+                        isLoading = false
+                        
+                        val index = messages.indexOfFirst { it.id == aiMessageId }
+                        if (index >= 0) {
+                            messages[index] = messages[index].copy(isStreaming = false)
+                        }
+                        
+                        // 保存到数据库
+                        if (fullContent.isNotEmpty()) {
+                            messageDao.insertMessage(MessageEntity(
+                                id = aiMessageId,
+                                conversationId = conversationId,
+                                role = "assistant",
+                                content = fullContent
+                            ))
+                        } else {
+                            if (index >= 0) {
+                                messages[index] = messages[index].copy(content = "⚠️ 无内容返回")
+                            }
+                        }
+                    }
+                    
+                    // 取消连接
+                    eventSource.cancel()
                     return
                 }
                 

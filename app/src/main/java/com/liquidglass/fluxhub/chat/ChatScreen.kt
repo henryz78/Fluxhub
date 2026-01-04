@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
@@ -225,7 +226,8 @@ private fun LiquidGlassChatContent(
                 text = inputText,
                 onTextChange = onInputTextChange,
                 onSend = onSend,
-                enabled = !viewModel.isLoading,
+                onStop = { viewModel.stopStreaming() },
+                isLoading = viewModel.isLoading,
                 backdrop = backdrop
             )
         }
@@ -328,7 +330,8 @@ private fun LiquidGlassChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
-    enabled: Boolean,
+    onStop: () -> Unit,
+    isLoading: Boolean,
     backdrop: Backdrop
 ) {
     Row(
@@ -361,7 +364,7 @@ private fun LiquidGlassChatInputBar(
             BasicTextField(
                 value = text,
                 onValueChange = onTextChange,
-                enabled = enabled,
+                enabled = !isLoading,
                 textStyle = TextStyle(
                     color = Color.White,
                     fontSize = 16.sp
@@ -387,17 +390,17 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Send button
+        // Send/Stop button
         LiquidButton(
-            onClick = onSend,
+            onClick = if (isLoading) onStop else onSend,
             backdrop = backdrop,
             modifier = Modifier.size(56.dp),
-            isInteractive = enabled && text.isNotBlank(),
-            tint = if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
+            isInteractive = isLoading || text.isNotBlank(),
+            tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.Send,
-                contentDescription = "发送",
+                imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
+                contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
                 modifier = Modifier.size(22.dp)
             )
