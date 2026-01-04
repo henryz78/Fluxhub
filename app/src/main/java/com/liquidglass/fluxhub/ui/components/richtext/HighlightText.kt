@@ -120,48 +120,29 @@ fun HighlightText(
             .padding(10.dp)
             .animateContentSize()
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // 基础文本层（兜底显示，长代码直接用这个）
-            Text(
-                text = displayCode,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = fontSize,
-                    fontFamily = fontFamily,
-                    fontStyle = fontStyle,
-                    fontWeight = fontWeight,
-                    lineHeight = lineHeight,
-                    color = Color.White.copy(alpha = 0.9f)
-                ),
-                overflow = overflow,
-                softWrap = softWrap,
-                maxLines = maxLines,
-                minLines = minLines
-            )
-            
-            // 高亮层（仅在非超长代码下渲染）
-            if (!isVeryLong) {
-                Text(
-                    text = if (canCollapse && !isExpanded) {
-                        annotatedString.subSequence(0, displayCode.length.coerceAtMost(annotatedString.length))
-                    } else {
-                        annotatedString
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = fontSize,
-                        fontFamily = fontFamily,
-                        fontStyle = fontStyle,
-                        fontWeight = fontWeight,
-                        lineHeight = lineHeight
-                    ),
-                    overflow = overflow,
-                    softWrap = softWrap,
-                    maxLines = maxLines,
-                    minLines = minLines
-                )
-            }
-        }
+        // 单层渲染：优先使用高亮版本，超长代码使用纯文本
+        Text(
+            text = if (isVeryLong) displayCode else {
+                if (canCollapse && !isExpanded) {
+                    annotatedString.subSequence(0, displayCode.length.coerceAtMost(annotatedString.length))
+                } else {
+                    annotatedString
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = fontSize,
+                fontFamily = fontFamily,
+                fontStyle = fontStyle,
+                fontWeight = fontWeight,
+                lineHeight = lineHeight,
+                color = Color.White.copy(alpha = 0.9f)
+            ),
+            overflow = overflow,
+            softWrap = softWrap,
+            maxLines = maxLines,
+            minLines = minLines
+        )
 
         if (canCollapse) {
             Box(

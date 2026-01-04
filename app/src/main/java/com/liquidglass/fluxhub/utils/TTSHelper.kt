@@ -16,18 +16,24 @@ class TTSHelper(context: Context) : TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts?.setLanguage(Locale.CHINESE)
+            // 优先尝试中文，失败则使用设备默认语言
+            var result = tts?.setLanguage(Locale.CHINESE)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.e(TAG, "Language not supported")
+                Log.w(TAG, "Chinese not supported, falling back to default locale")
+                result = tts?.setLanguage(Locale.getDefault())
+            }
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.e(TAG, "Default language also not supported")
             } else {
                 isInitialized = true
+                Log.d(TAG, "TTS initialized successfully")
                 pendingText?.let {
                     speak(it)
                     pendingText = null
                 }
             }
         } else {
-            Log.e(TAG, "Initialization failed")
+            Log.e(TAG, "TTS initialization failed with status: $status")
         }
     }
 
