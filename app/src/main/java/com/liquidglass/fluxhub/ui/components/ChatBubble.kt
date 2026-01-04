@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.mikepenz.markdown.m3.Markdown
@@ -49,7 +48,6 @@ fun ChatBubble(
                     effects = {
                         vibrancy()
                         blur(12f.dp.toPx())
-                        lens(8f.dp.toPx(), 16f.dp.toPx())
                     },
                     onDrawSurface = {
                         drawRect(backgroundColor)

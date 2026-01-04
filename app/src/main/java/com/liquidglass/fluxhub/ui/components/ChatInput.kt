@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
@@ -55,7 +54,6 @@ fun ChatInput(
                     effects = {
                         vibrancy()
                         blur(12f.dp.toPx())
-                        lens(8f.dp.toPx(), 16f.dp.toPx())
                     },
                     onDrawSurface = {
                         drawRect(containerColor)
@@ -115,7 +113,6 @@ fun ChatInput(
                     effects = {
                         vibrancy()
                         blur(8f.dp.toPx())
-                        lens(6f.dp.toPx(), 12f.dp.toPx())
                     },
                     onDrawSurface = {
                         val color = if (text.isNotBlank()) accentColor.copy(alpha = 0.8f) else containerColor
