@@ -139,8 +139,8 @@ fun ChatScreen(
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
             if (!listState.isScrollInProgress && loadingState) {
-                if (listState.isAtBottom()) {
-                    // 滚动到 lastIndex + 10 确保到达真正的底部
+                if (listState.isAtBottom() && messagesUpdated.isNotEmpty()) {
+                    // 滚动到 lastIndex + 10 确保到达底部占位符 (参考 RikkaHub)
                     listState.requestScrollToItem(messagesUpdated.lastIndex + 10)
                 }
             }
@@ -150,6 +150,7 @@ fun ChatScreen(
     // 新消息时滚动到底部
     LaunchedEffect(viewModel.messages.size) {
         if (viewModel.messages.isNotEmpty()) {
+            kotlinx.coroutines.delay(50) // 等待布局完成
             listState.requestScrollToItem(viewModel.messages.lastIndex + 10)
         }
     }
@@ -356,6 +357,15 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     viewModel = viewModel,
                     onLongClick = { selectedMessageForMenu = message }
+                )
+            }
+            
+            // 底部占位符：确保可以正确滚动到最底部 (参考 RikkaHub)
+            item("scroll_bottom_spacer") {
+                Spacer(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
                 )
             }
         }

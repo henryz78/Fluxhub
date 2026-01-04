@@ -36,8 +36,10 @@ fun ThinkingComponent(
     startTime: Long = remember { System.currentTimeMillis() },
     modifier: Modifier = Modifier
 ) {
-    // 折叠状态
-    var expanded by remember { mutableStateOf(true) }
+    // 折叠状态：如果 shouldCollapse 且不在思考中，初始化为折叠
+    var expanded by remember(shouldCollapse, isThinking) { 
+        mutableStateOf(!shouldCollapse || isThinking) 
+    }
     
     // 思考计时器
     var duration by remember { mutableStateOf(0L) }
