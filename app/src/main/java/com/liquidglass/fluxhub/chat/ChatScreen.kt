@@ -118,7 +118,8 @@ fun ChatScreen(
     var isInteractingWithButtons by remember { mutableStateOf(false) }
     // 检测键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
-    
+    // 模型选择器状态
+    var showModelSelector by remember { mutableStateOf(false) }
     // 获取流式消息的状态（用于检测流式更新）
     val isStreaming = viewModel.messages.any { it.isStreaming }
 
@@ -288,32 +289,46 @@ private fun LiquidGlassChatContent(
                         maxLines = 1
                     )
                     if (viewModel.model.isNotBlank()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val aiIcon = remember(viewModel.model) {
-                                val name = viewModel.model.lowercase()
-                                when {
-                                    name.contains("gpt") || name.contains("openai") -> Lucide.Zap
-                                    name.contains("claude") -> Lucide.Sparkles
-                                    name.contains("gemini") -> Lucide.Star
-                                    name.contains("deepseek") -> Lucide.Compass
-                                    else -> Lucide.Bot
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showModelSelector = true }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val aiIcon = remember(viewModel.model) {
+                                    val name = viewModel.model.lowercase()
+                                    when {
+                                        name.contains("gpt") || name.contains("openai") -> Lucide.Zap
+                                        name.contains("claude") -> Lucide.Sparkles
+                                        name.contains("gemini") -> Lucide.Star
+                                        name.contains("deepseek") -> Lucide.Compass
+                                        else -> Lucide.Bot
+                                    }
                                 }
+                                Icon(
+                                    imageVector = aiIcon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White.copy(alpha = 0.8f)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                BasicText(
+                                    text = viewModel.model,
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 10.sp
+                                    ),
+                                    maxLines = 1
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Lucide.ChevronDown,
+                                    contentDescription = "切换模型",
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White.copy(alpha = 0.6f)
+                                )
                             }
-                            Icon(
-                                imageVector = aiIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(10.dp),
-                                tint = Color.White.copy(alpha = 0.6f)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            BasicText(
-                                text = viewModel.model,
-                                style = TextStyle(
-                                    color = Color.White.copy(alpha = 0.6f),
-                                    fontSize = 10.sp
-                                ),
-                                maxLines = 1
-                            )
                         }
                     }
                 }
@@ -392,6 +407,84 @@ private fun LiquidGlassChatContent(
                     selectedMessageForMenu = null
                 }
             )
+        }
+
+        // 模型选择器底部弹窗
+        if (showModelSelector) {
+            ModalBottomSheet(
+                onDismissRequest = { showModelSelector = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    // 标题行
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "选择模型",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        IconButton(onClick = { viewModel.fetchModels() }) {
+                            Icon(Lucide.RefreshCw, contentDescription = "刷新")
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    // 模型列表
+                    if (viewModel.availableModels.isEmpty()) {
+                        Text(
+                            text = "正在加载模型列表...",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        viewModel.availableModels.forEach { modelName ->
+                            val isSelected = modelName == viewModel.model
+                            Card(
+                                onClick = {
+                                    viewModel.saveModel(modelName)
+                                    showModelSelector = false
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) 
+                                        MaterialTheme.colorScheme.primaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = modelName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Lucide.Check,
+                                            contentDescription = "已选择",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
         }
 
         

@@ -91,7 +91,8 @@ fun MainScreen(
                 0 -> HomeScreen(
                     backdrop = backdrop,
                     bottomPadding = PaddingValues(bottom = bottomPadding),
-                    onNavigateToChat = { selectedTab = 1 }
+                    onNavigateToChat = { selectedTab = 1 },
+                    viewModel = viewModel
                 )
                 1 -> ChatScreen(
                     backdrop = backdrop,
