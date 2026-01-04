@@ -65,6 +65,16 @@ data class UiMessage(
     val isStreaming: Boolean = false
 )
 
+@Serializable
+data class ModelsResponse(
+    val data: List<Model>
+)
+
+@Serializable
+data class Model(
+    val id: String
+)
+
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val json = Json { ignoreUnknownKeys = true }
@@ -80,6 +90,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepository = SettingsRepository(application)
     
     val messages = mutableStateListOf<UiMessage>()
+    val availableModels = mutableStateListOf<String>()
+    
     var isLoading by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
@@ -103,16 +115,65 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private fun loadSettings() {
         viewModelScope.launch {
-            settingsRepository.apiKey.collect { apiKey = it }
+            settingsRepository.apiKey.collect { 
+                apiKey = it 
+                if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+            }
         }
         viewModelScope.launch {
-            settingsRepository.baseUrl.collect { baseUrl = it }
+            settingsRepository.baseUrl.collect { 
+                baseUrl = it
+                if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+            }
         }
         viewModelScope.launch {
             settingsRepository.model.collect { model = it }
         }
     }
     
+    fun fetchModels() {
+        if (apiKey.isBlank() || baseUrl.isBlank()) return
+        
+        viewModelScope.launch {
+            try {
+                // Ensure base URL doesn't end with slash to append path correctly if needed, 
+                // but usually user provides "https://api.openai.com/v1".
+                // We'll try to hit "$baseUrl/models"
+                val url = "$baseUrl/models"
+                Log.d(TAG, "Fetching models from: $url")
+                
+                val request = Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer $apiKey")
+                    .get()
+                    .build()
+                
+                withContext(Dispatchers.IO) {
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: "{}"
+                        try {
+                            val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
+                            val modelIds = modelsResponse.data.map { it.id }.sorted()
+                            withContext(Dispatchers.Main) {
+                                availableModels.clear()
+                                availableModels.addAll(modelIds)
+                                Log.d(TAG, "Fetched ${modelIds.size} models")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to parse models", e)
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to fetch models: ${response.code}")
+                    }
+                    response.close()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching models", e)
+            }
+        }
+    }
+
     private fun loadOrCreateConversation() {
         viewModelScope.launch {
             val savedId = settingsRepository.currentConversationId.first()

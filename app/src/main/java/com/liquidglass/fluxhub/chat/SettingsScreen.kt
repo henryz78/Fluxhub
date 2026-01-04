@@ -12,6 +12,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
 import com.kyant.backdrop.Backdrop
 import com.liquidglass.fluxhub.components.LiquidButton
 
@@ -120,20 +123,64 @@ fun SettingsScreen(
                 )
             )
             
-            OutlinedTextField(
-                value = modelInput,
-                onValueChange = { modelInput = it },
-                label = { Text("Model") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedTextColor = Color.White,
-                    focusedTextColor = Color.White,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                    focusedBorderColor = Color(0xFF007AFF),
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                    focusedLabelColor = Color(0xFF007AFF)
+            // Model Selection with Dropdown
+            var expanded by remember { mutableStateOf(false) }
+            
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = modelInput,
+                    onValueChange = { modelInput = it },
+                    label = { Text("Model") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(), // Properly anchor the menu
+                    trailingIcon = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                           // Refresh Button
+                           IconButton(onClick = { viewModel.fetchModels() }) {
+                               Icon(Icons.Default.Refresh, contentDescription = "刷新模型列表", tint = Color.White.copy(0.7f))
+                           }
+                           ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedTextColor = Color.White,
+                        focusedTextColor = Color.White,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedLabelColor = Color(0xFF007AFF)
+                    )
                 )
-            )
+                
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color(0xFF2C2C2C))
+                ) {
+                    viewModel.availableModels.forEach { model ->
+                        DropdownMenuItem(
+                            text = { Text(model, color = Color.White) },
+                            onClick = {
+                                modelInput = model
+                                expanded = false
+                            },
+                             contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
+                    if (viewModel.availableModels.isEmpty()) {
+                         DropdownMenuItem(
+                            text = { Text("正在加载或无模型...", color = Color.Gray) },
+                            onClick = { },
+                            enabled = false
+                        )
+                    }
+                }
+            }
             
             Spacer(modifier = Modifier.weight(1f))
             

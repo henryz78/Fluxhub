@@ -61,19 +61,17 @@ fun MainScreen(
                 bitmap = backgroundBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .layerBackdrop(backdrop)
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
             )
         }
         
-        // 内容区域
-        Box(modifier = Modifier.fillMaxSize()) {
+        // 内容区域（应用 layerBackdrop，使其成为背景模糊的源）
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(backdrop)
+        ) {
             // 根据键盘状态动态调整底部 padding
-            // 当键盘弹起时，底部导航栏隐藏，不需要预留 80dp
-            // 但如果 windowSoftInput=adjustResize，content 本身会被顶上去，不需要额外 padding？
-            // 不，输入框在 ChatScreen 内部处理了。这里主要是为了防止 BottomTabs 遮挡内容。
-            // 当 BottomTabs 隐藏时，padding 应该为 0（或者 system bars padding）
             val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
             
             when (selectedTab) {
@@ -86,7 +84,7 @@ fun MainScreen(
                 1 -> SettingsScreen(
                     onBack = { selectedTab = 0 },
                     viewModel = viewModel,
-                    backdrop = backdrop,
+                    backdrop = backdrop, // 传递 backdrop
                     isTab = true,
                     bottomPadding = PaddingValues(bottom = bottomPadding)
                 )
@@ -104,8 +102,8 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .navigationBarsPadding()
-                    .padding(bottom = 24.dp, start = 48.dp, end = 48.dp) // 增加 horizontal padding 缩短长度，提高 bottom padding
-                    .widthIn(max = 400.dp) // 限制最大宽度
+                    .padding(bottom = 24.dp, start = 64.dp, end = 64.dp) // 增加 horizontal padding (48->64)
+                    .widthIn(max = 280.dp) // 限制最大宽度 (400->280)
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
