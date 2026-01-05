@@ -196,7 +196,8 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             viewModel.sendMessage(inputText)
             inputText = ""
-            keyboardController?.hide()
+            // 不手动隐藏键盘，让用户决定是否继续输入
+            // 这也避免了与 WindowInsets 动画的冲突
         }
     }
     

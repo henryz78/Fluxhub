@@ -101,7 +101,7 @@ fun MainScreen(
             val density = LocalDensity.current
             val imeHeight = WindowInsets.ime.getBottom(density)
             val imeHeightDp = with(density) { imeHeight.toDp() }
-            val bottomPadding = (80.dp - imeHeightDp).coerceAtLeast(0.dp)
+            val bottomPadding = (100.dp - imeHeightDp).coerceAtLeast(0.dp) // 增加到100dp避免重叠
             
             // 恢复使用 AnimatedContent 动画
             AnimatedContent(
