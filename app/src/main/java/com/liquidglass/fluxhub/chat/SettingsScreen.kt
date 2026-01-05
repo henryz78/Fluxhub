@@ -163,8 +163,8 @@ private fun SettingsCategoryCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy() },
-                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                effects = { vibrancy(); blur(16.dp.toPx()) },
+                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.3f)) }
             )
             .clickable { onClick() }
             .padding(16.dp)

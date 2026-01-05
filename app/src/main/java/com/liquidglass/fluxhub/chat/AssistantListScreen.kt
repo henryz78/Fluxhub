@@ -195,8 +195,8 @@ private fun AssistantCard(
                 effects = { vibrancy() },
                 onDrawSurface = {
                     drawRect(
-                        if (isSelected) Color(0xFF007AFF).copy(alpha = 0.2f)
-                        else Color.White.copy(alpha = 0.1f)
+                        if (isSelected) Color(0xFF007AFF).copy(alpha = 0.3f)
+                        else Color.White.copy(alpha = 0.3f)
                     )
                 }
             )
@@ -302,7 +302,15 @@ private fun AssistantEditDialog(
                     onValueChange = { name = it },
                     label = { Text("名称") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
                 )
                 
                 OutlinedTextField(
@@ -310,7 +318,15 @@ private fun AssistantEditDialog(
                     onValueChange = { avatar = it },
                     label = { Text("头像 (Emoji)") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
                 )
                 
                 OutlinedTextField(
@@ -318,7 +334,15 @@ private fun AssistantEditDialog(
                     onValueChange = { systemPrompt = it },
                     label = { Text("系统提示词") },
                     modifier = Modifier.fillMaxWidth().height(120.dp),
-                    maxLines = 5
+                    maxLines = 5,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        focusedBorderColor = Color(0xFF007AFF),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
                 )
                 
                 // Temperature

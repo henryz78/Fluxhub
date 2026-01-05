@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -563,89 +564,17 @@ private fun LiquidGlassChatContent(
                         
                         Spacer(Modifier.height(16.dp))
                         
-                        // 参数调节区域 (Liquid Glass Style)
+                        Spacer(Modifier.height(16.dp))
+                        
+                        // 提示：可以在助手设置中调整参数
                         Text(
-                            "请求参数",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            "提示：可以在助手设置中调整温度等参数。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.5f)
                         )
                         
-                        // Temperature 滑块
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { ContinuousRoundedRectangle(12.dp) },
-                                    effects = { vibrancy() },
-                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.08f)) }
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Temperature", color = Color.White)
-                                    Text(
-                                        String.format("%.1f", viewModel.temperature),
-                                        color = Color.White.copy(alpha = 0.8f)
-                                    )
-                                }
-                                Slider(
-                                    value = viewModel.temperature,
-                                    onValueChange = { viewModel.temperature = it },
-                                    valueRange = 0f..2f,
-                                    steps = 19,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = Color.White,
-                                        activeTrackColor = Color.White.copy(alpha = 0.6f),
-                                        inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-                                    )
-                                )
-                            }
-                        }
-                        
-                        Spacer(Modifier.height(8.dp))
-                        
-                        // Top P 滑块
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { ContinuousRoundedRectangle(12.dp) },
-                                    effects = { vibrancy() },
-                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.08f)) }
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("Top P", color = Color.White)
-                                    Text(
-                                        String.format("%.2f", viewModel.topP),
-                                        color = Color.White.copy(alpha = 0.8f)
-                                    )
-                                }
-                                Slider(
-                                    value = viewModel.topP,
-                                    onValueChange = { viewModel.topP = it },
-                                    valueRange = 0f..1f,
-                                    steps = 9,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = Color.White,
-                                        activeTrackColor = Color.White.copy(alpha = 0.6f),
-                                        inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-                                    )
-                                )
-                            }
-                        }
+                        Spacer(Modifier.height(16.dp))
+
                         
                         Spacer(Modifier.height(16.dp))
                         
@@ -762,7 +691,10 @@ private fun LiquidGlassChatContent(
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
                         photoPicker.launch("*/*")
-                    }
+                    },
+                    assistants = viewModel.assistants,
+                    currentAssistant = viewModel.currentAssistant,
+                    onSwitchAssistant = { viewModel.switchAssistant(it) }
                 )
             }
         }
@@ -983,8 +915,54 @@ private fun LiquidGlassChatInputBar(
     isLoading: Boolean,
     backdrop: Backdrop,
     onInteractionChanged: (Boolean) -> Unit = {},
-    onPickImage: () -> Unit = {}
+    onPickImage: () -> Unit = {},
+    assistants: List<com.liquidglass.fluxhub.data.AssistantEntity> = emptyList(),
+    currentAssistant: com.liquidglass.fluxhub.data.AssistantEntity? = null,
+    onSwitchAssistant: (com.liquidglass.fluxhub.data.AssistantEntity) -> Unit = {}
 ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 助手切换器
+        if (assistants.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(bottom = 0.dp)
+            ) {
+                items(assistants) { assistant ->
+                    val isSelected = assistant.id == currentAssistant?.id
+                    Box(
+                        modifier = Modifier
+                            .clip(ContinuousRoundedRectangle(16.dp))
+                            .clickable { onSwitchAssistant(assistant) }
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousRoundedRectangle(16.dp) },
+                                effects = {
+                                    vibrancy()
+                                    if (isSelected) blur(10.dp.toPx())
+                                },
+                                onDrawSurface = {
+                                    drawRect(
+                                        if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f)
+                                        else Color.White.copy(alpha = 0.15f)
+                                    )
+                                }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "${assistant.avatar} ${assistant.name}",
+                            style = TextStyle(
+                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                            )
+                        )
+                    }
+                }
+            }
+        }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1077,6 +1055,7 @@ private fun LiquidGlassChatInputBar(
                 modifier = Modifier.size(22.dp)
             )
         }
+    }
     }
 }
 

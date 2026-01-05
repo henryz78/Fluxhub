@@ -18,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -340,7 +342,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val conversation = ConversationEntity(
                 id = newId,
-                title = title
+                title = title,
+                assistantId = currentAssistant?.id
             )
             conversationDao.insertConversation(conversation)
             
@@ -446,9 +449,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun startConversationsCollection() {
         conversationsJob?.cancel()
         conversationsJob = viewModelScope.launch {
-            conversationDao.getAllConversations().collect { list ->
+            combine(
+                snapshotFlow { currentAssistant },
+                conversationDao.getAllConversations()
+            ) { assistant, allConversations ->
+                if (assistant == null) {
+                    allConversations
+                } else {
+                    allConversations.filter { it.assistantId == assistant.id || it.assistantId == null }
+                }
+            }.collect { filteredList ->
                 conversations.clear()
-                conversations.addAll(list)
+                conversations.addAll(filteredList)
+                
+                // 确保当前选中的会话在列表中，如果不在（例如切换了助手），则切到第一个或新建
+                if (currentConversationId != null && conversations.none { it.id == currentConversationId }) {
+                    if (conversations.isNotEmpty()) {
+                        switchConversation(conversations.first().id)
+                    } else {
+                        // 如果该助手下没有会话，自动创建一个
+                        createNewConversation()
+                    }
+                }
             }
         }
     }
