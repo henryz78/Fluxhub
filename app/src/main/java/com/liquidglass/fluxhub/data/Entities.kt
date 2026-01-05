@@ -42,3 +42,18 @@ data class AssistantEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val isDefault: Boolean = false // 默认助手
 )
+
+/**
+ * 服务商实体 - 支持多个 API Provider
+ */
+@Entity(tableName = "providers")
+data class ProviderEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val baseUrl: String,
+    val apiKey: String,
+    val icon: String? = null, // emoji 或图片 URI
+    val isActive: Boolean = false, // 当前激活的 Provider
+    val createdAt: Long = System.currentTimeMillis()
+)

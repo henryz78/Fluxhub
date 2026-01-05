@@ -12,6 +12,7 @@ import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.AssistantEntity
+import com.liquidglass.fluxhub.data.ProviderEntity
 import com.liquidglass.fluxhub.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -108,11 +109,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val messageDao = database.messageDao()
     private val conversationDao = database.conversationDao()
     private val assistantDao = database.assistantDao()
+    private val providerDao = database.providerDao()
     private val settingsRepository = SettingsRepository(application)
     
     val messages = mutableStateListOf<UiMessage>()
     val availableModels = mutableStateListOf<String>()
     val assistants = mutableStateListOf<AssistantEntity>()
+    val providers = mutableStateListOf<ProviderEntity>()
     
     var isLoading by mutableStateOf(false)
         private set
@@ -121,7 +124,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var showError by mutableStateOf(false)
         private set
     
-    // 配置（从 DataStore 加载）
+    // 配置（从当前 Provider 或 DataStore 加载）
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
@@ -136,6 +139,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 当前助手
     var currentAssistant by mutableStateOf<AssistantEntity?>(null)
+        private set
+    
+    // 当前服务商
+    var currentProvider by mutableStateOf<ProviderEntity?>(null)
         private set
 
     // 当前会话
@@ -159,6 +166,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         loadSettings()
         startConversationsCollection()
         startAssistantsCollection()
+        startProvidersCollection()
         loadOrCreateConversation()
     }
     
@@ -517,6 +525,89 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (currentAssistant?.id == assistantId) {
                 currentAssistant = assistants.firstOrNull { it.id != assistantId }
                 currentAssistant?.let { applyAssistantSettings(it) }
+            }
+        }
+    }
+    
+    // ========== Provider 管理 ==========
+    
+    private var providersJob: Job? = null
+    
+    private fun startProvidersCollection() {
+        providersJob?.cancel()
+        providersJob = viewModelScope.launch {
+            providerDao.getAllProviders().collect { list ->
+                providers.clear()
+                providers.addAll(list)
+                
+                // 如果没有当前 Provider，尝试加载激活的 Provider
+                if (currentProvider == null && list.isNotEmpty()) {
+                    currentProvider = list.find { it.isActive } ?: list.first()
+                    applyProviderSettings(currentProvider!!)
+                }
+            }
+        }
+    }
+    
+    fun switchProvider(provider: ProviderEntity) {
+        viewModelScope.launch {
+            providerDao.deactivateAllProviders()
+            providerDao.activateProvider(provider.id)
+            currentProvider = provider.copy(isActive = true)
+            applyProviderSettings(currentProvider!!)
+            fetchModels() // 切换 Provider 后重新获取模型列表
+        }
+    }
+    
+    private fun applyProviderSettings(provider: ProviderEntity) {
+        baseUrl = provider.baseUrl
+        apiKey = provider.apiKey
+    }
+    
+    fun createProvider(
+        name: String,
+        baseUrl: String,
+        apiKey: String,
+        icon: String? = null
+    ) {
+        viewModelScope.launch {
+            val provider = ProviderEntity(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                baseUrl = baseUrl,
+                apiKey = apiKey,
+                icon = icon,
+                isActive = providers.isEmpty() // 第一个为激活状态
+            )
+            providerDao.insertProvider(provider)
+            if (provider.isActive) {
+                currentProvider = provider
+                applyProviderSettings(provider)
+                fetchModels()
+            }
+        }
+    }
+    
+    fun updateProvider(provider: ProviderEntity) {
+        viewModelScope.launch {
+            providerDao.updateProvider(provider)
+            if (currentProvider?.id == provider.id) {
+                currentProvider = provider
+                applyProviderSettings(provider)
+                fetchModels()
+            }
+        }
+    }
+    
+    fun deleteProvider(providerId: String) {
+        viewModelScope.launch {
+            providerDao.deleteProvider(providerId)
+            if (currentProvider?.id == providerId) {
+                currentProvider = providers.firstOrNull { it.id != providerId }
+                currentProvider?.let { 
+                    applyProviderSettings(it)
+                    fetchModels()
+                }
             }
         }
     }

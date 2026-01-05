@@ -39,7 +39,8 @@ fun SettingsScreen(
     isTab: Boolean = false,
     bottomPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToAssistants: () -> Unit = {},
-    onNavigateToApiConfig: () -> Unit = {}
+    onNavigateToApiConfig: () -> Unit = {},
+    onNavigateToProviders: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -108,15 +109,15 @@ fun SettingsScreen(
                 )
             }
             
-            // API 配置
+            // 服务商管理
             item {
                 SettingsCategoryCard(
                     icon = { Icon(Lucide.Key, null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp)) },
-                    title = "API 配置",
-                    subtitle = viewModel.baseUrl.replace("https://", "").take(25),
-                    badge = if (viewModel.apiKey.isNotBlank()) "✓" else null,
+                    title = "服务商管理",
+                    subtitle = viewModel.currentProvider?.name ?: "未配置",
+                    badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
                     backdrop = backdrop,
-                    onClick = onNavigateToApiConfig
+                    onClick = onNavigateToProviders
                 )
             }
             

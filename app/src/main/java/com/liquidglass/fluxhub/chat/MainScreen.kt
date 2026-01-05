@@ -169,6 +169,12 @@ fun MainScreen(
                                     backdrop = backdrop,
                                     bottomPadding = PaddingValues(bottom = bottomPadding)
                                 )
+                                "providers" -> ProviderListScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
                                 else -> SettingsScreen(
                                     onBack = { selectedTab = 1 },
                                     viewModel = viewModel,
@@ -176,7 +182,8 @@ fun MainScreen(
                                     isTab = true,
                                     bottomPadding = PaddingValues(bottom = bottomPadding),
                                     onNavigateToAssistants = { settingsSubPage = "assistants" },
-                                    onNavigateToApiConfig = { settingsSubPage = "api_config" }
+                                    onNavigateToApiConfig = { settingsSubPage = "api_config" },
+                                    onNavigateToProviders = { settingsSubPage = "providers" }
                                 )
                             }
                         }

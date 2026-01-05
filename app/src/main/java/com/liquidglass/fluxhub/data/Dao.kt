@@ -65,3 +65,30 @@ interface AssistantDao {
     @Query("UPDATE assistants SET isDefault = 0")
     suspend fun clearDefaultAssistant()
 }
+
+@Dao
+interface ProviderDao {
+    @Query("SELECT * FROM providers ORDER BY createdAt DESC")
+    fun getAllProviders(): Flow<List<ProviderEntity>>
+    
+    @Query("SELECT * FROM providers WHERE id = :id")
+    suspend fun getProvider(id: String): ProviderEntity?
+    
+    @Query("SELECT * FROM providers WHERE isActive = 1 LIMIT 1")
+    suspend fun getActiveProvider(): ProviderEntity?
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProvider(provider: ProviderEntity)
+    
+    @Update
+    suspend fun updateProvider(provider: ProviderEntity)
+    
+    @Query("DELETE FROM providers WHERE id = :id")
+    suspend fun deleteProvider(id: String)
+    
+    @Query("UPDATE providers SET isActive = 0")
+    suspend fun deactivateAllProviders()
+    
+    @Query("UPDATE providers SET isActive = 1 WHERE id = :id")
+    suspend fun activateProvider(id: String)
+}
