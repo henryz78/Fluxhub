@@ -166,7 +166,6 @@ private fun SettingsCategoryCard(
     title: String,
     subtitle: String,
     badge: String? = null,
-    badge: String? = null,
     backdrop: Backdrop,
     glassOpacity: Float = 0.1f,
     glassBlur: Float = 16f,
@@ -178,7 +177,7 @@ private fun SettingsCategoryCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy(); blur(glassBlur.toPx()) },
+                effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
                 onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
             )
             .clickable { onClick() }

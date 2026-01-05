@@ -133,6 +133,7 @@ fun DisplaySettingsScreen(
                     value = { viewModel.glassOpacity },
                     onValueChange = { viewModel.updateGlassOpacity(it) },
                     valueRange = 0f..0.5f, // Limit to 50% opacity max for aesthetic
+                    visibilityThreshold = 0.5f,
                     backdrop = backdrop
                 )
                 
@@ -148,6 +149,7 @@ fun DisplaySettingsScreen(
                     value = { viewModel.glassBlur },
                     onValueChange = { viewModel.updateGlassBlur(it) },
                     valueRange = 0f..50f,
+                    visibilityThreshold = 0.5f,
                     backdrop = backdrop
                 )
             }

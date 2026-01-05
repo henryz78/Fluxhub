@@ -35,6 +35,8 @@ import com.liquidglass.fluxhub.components.LiquidTextField
 import com.liquidglass.fluxhub.data.AssistantEntity
 import java.util.UUID
 
+import androidx.compose.ui.platform.LocalContext
+
 /**
  * 助手列表页面 - Liquid Glass 风格
  */
@@ -197,10 +199,6 @@ fun AssistantListScreen(
 @Composable
 private fun AssistantCard(
     assistant: AssistantEntity,
-    isSelected: Boolean,
-    backdrop: Backdrop,
-    onSelect: () -> Unit,
-    onEdit: () -> Unit,
     isSelected: Boolean,
     backdrop: Backdrop,
     glassOpacity: Float = 0.1f,

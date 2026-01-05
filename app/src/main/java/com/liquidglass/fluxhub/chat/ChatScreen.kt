@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.Density
 import com.liquidglass.fluxhub.ui.components.message.MessageActionsSheet
 import com.liquidglass.fluxhub.ui.components.message.ThinkingComponent
 import com.composables.icons.lucide.*
+import com.composables.icons.lucide.ChevronRight
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
 import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
@@ -1353,7 +1354,7 @@ private fun ConversationDrawerContent(
                                 )
                             }
                             
-                            Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.5f))
+                            Icon(Lucide.ChevronRight, null, tint = Color.White.copy(alpha = 0.5f))
                         }
                     }
                 }
