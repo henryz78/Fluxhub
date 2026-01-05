@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -154,8 +157,9 @@ fun HomeScreen(
                         text = "• 全新 Liquid Glass 界面设计\n• 支持多模型切换\n• 流式对话响应\n• 对话历史管理",
                         style = TextStyle(
                             fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.6f),
-                            lineHeight = 18.sp
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 18.sp,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                         )
                     )
                 }
@@ -210,7 +214,8 @@ fun HomeScreen(
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        color = Color.White,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                     )
                 )
             }
@@ -235,7 +240,8 @@ fun HomeScreen(
                         style = TextStyle(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = Color.White.copy(alpha = 0.9f),
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                         )
                     )
                 }
@@ -255,7 +261,8 @@ fun HomeScreen(
                                 text = prompt,
                                 style = TextStyle(
                                     fontSize = 13.sp,
-                                    color = Color.White
+                                    color = Color.White,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                                 )
                             )
                         }
@@ -284,7 +291,8 @@ fun HomeScreen(
                             style = TextStyle(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color.White.copy(alpha = 0.7f)
+                                color = Color.White.copy(alpha = 0.9f),
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                             )
                         )
                     }
@@ -314,6 +322,9 @@ fun HomeScreen(
                                 Text(
                                     text = conversation.title,
                                     color = Color.White,
+                                    style = TextStyle(
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                                    ),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -363,7 +374,9 @@ private fun StatCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                ),
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )

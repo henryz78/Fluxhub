@@ -59,6 +59,8 @@ import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
 import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -297,7 +299,8 @@ private fun LiquidGlassChatContent(
                         style = TextStyle(
                             color = Color.White,
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                         ),
                         maxLines = 1
                     )
@@ -330,7 +333,8 @@ private fun LiquidGlassChatContent(
                                 text = viewModel.model.ifBlank { "选择模型" },
                                 style = TextStyle(
                                     color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 10.sp
+                                    fontSize = 10.sp,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
                                 ),
                                 maxLines = 1
                             )
@@ -704,11 +708,36 @@ private fun LiquidGlassChatBubble(
         
         // AI 消息显示操作按钮 (非流式时)
         if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
+            var showDeleteDialog by remember { mutableStateOf(false) }
+            
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("删除消息") },
+                    text = { Text("确定要删除这条消息吗？") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteMessage(message.id)
+                                showDeleteDialog = false
+                            }
+                        ) {
+                            Text("删除", color = Color.Red)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text("取消")
+                        }
+                    }
+                )
+            }
+            
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
                 onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) }
+                onDelete = { showDeleteDialog = true }
             )
         }
     }
@@ -756,7 +785,8 @@ private fun LiquidGlassChatInputBar(
                 enabled = !isLoading,
                 textStyle = TextStyle(
                     color = Color.White,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                 ),
                 cursorBrush = SolidColor(Color(0xFF007AFF)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -768,7 +798,8 @@ private fun LiquidGlassChatInputBar(
                                 text = "输入消息...",
                                 style = TextStyle(
                                     color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 16.sp
+                                    fontSize = 16.sp,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                                 )
                             )
                         }
@@ -901,7 +932,10 @@ private fun ConversationDrawerContent(
                         contentPadding = PaddingValues(bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(conversations.size) { index ->
+                        items(
+                            count = conversations.size,
+                            key = { index -> conversations[index].id }
+                        ) { index ->
                             val conversation = conversations[index]
                             val isSelected = conversation.id == currentConversationId
                             

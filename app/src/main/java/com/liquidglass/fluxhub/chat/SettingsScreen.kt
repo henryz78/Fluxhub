@@ -14,6 +14,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.liquidglass.fluxhub.components.LiquidButton
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,8 +112,10 @@ fun SettingsScreen(
             
             Text(
                 text = "支持 OpenAI 兼容 API（如 OpenAI、DeepSeek、Groq 等）",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.6f)
+                style = MaterialTheme.typography.bodySmall.copy(
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                ),
+                color = Color.White.copy(alpha = 0.8f)
             )
             
             LiquidButton(
@@ -126,7 +130,13 @@ fun SettingsScreen(
             ) {
                 Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("保存设置", color = Color.White)
+                Text(
+                    "保存设置", 
+                    color = Color.White,
+                    style = TextStyle(
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    )
+                )
             }
         }
     }

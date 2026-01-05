@@ -172,27 +172,66 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     .build()
                 
                 withContext(Dispatchers.IO) {
-                    val response = client.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val body = response.body?.string() ?: "{}"
-                        try {
-                            val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
-                            val modelIds = modelsResponse.data.map { it.id }.sorted()
-                            withContext(Dispatchers.Main) {
-                                availableModels.clear()
-                                availableModels.addAll(modelIds)
-                                Log.d(TAG, "Fetched ${modelIds.size} models")
+                    try {
+                        val response = client.newCall(request).execute()
+                        if (response.isSuccessful) {
+                            val body = response.body?.string() ?: "{}"
+                            try {
+                                val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
+                                val modelIds = modelsResponse.data.map { it.id }.sorted()
+                                
+                                withContext(Dispatchers.Main) {
+                                    availableModels.clear()
+                                    availableModels.addAll(modelIds)
+                                    Log.d(TAG, "Fetched ${modelIds.size} models")
+                                    
+                                    // 校验当前选中的模型是否有效
+                                    if (model.isNotBlank() && !modelIds.contains(model)) {
+                                        Log.w(TAG, "Current model $model not available, resetting")
+                                        saveModel("")
+                                        showErrorMessage("当前模型已失效，请重新选择")
+                                    } else if (model.isBlank() && modelIds.isNotEmpty()) {
+                                        // 可选：如果没选模型，自动选第一个？或者让用户自己选
+                                        // 用户要求：没有的话就直接空白让重新选
+                                        // 所以这里不需要自动选
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to parse models", e)
+                                withContext(Dispatchers.Main) {
+                                    availableModels.clear()
+                                    if (model.isNotBlank()) {
+                                        saveModel("") // 解析失败也重置
+                                        showErrorMessage("模型列表解析失败，请检查 API 配置")
+                                    }
+                                }
                             }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to parse models", e)
+                        } else {
+                            Log.e(TAG, "Failed to fetch models: ${response.code}")
+                             withContext(Dispatchers.Main) {
+                                availableModels.clear()
+                                if (model.isNotBlank()) {
+                                    saveModel("") // 获取失败重置
+                                    showErrorMessage("获取模型列表失败: ${response.code}")
+                                }
+                            }
                         }
-                    } else {
-                        Log.e(TAG, "Failed to fetch models: ${response.code}")
+                        response.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Network error fetching models", e)
+                         withContext(Dispatchers.Main) {
+                            availableModels.clear()
+                            if (model.isNotBlank()) {
+                                saveModel("") 
+                                showErrorMessage("网络错误，无法获取模型列表")
+                            }
+                        }
                     }
-                    response.close()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching models", e)
+                availableModels.clear()
+                if (model.isNotBlank()) saveModel("")
             }
         }
     }
@@ -335,28 +374,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun regenerate(messageId: String) {
-        val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex == -1) return
-        
-        val message = messages[messageIndex]
+        val message = messages.find { it.id == messageId } ?: return
         if (message.role != "assistant") return
         
-        // 查找前一个用户的消息
-        var userMessage: UiMessage? = null
-        for (i in messageIndex - 1 downTo 0) {
-            if (messages[i].role == "user") {
-                userMessage = messages[i]
-                break
-            }
-        }
+        val conversationId = currentConversationId ?: return
         
-        if (userMessage != null) {
-            viewModelScope.launch {
-                // 删除当前 AI 消息
-                messageDao.deleteMessage(messageId)
-                // 重新发送前一个用户消息内容
-                sendMessage(userMessage.content)
-            }
+        viewModelScope.launch {
+            // 删除当前 AI 消息
+            messageDao.deleteMessage(messageId)
+            // 手动从 UI 列表移除
+            messages.removeAll { it.id == messageId }
+            
+            // 重新请求 AI 回复 (复用现有上下文)
+            initiateAiResponse(conversationId)
         }
     }
 
@@ -443,6 +473,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
+        }
+        
+        // 发起 AI 请求
+        initiateAiResponse(conversationId)
+    }
+
+    private fun initiateAiResponse(conversationId: String) {
         // 添加 AI 消息占位符
         val aiMessageId = UUID.randomUUID().toString()
         messages.add(UiMessage(
@@ -614,10 +651,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 Log.e(TAG, "SSE onFailure: ${t?.message}, response: ${response?.code}")
                 
+                // 在 IO 线程/回调线程读取 response body，避免 NetworkOnMainThreadException
+                val errorBody = try {
+                    response?.body?.string()?.take(500) // 限制长度
+                } catch (e: Exception) {
+                    null
+                }
+                
+                val errorMsg = t?.message ?: errorBody ?: "Unknown error"
+                
                 viewModelScope.launch {
                     isLoading = false
                     
-                    val errorMsg = t?.message ?: response?.body?.string()?.take(200) ?: "Unknown error"
                     showErrorMessage("请求失败: $errorMsg")
                     
                     // 移除空的 AI 消息
