@@ -382,7 +382,7 @@ private fun LiquidGlassChatContent(
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(viewModel.messages, key = { it.id }) { message ->
+            items(viewModel.messages.filter { it.role != "system" }, key = { it.id }) { message ->
                 LiquidGlassChatBubble(
                     message = message,
                     backdrop = backdrop,

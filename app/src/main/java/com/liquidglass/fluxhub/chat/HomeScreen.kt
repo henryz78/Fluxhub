@@ -38,6 +38,8 @@ import com.composables.icons.lucide.Bell
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.PersonaCard
+import com.liquidglass.fluxhub.data.Personas
 
 /**
  * 首页 - 欢迎页面
@@ -193,31 +195,47 @@ fun HomeScreen(
             }
         }
         
-        // 开始对话按钮
+        // 灵动角色 (Liquid Personas) 轮播
         item {
-            LiquidButton(
-                onClick = { onNavigateToChat() },
-                backdrop = backdrop,
-                modifier = Modifier.fillMaxWidth(),
-                shape = { ContinuousRoundedRectangle(20.dp) },
-                tint = Color(0xFF007AFF), // LiquidButton 内部会自动处理 alpha
-                padding = PaddingValues(vertical = 16.dp)
-            ) {
-                Icon(
-                    imageVector = Lucide.MessageCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White
-                )
-                BasicText(
-                    text = "开始新对话",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Lucide.Sparkles,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White.copy(alpha = 0.7f)
                     )
-                )
+                    Spacer(Modifier.width(8.dp))
+                    BasicText(
+                        text = "灵动角色",
+                        style = TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        )
+                    )
+                }
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    items(Personas.all) { persona ->
+                        PersonaCard(
+                            persona = persona,
+                            backdrop = backdrop,
+                            onClick = {
+                                viewModel.createNewConversation(persona.systemPrompt, persona.name)
+                                onNavigateToChat()
+                            },
+                            modifier = Modifier.width(280.dp).height(160.dp)
+                        )
+                    }
+                }
             }
         }
         

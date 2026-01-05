@@ -295,11 +295,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun createNewConversation() {
+    fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
-        currentConversationTitle = "新对话"
+        currentConversationTitle = title
         messages.clear()
         
         // 开启新消息采集
@@ -308,9 +308,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val conversation = ConversationEntity(
                 id = newId,
-                title = "新对话"
+                title = title
             )
             conversationDao.insertConversation(conversation)
+            
+            if (!systemPrompt.isNullOrBlank()) {
+                messageDao.insertMessage(MessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    conversationId = newId,
+                    role = "system",
+                    content = systemPrompt
+                ))
+            }
+            
             settingsRepository.setCurrentConversationId(newId)
         }
     }
