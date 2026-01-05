@@ -657,6 +657,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                // 特殊处理 stream was reset 错误：如果已经有内容生成，则视为成功
+                if (t?.message?.contains("stream was reset", ignoreCase = true) == true && fullContent.isNotEmpty()) {
+                    Log.w(TAG, "Stream reset ignored, treating as success (content length: ${fullContent.length})")
+                    viewModelScope.launch {
+                        isLoading = false
+                        
+                        val index = messages.indexOfFirst { it.id == aiMessageId }
+                        if (index >= 0) {
+                            messages[index] = messages[index].copy(isStreaming = false)
+                        }
+                        
+                        // 保存到数据库
+                        messageDao.insertMessage(MessageEntity(
+                            id = aiMessageId,
+                            conversationId = conversationId,
+                            role = "assistant",
+                            content = fullContent,
+                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                            model = model
+                        ))
+                    }
+                    return
+                }
+
                 Log.e(TAG, "SSE onFailure: ${t?.message}, response: ${response?.code}")
                 
                 // 在 IO 线程/回调线程读取 response body，避免 NetworkOnMainThreadException

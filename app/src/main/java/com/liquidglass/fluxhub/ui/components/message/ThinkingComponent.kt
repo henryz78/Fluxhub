@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -153,15 +155,22 @@ fun ThinkingComponent(
         ) {
             Column {
                 Spacer(Modifier.height(10.dp))
-                MarkdownBlock(
-                    content = content,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    MarkdownBlock(
+                        content = content,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
                     )
-                )
+                }
             }
         }
     }
