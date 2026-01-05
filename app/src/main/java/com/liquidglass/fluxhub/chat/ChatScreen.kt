@@ -707,18 +707,7 @@ private fun LiquidGlassChatBubble(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            if (!isUser) {
-                val isSpeaking = viewModel.speakingMessageId == message.id
-                Icon(
-                    imageVector = if (isSpeaking) Lucide.Square else Lucide.Volume2,
-                    contentDescription = if (isSpeaking) "停止" else "朗读",
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clickable { viewModel.toggleSpeaking(message) }
-                        .padding(1.dp), // 点击区域微调
-                    tint = Color.White.copy(alpha = 0.9f)
-                )
-            }
+            // Model name only, TTS removed
             Text(
                 text = if (isUser) "你" else (message.model ?: viewModel.model),
                 style = MaterialTheme.typography.labelSmall.copy(

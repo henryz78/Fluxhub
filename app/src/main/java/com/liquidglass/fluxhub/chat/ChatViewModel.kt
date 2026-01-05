@@ -778,33 +778,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             error = null
         }
     }
-    
-    fun toggleSpeaking(message: UiMessage) {
-        if (speakingMessageId == message.id) {
-            echoEngine.stop()
-            speakingMessageId = null
-        } else {
-            // 如果原本在读别的，先停止
-            if (speakingMessageId != null) {
-                echoEngine.stop()
-            }
-            // 朗读内容（去除 Markdown 图片标签和思考标签等，暂简单处理）
-            val textToSpeak = message.content.replace(Regex("!\\[.*?\\]\\(.*?\\)"), "").trim()
-            if (textToSpeak.isNotEmpty()) {
-                echoEngine.speak(textToSpeak, message.id)
-                speakingMessageId = message.id // 立即设置，预防回调延迟
-            }
-        }
-    }
-    
-    fun stopSpeaking() {
-        echoEngine.stop()
-        speakingMessageId = null
-    }
 
     override fun onCleared() {
         super.onCleared()
         currentEventSource?.cancel()
-        echoEngine.shutdown()
     }
 }
