@@ -229,7 +229,8 @@ fun ChatScreen(
                     onInteractionChanged = { isInteractingWithButtons = it },
                     assistants = viewModel.assistants,
                     currentAssistant = viewModel.currentAssistant,
-                    onSwitchAssistant = { viewModel.switchAssistant(it) }
+                    onSwitchAssistant = { viewModel.switchAssistant(it) },
+                    onNavigateToAssistantSelection = onNavigateToAssistantSelection
                 )
             },
             gesturesEnabled = !isInteractingWithButtons,
@@ -1026,7 +1027,8 @@ private fun ConversationDrawerContent(
     onInteractionChanged: (Boolean) -> Unit = {},
     assistants: List<com.liquidglass.fluxhub.data.AssistantEntity> = emptyList(),
     currentAssistant: com.liquidglass.fluxhub.data.AssistantEntity? = null,
-    onSwitchAssistant: (com.liquidglass.fluxhub.data.AssistantEntity) -> Unit = {}
+    onSwitchAssistant: (com.liquidglass.fluxhub.data.AssistantEntity) -> Unit = {},
+    onNavigateToAssistantSelection: () -> Unit = {}
 ) {
     ModalDrawerSheet(
         modifier = Modifier
