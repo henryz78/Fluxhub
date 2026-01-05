@@ -31,6 +31,7 @@ import com.composables.icons.lucide.Sparkles
 import com.composables.icons.lucide.History
 import com.composables.icons.lucide.Lightbulb
 import com.composables.icons.lucide.Zap
+import com.composables.icons.lucide.Bell
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -97,6 +98,66 @@ fun HomeScreen(
                         textAlign = TextAlign.Center
                     )
                 )
+            }
+        }
+        
+        // 更新公告
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(16.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(4.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color(0xFF34C759).copy(alpha = 0.2f))
+                        }
+                    )
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Lucide.Bell,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color(0xFF34C759)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        BasicText(
+                            text = "更新公告",
+                            style = TextStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
+                    BasicText(
+                        text = "v1.0.0 · 2026.01.04",
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    BasicText(
+                        text = "• 全新 Liquid Glass 界面设计\n• 支持多模型切换\n• 流式对话响应\n• 对话历史管理",
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            lineHeight = 18.sp
+                        )
+                    )
+                }
             }
         }
         
