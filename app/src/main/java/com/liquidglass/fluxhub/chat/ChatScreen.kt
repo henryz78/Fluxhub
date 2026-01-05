@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
 import com.liquidglass.fluxhub.ui.components.message.MessageAvatar
+import androidx.compose.foundation.background
 import com.liquidglass.fluxhub.ui.components.message.MessageActionButtons
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -941,7 +942,7 @@ private fun ConversationDrawerContent(
                                         )
                                     }
                                 },
-                                contentContent = {
+                                content = {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
