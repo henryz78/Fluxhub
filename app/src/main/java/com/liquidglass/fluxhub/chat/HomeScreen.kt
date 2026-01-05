@@ -165,7 +165,9 @@ fun HomeScreen(
                             color = Color.White.copy(alpha = 0.9f),
                             lineHeight = 18.sp,
                             shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                )
+                        )
+                    )
+                }
             }
         }
         
