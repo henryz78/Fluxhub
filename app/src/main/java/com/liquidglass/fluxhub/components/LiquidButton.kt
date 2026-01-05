@@ -44,6 +44,7 @@ fun LiquidButton(
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     padding: PaddingValues = PaddingValues(horizontal = 16.dp),
+    shape: () -> androidx.compose.ui.graphics.Shape = { ContinuousCapsule },
     onPressed: (Boolean) -> Unit = {},
     content: @Composable RowScope.() -> Unit
 ) {
@@ -59,7 +60,7 @@ fun LiquidButton(
         modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { ContinuousCapsule },
+                shape = shape,
                 effects = {
                     vibrancy()
                     blur(2f.dp.toPx())

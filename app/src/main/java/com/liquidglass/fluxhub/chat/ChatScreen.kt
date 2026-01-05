@@ -582,8 +582,13 @@ private fun LiquidGlassChatBubble(
             Text(
                 text = if (isUser) "你" else (message.model ?: viewModel.model),
                 style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 10.sp
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        blurRadius = 4f
+                    )
                 )
             )
         }
@@ -658,10 +663,22 @@ private fun LiquidGlassChatBubble(
                     }
                     
                     // 2. 显示主案内容
+                    // 根据背景色决定文字颜色：用户(蓝底)->白字; AI(白底)->黑字
+                    val textColor = if (isUser) Color.White else Color(0xFF1C1C1E)
+                    // 为白字添加阴影以增强对比度
+                    val textShadow = if (isUser) androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.3f),
+                        blurRadius = 2f,
+                        offset = androidx.compose.ui.geometry.Offset(0f, 1f)
+                    ) else null
+
                     if (message.content.isNotEmpty()) {
                         MarkdownBlock(
                             content = message.content,
-                            style = LocalTextStyle.current
+                            style = LocalTextStyle.current.copy(
+                                color = textColor,
+                                shadow = textShadow
+                            )
                         )
                     } else if (message.isStreaming && (message.thinkingContent.isNullOrBlank())) {
                         // 如果主内容为空且没有思考内容，显示打字指示器
@@ -673,8 +690,9 @@ private fun LiquidGlassChatBubble(
                         BasicText(
                             text = "▌",
                             style = TextStyle(
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 16.sp
+                                color = textColor.copy(alpha = 0.7f),
+                                fontSize = 16.sp,
+                                shadow = textShadow
                             ),
                             modifier = Modifier.padding(top = 4.dp)
                         )
@@ -886,50 +904,92 @@ private fun ConversationDrawerContent(
                             val conversation = conversations[index]
                             val isSelected = conversation.id == currentConversationId
                             
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                                    .drawBackdrop(
-                                        backdrop = backdrop,
-                                        shape = { RoundedCornerShape(12.dp) },
-                                        effects = { vibrancy() },
-                                        onDrawSurface = {
-                                            if (isSelected) {
-                                                drawRect(Color.White.copy(alpha = 0.15f))
-                                            } else {
-                                                drawRect(Color.White.copy(alpha = 0.05f))
-                                            }
-                                        }
-                                    )
-                                    .combinedClickable(
-                                        onClick = { onSelectConversation(conversation.id) },
-                                        onLongClick = { onDeleteConversation(conversation.id) }
-                                    )
-                                    .padding(horizontal = 12.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isSelected) Lucide.MessageCircle else Lucide.MessageSquare,
-                                        contentDescription = null,
-                                        tint = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    BasicText(
-                                        text = conversation.title,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
+                            
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = {
+                                    if (it == SwipeToDismissBoxValue.EndToStart) {
+                                        onDeleteConversation(conversation.id)
+                                        true
+                                    } else {
+                                        false
+                                    }
                                 }
-                            }
+                            )
+
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                        Color(0xFFFF3B30)
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(vertical = 4.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(color)
+                                            .padding(horizontal = 20.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Icon(
+                                            imageVector = Lucide.Trash2,
+                                            contentDescription = "删除",
+                                            tint = Color.White
+                                        )
+                                    }
+                                },
+                                contentContent = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp)
+                                            .drawBackdrop(
+                                                backdrop = backdrop,
+                                                shape = { RoundedCornerShape(12.dp) },
+                                                effects = { vibrancy() },
+                                                onDrawSurface = {
+                                                    if (isSelected) {
+                                                        drawRect(Color.White.copy(alpha = 0.15f))
+                                                    } else {
+                                                        drawRect(Color.White.copy(alpha = 0.05f))
+                                                    }
+                                                }
+                                            )
+                                            .clickable { onSelectConversation(conversation.id) }
+                                            .padding(horizontal = 12.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isSelected) Lucide.MessageCircle else Lucide.MessageSquare,
+                                                contentDescription = null,
+                                                tint = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(Modifier.width(12.dp))
+                                            BasicText(
+                                                text = conversation.title,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
+                                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                                        color = Color.Black.copy(alpha = 0.5f),
+                                                        blurRadius = 4f
+                                                    )
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+
                         }
                     }
                 }

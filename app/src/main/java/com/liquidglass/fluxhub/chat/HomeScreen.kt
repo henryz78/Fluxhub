@@ -34,6 +34,7 @@ import com.composables.icons.lucide.Zap
 import com.composables.icons.lucide.Bell
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.liquidglass.fluxhub.components.LiquidButton
 
 /**
  * 首页 - 欢迎页面
@@ -190,43 +191,28 @@ fun HomeScreen(
         
         // 开始对话按钮
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(20.dp) },
-                        effects = {
-                            vibrancy()
-                            blur(4.dp.toPx())
-                        },
-                        onDrawSurface = {
-                            drawRect(Color(0xFF007AFF).copy(alpha = 0.3f))
-                        }
-                    )
-                    .clickable { onNavigateToChat() }
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
+            LiquidButton(
+                onClick = { onNavigateToChat() },
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth(),
+                shape = { ContinuousRoundedRectangle(20.dp) },
+                tint = Color(0xFF007AFF), // LiquidButton 内部会自动处理 alpha
+                padding = PaddingValues(vertical = 16.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Lucide.MessageCircle,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
+                Icon(
+                    imageVector = Lucide.MessageCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.White
+                )
+                BasicText(
+                    text = "开始新对话",
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
-                    BasicText(
-                        text = "开始新对话",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                    )
-                }
+                )
             }
         }
         
@@ -258,21 +244,12 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(quickPrompts) { prompt ->
-                        Box(
-                            modifier = Modifier
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { ContinuousRoundedRectangle(12.dp) },
-                                    effects = {
-                                        vibrancy()
-                                        blur(4.dp.toPx())
-                                    },
-                                    onDrawSurface = {
-                                        drawRect(Color.White.copy(alpha = 0.15f))
-                                    }
-                                )
-                                .clickable { onQuickPrompt(prompt) }
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                        LiquidButton(
+                            onClick = { onQuickPrompt(prompt) },
+                            backdrop = backdrop,
+                            shape = { ContinuousRoundedRectangle(12.dp) },
+                            tint = Color.White,
+                            padding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
                         ) {
                             BasicText(
                                 text = prompt,

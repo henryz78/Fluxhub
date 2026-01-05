@@ -29,6 +29,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.core.net.toUri
 import androidx.compose.runtime.referentialEqualityPolicy
 import com.composables.icons.lucide.Check
@@ -118,7 +120,19 @@ fun MarkdownBlock(
     }
 
     val (preprocessed, astTree) = data
-    ProvideTextStyle(style) {
+    
+    // 修复中文排版对齐问题
+    val fixedStyle = style.merge(
+        TextStyle(
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = LineHeightStyle(
+                alignment = LineHeightStyle.Alignment.Center,
+                trim = LineHeightStyle.Trim.None
+            )
+        )
+    )
+    
+    ProvideTextStyle(fixedStyle) {
         Column(
             modifier = modifier
                 .padding(start = 4.dp)
@@ -342,7 +356,16 @@ private fun MarkdownNode(
 
         // 纯文本
         MarkdownTokenTypes.TEXT -> {
-            Text(text = node.getTextInNode(content), modifier = modifier)
+            // 简单处理常见的 HTML 实体
+            val rawText = node.getTextInNode(content)
+            val decodedText = rawText
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .replace("&apos;", "'")
+            
+            Text(text = decodedText, modifier = modifier)
         }
 
         // 其他类型，递归处理
