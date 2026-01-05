@@ -35,6 +35,9 @@ interface ConversationDao {
     @Update
     suspend fun updateConversation(conversation: ConversationEntity)
     
+    @Query("UPDATE conversations SET title = :title WHERE id = :id")
+    suspend fun updateConversationTitle(id: String, title: String)
+    
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String)
 }

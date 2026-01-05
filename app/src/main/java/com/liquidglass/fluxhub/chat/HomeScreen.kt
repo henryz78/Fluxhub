@@ -11,6 +11,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,9 +57,7 @@ fun HomeScreen(
     onQuickPrompt: (String) -> Unit = { },
     viewModel: ChatViewModel = viewModel()
 ) {
-    // 统计数据
-    val conversationCount = viewModel.conversations.size
-    val messageCount = viewModel.messages.size
+    // 最近对话（用于显示）
     val recentConversations = viewModel.conversations.take(3)
     
     // 快捷提示词
@@ -168,30 +171,71 @@ fun HomeScreen(
             }
         }
         
-        // 统计卡片
+        // 动态时钟（Liquid Glass 效果）
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // 实时更新时间
+            var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    currentTime = System.currentTimeMillis()
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+            
+            val timeFormat = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()) }
+            val dateFormat = remember { java.text.SimpleDateFormat("M月d日 EEEE", java.util.Locale.CHINESE) }
+            val timeString = timeFormat.format(java.util.Date(currentTime))
+            val dateString = dateFormat.format(java.util.Date(currentTime))
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(24.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(8.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(alpha = 0.1f))
+                        }
+                    )
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // 对话数量
-                StatCard(
-                    icon = Lucide.MessageCircle,
-                    label = "对话",
-                    value = "$conversationCount",
-                    color = Color(0xFF007AFF),
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f)
-                )
-                // 消息数量
-                StatCard(
-                    icon = Lucide.Zap,
-                    label = "消息",
-                    value = "$messageCount",
-                    color = Color(0xFF34C759),
-                    backdrop = backdrop,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // 大时钟数字
+                    BasicText(
+                        text = timeString,
+                        style = TextStyle(
+                            fontSize = 72.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            letterSpacing = 4.sp,
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.6f),
+                                offset = Offset(0f, 4f),
+                                blurRadius = 12f
+                            )
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    // 日期
+                    BasicText(
+                        text = dateString,
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.8f),
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.5f),
+                                blurRadius = 4f
+                            )
+                        )
+                    )
+                }
             }
         }
         
@@ -351,58 +395,6 @@ fun HomeScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String,
-    color: Color,
-    backdrop: Backdrop,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = {
-                    vibrancy()
-                    blur(4.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(color.copy(alpha = 0.2f))
-                }
-            )
-            .padding(16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = color
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                ),
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f)
-            )
         }
     }
 }

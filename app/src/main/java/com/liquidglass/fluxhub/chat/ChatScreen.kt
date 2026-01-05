@@ -216,6 +216,9 @@ fun ChatScreen(
                     onDeleteConversation = { id ->
                         viewModel.deleteConversation(id)
                     },
+                    onRenameConversation = { id, newTitle ->
+                        viewModel.renameConversation(id, newTitle)
+                    },
                     onNewConversation = {
                         viewModel.createNewConversation()
                         scope.launch { drawerState.close() }
@@ -917,7 +920,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(28.dp) // 放大图标
+                modifier = Modifier.size(32.dp) // 再次放大图标
             )
         }
 
@@ -998,6 +1001,7 @@ private fun ConversationDrawerContent(
     backdrop: Backdrop,
     onSelectConversation: (String) -> Unit,
     onDeleteConversation: (String) -> Unit,
+    onRenameConversation: (String, String) -> Unit,
     onNewConversation: () -> Unit,
     onInteractionChanged: (Boolean) -> Unit = {}
 ) {
@@ -1104,25 +1108,105 @@ private fun ConversationDrawerContent(
                             val conversation = conversations[index]
                             val isSelected = conversation.id == currentConversationId
                             
+                            // 重命名对话框状态
+                            var showRenameDialog by remember { mutableStateOf(false) }
+                            var renameText by remember { mutableStateOf(conversation.title) }
+
+                            // 重命名对话框
+                            if (showRenameDialog) {
+                                androidx.compose.ui.window.Dialog(
+                                    onDismissRequest = { showRenameDialog = false }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .drawBackdrop(
+                                                backdrop = backdrop,
+                                                shape = { RoundedCornerShape(20.dp) },
+                                                effects = { vibrancy(); blur(16.dp.toPx()) },
+                                                onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.6f)) }
+                                            )
+                                            .padding(20.dp)
+                                    ) {
+                                        Column {
+                                            Text(
+                                                "重命名对话",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(Modifier.height(16.dp))
+                                            OutlinedTextField(
+                                                value = renameText,
+                                                onValueChange = { renameText = it },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFF007AFF),
+                                                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White
+                                                )
+                                            )
+                                            Spacer(Modifier.height(16.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                TextButton(onClick = { showRenameDialog = false }) {
+                                                    Text("取消", color = Color.White.copy(alpha = 0.7f))
+                                                }
+                                                Spacer(Modifier.width(8.dp))
+                                                TextButton(onClick = {
+                                                    if (renameText.isNotBlank()) {
+                                                        onRenameConversation(conversation.id, renameText)
+                                                    }
+                                                    showRenameDialog = false
+                                                }) {
+                                                    Text("确定", color = Color(0xFF007AFF))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = {
-                                    if (it == SwipeToDismissBoxValue.EndToStart) {
-                                        onDeleteConversation(conversation.id)
-                                        true
-                                    } else {
-                                        false
+                                    when (it) {
+                                        SwipeToDismissBoxValue.EndToStart -> {
+                                            onDeleteConversation(conversation.id)
+                                            true
+                                        }
+                                        SwipeToDismissBoxValue.StartToEnd -> {
+                                            renameText = conversation.title
+                                            showRenameDialog = true
+                                            false // 不消费滑动，弹出对话框
+                                        }
+                                        else -> false
                                     }
                                 }
                             )
 
                             SwipeToDismissBox(
                                 state = dismissState,
+                                enableDismissFromStartToEnd = true, // 启用左滑
                                 backgroundContent = {
-                                    val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                                        Color(0xFFFF3B30)
-                                    } else {
-                                        Color.Transparent
+                                    val color = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFFF3B30) // 删除红色
+                                        SwipeToDismissBoxValue.StartToEnd -> Color(0xFF007AFF) // 重命名蓝色
+                                        else -> Color.Transparent
+                                    }
+                                    val alignment = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                                        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                                        else -> Alignment.Center
+                                    }
+                                    val icon = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.EndToStart -> Lucide.Trash2
+                                        SwipeToDismissBoxValue.StartToEnd -> Lucide.Pencil
+                                        else -> Lucide.Trash2
                                     }
                                     
                                     Box(
@@ -1132,11 +1216,11 @@ private fun ConversationDrawerContent(
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(color)
                                             .padding(horizontal = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
+                                        contentAlignment = alignment
                                     ) {
                                         Icon(
-                                            imageVector = Lucide.Trash2,
-                                            contentDescription = "删除",
+                                            imageVector = icon,
+                                            contentDescription = null,
                                             tint = Color.White
                                         )
                                     }

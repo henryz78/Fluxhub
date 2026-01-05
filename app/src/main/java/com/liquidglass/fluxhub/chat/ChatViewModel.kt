@@ -366,6 +366,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun renameConversation(conversationId: String, newTitle: String) {
+        viewModelScope.launch {
+            conversationDao.updateConversationTitle(conversationId, newTitle)
+            // 如果是当前会话，更新 UI 中的标题
+            if (conversationId == currentConversationId) {
+                currentConversationTitle = newTitle
+            }
+        }
+    }
+
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
             messageDao.deleteMessage(messageId)
