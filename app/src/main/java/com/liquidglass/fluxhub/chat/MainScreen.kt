@@ -6,6 +6,11 @@ import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
@@ -90,34 +95,44 @@ fun MainScreen(
             // 根据键盘状态动态调整底部 padding
             val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
             
-            when (selectedTab) {
-                0 -> HomeScreen(
-                    backdrop = backdrop,
-                    bottomPadding = PaddingValues(bottom = bottomPadding),
-                    onNavigateToChat = { selectedTab = 1 },
-                    onQuickPrompt = { prompt ->
-                        pendingPrompt = prompt
-                        selectedTab = 1
-                    },
-                    viewModel = viewModel
-                )
-                1 -> ChatScreen(
-                    backdrop = backdrop,
-                    bottomPadding = PaddingValues(bottom = bottomPadding), 
-                    onNavigateToSettings = { selectedTab = 2 },
-                    viewModel = viewModel,
-                    listState = chatListState,
-                    drawerState = drawerState,
-                    initialPrompt = pendingPrompt,
-                    onPromptConsumed = { pendingPrompt = null }
-                )
-                2 -> SettingsScreen(
-                    onBack = { selectedTab = 1 },
-                    viewModel = viewModel,
-                    backdrop = backdrop,
-                    isTab = true,
-                    bottomPadding = PaddingValues(bottom = bottomPadding)
-                )
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(300)) + 
+                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
+                     fadeOut(animationSpec = tween(300)))
+                },
+                label = "TabContent"
+            ) { targetTab ->
+                when (targetTab) {
+                    0 -> HomeScreen(
+                        backdrop = backdrop,
+                        bottomPadding = PaddingValues(bottom = bottomPadding),
+                        onNavigateToChat = { selectedTab = 1 },
+                        onQuickPrompt = { prompt ->
+                            pendingPrompt = prompt
+                            selectedTab = 1
+                        },
+                        viewModel = viewModel
+                    )
+                    1 -> ChatScreen(
+                        backdrop = backdrop,
+                        bottomPadding = PaddingValues(bottom = bottomPadding), 
+                        onNavigateToSettings = { selectedTab = 2 },
+                        viewModel = viewModel,
+                        listState = chatListState,
+                        drawerState = drawerState,
+                        initialPrompt = pendingPrompt,
+                        onPromptConsumed = { pendingPrompt = null }
+                    )
+                    2 -> SettingsScreen(
+                        onBack = { selectedTab = 1 },
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        isTab = true,
+                        bottomPadding = PaddingValues(bottom = bottomPadding)
+                    )
+                }
             }
         }
         
