@@ -257,7 +257,7 @@ private fun LiquidGlassChatContent(
     onImageSelected: (android.net.Uri?) -> Unit = {}
 ) {
     val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
+        contract = ActivityResultContracts.GetContent()
     ) { uri ->
         onImageSelected(uri)
     }
@@ -454,83 +454,97 @@ private fun LiquidGlassChatContent(
         }
 
         // 模型选择器底部弹窗
+        // 模型选择器弹窗
         if (showModelSelector) {
-            ModalBottomSheet(
-                onDismissRequest = { showModelSelector = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showModelSelector = false }
             ) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { RoundedCornerShape(24.dp) },
+                            effects = { vibrancy(); blur(16.dp.toPx()) },
+                            onDrawSurface = { drawRect(Color.White.copy(0.2f)) }
+                        )
+                        .padding(24.dp)
                 ) {
-                    // 标题行
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "选择模型",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        IconButton(onClick = { viewModel.fetchModels() }) {
-                            Icon(Lucide.RefreshCw, contentDescription = "刷新")
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(8.dp))
-                    
-                    // 模型列表
-                    if (viewModel.availableModels.isEmpty()) {
-                        Text(
-                            text = "正在加载模型列表...",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.heightIn(max = 300.dp)
+                    Column {
+                        // 标题行
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            items(viewModel.availableModels) { modelName ->
-                                val isSelected = modelName == viewModel.model
-                                Card(
-                                    onClick = {
-                                        viewModel.saveModel(modelName)
-                                        showModelSelector = false
-                                    },
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) 
-                                            MaterialTheme.colorScheme.primaryContainer 
-                                        else 
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                                ) {
+                            Text(
+                                text = "选择模型",
+                                style = MaterialTheme.typography.titleLarge.copy(color = Color.White),
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                            IconButton(onClick = { viewModel.fetchModels() }) {
+                                Icon(Lucide.RefreshCw, contentDescription = "刷新", tint = Color.White)
+                            }
+                        }
+
+                        // 模型列表
+                        if (viewModel.availableModels.isEmpty()) {
+                            Text(
+                                text = "正在加载模型列表...",
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.heightIn(max = 400.dp)
+                            ) {
+                                items(viewModel.availableModels) { modelName ->
+                                    val isSelected = modelName == viewModel.model
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                viewModel.saveModel(modelName)
+                                                showModelSelector = false
+                                            }
+                                            .padding(vertical = 12.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
                                             text = modelName,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
                                         )
                                         if (isSelected) {
                                             Icon(
                                                 imageVector = Lucide.Check,
                                                 contentDescription = "已选择",
-                                                tint = MaterialTheme.colorScheme.primary
+                                                tint = Color.White
                                             )
                                         }
                                     }
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                                 }
                             }
                         }
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        // 关闭按钮
+                        LiquidButton(
+                            onClick = { showModelSelector = false },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            isInteractive = true,
+                            tint = Color.White.copy(alpha = 0.1f)
+                        ) {
+                            Text("关闭", color = Color.White)
+                        }
                     }
-                    
-                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
@@ -582,7 +596,7 @@ private fun LiquidGlassChatContent(
                      Box(
                          modifier = Modifier
                              .padding(horizontal = 16.dp, vertical = 4.dp)
-                             .size(100.dp)
+                             .size(72.dp)
                      ) {
                          Box(
                             modifier = Modifier
@@ -632,7 +646,7 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
-                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        photoPicker.launch("*/*")
                     }
                 )
             }
@@ -759,9 +773,31 @@ private fun LiquidGlassChatBubble(
                         offset = androidx.compose.ui.geometry.Offset(0f, 1f)
                     ) else null
 
-                    if (message.content.isNotEmpty()) {
+                    // 解析并显示图片 (Vision 格式)
+                    val imageMatch = remember(message.content) {
+                        Regex("^!\\[image\\]\\((.*?)\\)").find(message.content)
+                    }
+                    val imageUrl = imageMatch?.groupValues?.get(1)
+                    val textContent = if (imageUrl != null) {
+                        message.content.substring(imageMatch.range.last + 1).trimStart()
+                    } else message.content
+
+                    if (imageUrl != null) {
+                         AsyncImage(
+                             model = imageUrl,
+                             contentDescription = "Image",
+                             modifier = Modifier
+                                 .fillMaxWidth()
+                                 .heightIn(max = 240.dp)
+                                 .clip(RoundedCornerShape(12.dp)),
+                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                         )
+                         Spacer(Modifier.height(8.dp))
+                    }
+
+                    if (textContent.isNotEmpty()) {
                         MarkdownBlock(
-                            content = message.content,
+                            content = textContent,
                             style = LocalTextStyle.current.copy(
                                 color = textColor,
                                 shadow = textShadow
@@ -839,27 +875,25 @@ private fun LiquidGlassChatInputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.Bottom,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Image Picker Button
-        IconButton(
+        // Add Button (File/Image)
+        LiquidButton(
             onClick = onPickImage,
-            modifier = Modifier
-                .size(44.dp)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { androidx.compose.foundation.shape.CircleShape },
-                    effects = { vibrancy(); blur(10.dp.toPx()) },
-                    onDrawSurface = { drawRect(Color.White.copy(0.1f)) }
-                )
+            backdrop = backdrop,
+            modifier = Modifier.size(44.dp),
+            isInteractive = true,
+            onPressed = onInteractionChanged,
+            tint = Color.Gray.copy(alpha = 0.5f)
         ) {
             Icon(
-                imageVector = Lucide.Image,
-                contentDescription = "Image",
+                imageVector = Icons.Default.Add,
+                contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
 
@@ -947,7 +981,9 @@ private fun ConversationDrawerContent(
         modifier = Modifier
             .width(320.dp)
             .fillMaxHeight()
-            .padding(vertical = 24.dp, horizontal = 16.dp), // 增加上下左右间距，使其悬浮
+            .width(320.dp)
+            .fillMaxHeight()
+            .padding(top = 12.dp, bottom = 24.dp, start = 16.dp, end = 16.dp), // 调整间距，使其略微上移
         drawerContainerColor = Color.Transparent,
         drawerShape = RoundedCornerShape(28.dp) // 全圆角，形成药丸感
     ) {

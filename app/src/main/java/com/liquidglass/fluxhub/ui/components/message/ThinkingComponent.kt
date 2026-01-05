@@ -153,13 +153,22 @@ fun ThinkingComponent(
             enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
             exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
         ) {
+            val scrollState = rememberScrollState()
+            
+            // 自动滚动到底部 (当仍在思考/生成时)
+            LaunchedEffect(content.length, isThinking) {
+                if (isThinking) {
+                    scrollState.animateScrollTo(scrollState.maxValue)
+                }
+            }
+
             Column {
                 Spacer(Modifier.height(10.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                 ) {
                     MarkdownBlock(
                         content = content,
