@@ -166,7 +166,7 @@ fun AssistantListScreen(
                 showCreateDialog = false
                 editingAssistant = null
             },
-            onSave = { name, systemPrompt, temperature, topP, avatar, modelId ->
+            onSave = { name, systemPrompt, temperature, topP, avatar ->
                 if (editingAssistant != null) {
                     viewModel.updateAssistant(
                         editingAssistant!!.copy(
@@ -174,8 +174,7 @@ fun AssistantListScreen(
                             systemPrompt = systemPrompt,
                             temperature = temperature,
                             topP = topP,
-                            avatar = avatar,
-                            modelId = modelId.takeIf { it.isNotBlank() }
+                            avatar = avatar
                         )
                     )
                 } else {
@@ -184,8 +183,7 @@ fun AssistantListScreen(
                         systemPrompt = systemPrompt,
                         temperature = temperature,
                         topP = topP,
-                        avatar = avatar,
-                        modelId = modelId.takeIf { it.isNotBlank() }
+                        avatar = avatar
                     )
                 }
                 showCreateDialog = false
@@ -303,7 +301,7 @@ private fun AssistantCard(
 private fun AssistantEditDialog(
     assistant: AssistantEntity?,
     onDismiss: () -> Unit,
-    onSave: (name: String, systemPrompt: String, temperature: Float, topP: Float, avatar: String?, modelId: String) -> Unit,
+    onSave: (name: String, systemPrompt: String, temperature: Float, topP: Float, avatar: String?) -> Unit,
     backdrop: Backdrop
 ) {
     var name by remember { mutableStateOf(assistant?.name ?: "") }
@@ -311,7 +309,7 @@ private fun AssistantEditDialog(
     var temperature by remember { mutableStateOf(assistant?.temperature ?: 0.7f) }
     var topP by remember { mutableStateOf(assistant?.topP ?: 1.0f) }
     var avatar by remember { mutableStateOf(assistant?.avatar ?: "🤖") }
-    var modelId by remember { mutableStateOf(assistant?.modelId ?: "") }
+
     
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -374,14 +372,7 @@ private fun AssistantEditDialog(
                     )
                 }
                 
-                item {
-                    LiquidTextField(
-                        value = modelId,
-                        onValueChange = { modelId = it },
-                        label = "绑定模型ID (可选, 如 gpt-4)",
-                        backdrop = backdrop
-                    )
-                }
+
 
                 item {
                     Column {
@@ -445,7 +436,7 @@ private fun AssistantEditDialog(
                         LiquidButton(
                             onClick = {
                                 if (name.isNotBlank()) {
-                                    onSave(name, systemPrompt, temperature, topP, avatar.takeIf { it.isNotBlank() }, modelId)
+                                    onSave(name, systemPrompt, temperature, topP, avatar.takeIf { it.isNotBlank() })
                                 }
                             },
                             backdrop = backdrop,

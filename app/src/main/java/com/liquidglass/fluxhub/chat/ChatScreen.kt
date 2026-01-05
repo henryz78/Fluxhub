@@ -281,6 +281,8 @@ private fun LiquidGlassChatContent(
     val clipboardManager = LocalClipboard.current
     // 模型选择器状态
     var showModelSelector by remember { mutableStateOf(false) }
+    // 助手选择器状态
+    var showAssistantSelector by remember { mutableStateOf(false) }
 
     // 主内容区域
     Column(
@@ -390,6 +392,28 @@ private fun LiquidGlassChatContent(
                         }
                     }
                 }
+                
+                // 助手快捷切换按钮
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { showAssistantSelector = true }
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { ContinuousRoundedRectangle(12.dp) },
+                            effects = { vibrancy() },
+                            onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = viewModel.currentAssistant?.avatar ?: "🤖",
+                        fontSize = 22.sp
+                    )
+                }
+                
+                Spacer(Modifier.width(8.dp))
                 
                 // 新建会话按钮（右上角）
                 LiquidButton(
@@ -599,6 +623,138 @@ private fun LiquidGlassChatContent(
             }
         }
 
+        // 助手选择器弹窗
+        if (showAssistantSelector) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showAssistantSelector = false }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { RoundedCornerShape(24.dp) },
+                            effects = { vibrancy(); blur(16.dp.toPx()) },
+                            onDrawSurface = { drawRect(Color.White.copy(0.2f)) }
+                        )
+                        .padding(24.dp)
+                ) {
+                    Column {
+                        // 标题行
+                        Text(
+                            text = "切换助手",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    blurRadius = 4f
+                                )
+                            ),
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // 助手列表
+                        if (viewModel.assistants.isEmpty()) {
+                            Text(
+                                text = "暂无助手，请先创建",
+                                color = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.heightIn(max = 300.dp)
+                            ) {
+                                items(viewModel.assistants) { assistant ->
+                                    val isSelected = assistant.id == viewModel.currentAssistant?.id
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable {
+                                                viewModel.switchAssistant(assistant)
+                                                showAssistantSelector = false
+                                            }
+                                            .background(
+                                                if (isSelected) Color(0xFF007AFF).copy(alpha = 0.2f)
+                                                else Color.Transparent
+                                            )
+                                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // 助手头像
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Color.White.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = assistant.avatar ?: "🤖",
+                                                fontSize = 20.sp
+                                            )
+                                        }
+                                        
+                                        Spacer(Modifier.width(12.dp))
+                                        
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                text = assistant.name,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    color = Color.White,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    shadow = Shadow(
+                                                        color = Color.Black.copy(alpha = 0.5f),
+                                                        blurRadius = 4f
+                                                    )
+                                                )
+                                            )
+                                            if (assistant.systemPrompt.isNotBlank()) {
+                                                Text(
+                                                    text = assistant.systemPrompt.take(30) + if (assistant.systemPrompt.length > 30) "..." else "",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color.White.copy(alpha = 0.5f),
+                                                    maxLines = 1
+                                                )
+                                            }
+                                        }
+                                        
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Lucide.Check,
+                                                contentDescription = "已选择",
+                                                tint = Color(0xFF34C759),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                                }
+                            }
+                        }
+                        
+                        Spacer(Modifier.height(16.dp))
+                        
+                        // 管理助手按钮
+                        LiquidButton(
+                            onClick = {
+                                showAssistantSelector = false
+                                onNavigateToSettings() // 跳转到设置页的助手管理
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF007AFF).copy(alpha = 0.3f)
+                        ) {
+                            Icon(Lucide.Settings, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("管理助手", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
         
         // Error message with animation
         AnimatedVisibility(

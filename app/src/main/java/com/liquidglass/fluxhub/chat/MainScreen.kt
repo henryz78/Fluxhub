@@ -51,6 +51,11 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.liquidglass.fluxhub.R
 import com.liquidglass.fluxhub.components.LiquidBottomTab
 import com.liquidglass.fluxhub.components.LiquidBottomTabs
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.blur
 
 @Composable
 fun MainScreen(
@@ -337,6 +342,19 @@ fun MainScreen(
                     }
                 }
             }
+            }
+        }
+        
+        // 用户协议弹窗
+        if (!viewModel.agreementAccepted) {
+            AgreementDialog(
+                backdrop = backdrop,
+                onAccept = { viewModel.acceptAgreement() },
+                onDecline = {
+                    // 退出应用
+                    (context as? android.app.Activity)?.finishAffinity()
+                }
+            )
         }
     }
 }
@@ -360,4 +378,187 @@ fun rememberIsKeyboardVisible(): Boolean {
     }
     
     return isKeyboardVisible
+}
+
+@Composable
+private fun AgreementDialog(
+    backdrop: com.kyant.backdrop.Backdrop,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit
+) {
+    // 10秒倒计时
+    var countdown by remember { mutableIntStateOf(10) }
+    val canAccept = countdown <= 0
+    
+    LaunchedEffect(Unit) {
+        while (countdown > 0) {
+            kotlinx.coroutines.delay(1000)
+            countdown--
+        }
+    }
+    
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { /* 不允许点击外部关闭 */ },
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp))
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { androidx.compose.foundation.shape.RoundedCornerShape(28.dp) },
+                    effects = { 
+                        vibrancy()
+                        blur(20.dp.toPx())
+                    },
+                    onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.7f)) }
+                )
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // 标题
+                BasicText(
+                    text = "用户协议与隐私政策",
+                    style = TextStyle(
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            blurRadius = 4f
+                        )
+                    ),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // 协议内容滚动区域
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .padding(16.dp)
+                ) {
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        item {
+                            BasicText(
+                                text = """
+欢迎使用 FluxHub！
+
+在您开始使用本应用之前，请仔细阅读以下协议内容：
+
+【用户协议】
+
+1. 服务说明
+FluxHub 是一款 AI 对话应用，通过连接第三方 AI 服务提供商（如 OpenAI、Anthropic 等）为您提供智能对话服务。本应用仅作为连接工具，不直接提供 AI 模型服务。
+
+2. 用户责任
+• 您需要自行提供有效的 API 密钥
+• 您对使用本应用产生的所有对话内容负责
+• 禁止使用本应用进行任何违法活动
+• 禁止生成、传播违法、有害或不当内容
+
+3. 免责声明
+• 本应用不对 AI 生成的内容的准确性、完整性做任何保证
+• 因使用第三方 API 产生的费用由用户自行承担
+• 本应用不对因网络问题、API 服务中断等造成的损失负责
+
+【隐私政策】
+
+1. 数据收集
+• 本应用不收集您的个人身份信息
+• 您的 API 密钥仅存储在本地设备，不会上传至任何服务器
+• 对话记录仅保存在您的设备本地
+
+2. 数据使用
+• 所有对话数据直接发送至您配置的 AI 服务提供商
+• 本应用不会分析、存储或分享您的对话内容
+
+3. 数据安全
+• 建议您定期更换 API 密钥
+• 妥善保管您的设备，避免他人访问您的对话记录
+
+4. 第三方服务
+本应用使用的第三方 AI 服务受其各自隐私政策约束，请在使用前阅读相关服务商的隐私政策。
+
+如您对本协议有任何疑问，请在使用前联系我们。
+
+继续使用本应用即表示您已阅读并同意上述全部内容。
+                                """.trimIndent(),
+                                style = TextStyle(
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    lineHeight = 22.sp
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(20.dp))
+                
+                // 倒计时提示
+                if (!canAccept) {
+                    BasicText(
+                        text = "请仔细阅读协议内容 (${countdown}秒后可操作)",
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        ),
+                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 12.dp)
+                    )
+                }
+                
+                // 按钮区域
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 拒绝按钮
+                    com.liquidglass.fluxhub.components.LiquidButton(
+                        onClick = onDecline,
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        isInteractive = canAccept,
+                        tint = if (canAccept) Color.Red.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.3f)
+                    ) {
+                        BasicText(
+                            text = "我拒绝",
+                            style = TextStyle(
+                                color = if (canAccept) Color.White else Color.White.copy(alpha = 0.4f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        )
+                    }
+                    
+                    // 同意按钮
+                    com.liquidglass.fluxhub.components.LiquidButton(
+                        onClick = { if (canAccept) onAccept() },
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1.5f).height(50.dp),
+                        isInteractive = canAccept,
+                        tint = if (canAccept) Color(0xFF34C759) else Color.Gray.copy(alpha = 0.3f)
+                    ) {
+                        BasicText(
+                            text = if (canAccept) "我已阅读并同意" else "请阅读协议...",
+                            style = TextStyle(
+                                color = if (canAccept) Color.White else Color.White.copy(alpha = 0.4f),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
 }

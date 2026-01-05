@@ -166,6 +166,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 会话列表
     val conversations = mutableStateListOf<ConversationEntity>()
     
+    // 用户协议状态
+    var agreementAccepted by mutableStateOf(true) // 默认 true 防止闪烁，实际值从 DataStore 加载
+        private set
+    
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -210,7 +214,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.glassBlur.collect { glassBlur = it }
         }
+        viewModelScope.launch {
+            settingsRepository.agreementAccepted.collect { agreementAccepted = it }
+        }
 
+    }
+    
+    fun acceptAgreement() {
+        agreementAccepted = true
+        viewModelScope.launch {
+            settingsRepository.setAgreementAccepted(true)
+        }
     }
     
     fun fetchModels() {
@@ -478,7 +492,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (assistant == null) {
                     allConversations
                 } else {
-                    allConversations.filter { it.assistantId == assistant.id || it.assistantId == null }
+                    allConversations.filter { it.assistantId == assistant.id }
                 }
             }.collect { filteredList ->
                 conversations.clear()
@@ -525,7 +539,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         temperature = assistant.temperature
         topP = assistant.topP
         maxTokens = assistant.maxTokens
-        assistant.modelId?.let { model = it }
+        // 不再覆盖 model，让用户自行在顶栏选择
     }
     
     fun createAssistant(

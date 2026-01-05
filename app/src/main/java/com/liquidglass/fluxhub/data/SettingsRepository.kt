@@ -22,6 +22,7 @@ class SettingsRepository(private val context: Context) {
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
         private val GLASS_OPACITY = androidx.datastore.preferences.core.floatPreferencesKey("glass_opacity")
         private val GLASS_BLUR = androidx.datastore.preferences.core.floatPreferencesKey("glass_blur")
+        private val AGREEMENT_ACCEPTED = androidx.datastore.preferences.core.booleanPreferencesKey("agreement_accepted")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -109,6 +110,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGlassBlur(value: Float) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_BLUR] = value
+        }
+    }
+
+    val agreementAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AGREEMENT_ACCEPTED] ?: false
+    }
+
+    suspend fun setAgreementAccepted(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AGREEMENT_ACCEPTED] = value
         }
     }
 }

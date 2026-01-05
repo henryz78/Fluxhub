@@ -150,7 +150,7 @@ fun HomeScreen(
                         )
                     }
                     BasicText(
-                        text = "v1.0.0 · 2026.01.04",
+                        text = "v1.0.1 · 2026.01.05",
                         style = TextStyle(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -159,7 +159,7 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     BasicText(
-                        text = "• 全新 Liquid Glass 界面设计\n• 支持多模型切换\n• 流式对话响应\n• 对话历史管理",
+                        text = "• 新增顶栏助手快捷切换\n• 优化助手配置（移除模型绑定）\n• 对话记录按助手完全隔离\n• 简化显示设置界面\n• 新增首次启动用户协议",
                         style = TextStyle(
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.9f),
