@@ -40,8 +40,8 @@ fun SettingsScreen(
     isTab: Boolean = false,
     bottomPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToAssistants: () -> Unit = {},
-    onNavigateToApiConfig: () -> Unit = {},
-    onNavigateToProviders: () -> Unit = {}
+    onNavigateToProviders: () -> Unit = {},
+    onNavigateToDisplay: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -122,14 +122,14 @@ fun SettingsScreen(
                 )
             }
             
-            // 显示设置 (占位)
+            // 显示设置
             item {
                 SettingsCategoryCard(
                     icon = { Icon(Lucide.Palette, null, tint = Color(0xFF34C759), modifier = Modifier.size(24.dp)) },
                     title = "显示设置",
-                    subtitle = "主题、字体大小等",
+                    subtitle = "主题、壁纸设置",
                     backdrop = backdrop,
-                    onClick = { /* TODO */ }
+                    onClick = onNavigateToDisplay
                 )
             }
             

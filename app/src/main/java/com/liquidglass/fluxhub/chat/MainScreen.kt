@@ -60,8 +60,18 @@ fun MainScreen(
     // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
     
-    val backgroundBitmap = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+    val backgroundBitmap = remember(viewModel.wallpaperUri) {
+        if (viewModel.wallpaperUri != null) {
+            try {
+                val uri = android.net.Uri.parse(viewModel.wallpaperUri)
+                val stream = context.contentResolver.openInputStream(uri)
+                BitmapFactory.decodeStream(stream)
+            } catch (e: Exception) {
+                BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+            }
+        } else {
+            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+        }
     }
     
     val backdrop = rememberLayerBackdrop()
@@ -163,13 +173,13 @@ fun MainScreen(
                                     backdrop = backdrop,
                                     bottomPadding = PaddingValues(bottom = bottomPadding)
                                 )
-                                "api_config" -> ApiConfigScreen(
+                                "providers" -> ProviderListScreen(
                                     onBack = { settingsSubPage = null },
                                     viewModel = viewModel,
                                     backdrop = backdrop,
                                     bottomPadding = PaddingValues(bottom = bottomPadding)
                                 )
-                                "providers" -> ProviderListScreen(
+                                "display_settings" -> DisplaySettingsScreen(
                                     onBack = { settingsSubPage = null },
                                     viewModel = viewModel,
                                     backdrop = backdrop,
@@ -182,8 +192,8 @@ fun MainScreen(
                                     isTab = true,
                                     bottomPadding = PaddingValues(bottom = bottomPadding),
                                     onNavigateToAssistants = { settingsSubPage = "assistants" },
-                                    onNavigateToApiConfig = { settingsSubPage = "api_config" },
-                                    onNavigateToProviders = { settingsSubPage = "providers" }
+                                    onNavigateToProviders = { settingsSubPage = "providers" },
+                                    onNavigateToDisplay = { settingsSubPage = "display_settings" }
                                 )
                             }
                         }

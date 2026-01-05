@@ -30,6 +30,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.LiquidTextField
 import com.liquidglass.fluxhub.data.ProviderEntity
 
 /**
@@ -170,7 +171,8 @@ fun ProviderListScreen(
                 }
                 showCreateDialog = false
                 editingProvider = null
-            }
+            },
+            backdrop = backdrop
         )
     }
 }
@@ -275,75 +277,114 @@ private fun ProviderCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Composable
 private fun ProviderEditDialog(
     provider: ProviderEntity?,
     onDismiss: () -> Unit,
-    onSave: (name: String, baseUrl: String, apiKey: String, icon: String?) -> Unit
+    onSave: (name: String, baseUrl: String, apiKey: String, icon: String?) -> Unit,
+    backdrop: Backdrop
 ) {
     var name by remember { mutableStateOf(provider?.name ?: "") }
     var baseUrl by remember { mutableStateOf(provider?.baseUrl ?: "https://api.openai.com/v1") }
     var apiKey by remember { mutableStateOf(provider?.apiKey ?: "") }
     var icon by remember { mutableStateOf(provider?.icon ?: "🌐") }
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { 
-            Text(if (provider == null) "添加服务商" else "编辑服务商") 
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(28.dp) },
+                    effects = {
+                        vibrancy()
+                        blur(20.dp.toPx())
+                    },
+                    onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.5f)) }
+                )
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = if (provider == null) "添加服务商" else "编辑服务商",
+                    style = TextStyle(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    )
+                )
+
+                LiquidTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("名称") },
-                    placeholder = { Text("如：OpenAI、DeepSeek") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    label = "名称",
+                    placeholder = "如：OpenAI、DeepSeek",
+                    backdrop = backdrop
                 )
                 
-                OutlinedTextField(
+                LiquidTextField(
                     value = icon,
                     onValueChange = { icon = it },
-                    label = { Text("图标 (Emoji)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    label = "图标",
+                    placeholder = "输入 Emoji",
+                    backdrop = backdrop
                 )
                 
-                OutlinedTextField(
+                LiquidTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
-                    label = { Text("Base URL") },
-                    placeholder = { Text("https://api.openai.com/v1") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    label = "Base URL",
+                    placeholder = "https://api.openai.com/v1",
+                    backdrop = backdrop
                 )
                 
-                OutlinedTextField(
+                LiquidTextField(
                     value = apiKey,
                     onValueChange = { apiKey = it },
-                    label = { Text("API Key") },
-                    placeholder = { Text("sk-...") },
+                    label = "API Key",
+                    placeholder = "sk-...",
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    backdrop = backdrop
                 )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { 
-                    if (name.isNotBlank() && baseUrl.isNotBlank() && apiKey.isNotBlank()) {
-                        onSave(name, baseUrl, apiKey, icon.takeIf { it.isNotBlank() })
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    LiquidButton(
+                        onClick = onDismiss,
+                        backdrop = backdrop,
+                        modifier = Modifier.height(44.dp).padding(horizontal = 8.dp),
+                        isInteractive = true,
+                        tint = Color.White.copy(alpha = 0.1f)
+                    ) {
+                        Text("取消", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                    }
+                    
+                    Spacer(Modifier.width(12.dp))
+                    
+                    LiquidButton(
+                        onClick = {
+                            if (name.isNotBlank() && baseUrl.isNotBlank() && apiKey.isNotBlank()) {
+                                onSave(name, baseUrl, apiKey, icon.takeIf { it.isNotBlank() })
+                            }
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier.height(44.dp),
+                        isInteractive = true,
+                        tint = Color(0xFF007AFF)
+                    ) {
+                        Text("保存", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
-            ) {
-                Text("保存")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
             }
         }
-    )
+    }
 }

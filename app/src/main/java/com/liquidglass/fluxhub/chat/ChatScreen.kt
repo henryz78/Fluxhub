@@ -224,7 +224,10 @@ fun ChatScreen(
                         viewModel.createNewConversation()
                         scope.launch { drawerState.close() }
                     },
-                    onInteractionChanged = { isInteractingWithButtons = it }
+                    onInteractionChanged = { isInteractingWithButtons = it },
+                    assistants = viewModel.assistants,
+                    currentAssistant = viewModel.currentAssistant,
+                    onSwitchAssistant = { viewModel.switchAssistant(it) }
                 )
             },
             gesturesEnabled = !isInteractingWithButtons,
@@ -691,10 +694,7 @@ private fun LiquidGlassChatContent(
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
                         photoPicker.launch("*/*")
-                    },
-                    assistants = viewModel.assistants,
-                    currentAssistant = viewModel.currentAssistant,
-                    onSwitchAssistant = { viewModel.switchAssistant(it) }
+                    }
                 )
             }
         }
@@ -915,54 +915,8 @@ private fun LiquidGlassChatInputBar(
     isLoading: Boolean,
     backdrop: Backdrop,
     onInteractionChanged: (Boolean) -> Unit = {},
-    onPickImage: () -> Unit = {},
-    assistants: List<com.liquidglass.fluxhub.data.AssistantEntity> = emptyList(),
-    currentAssistant: com.liquidglass.fluxhub.data.AssistantEntity? = null,
-    onSwitchAssistant: (com.liquidglass.fluxhub.data.AssistantEntity) -> Unit = {}
+    onPickImage: () -> Unit = {}
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // 助手切换器
-        if (assistants.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                modifier = Modifier.padding(bottom = 0.dp)
-            ) {
-                items(assistants) { assistant ->
-                    val isSelected = assistant.id == currentAssistant?.id
-                    Box(
-                        modifier = Modifier
-                            .clip(ContinuousRoundedRectangle(16.dp))
-                            .clickable { onSwitchAssistant(assistant) }
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { ContinuousRoundedRectangle(16.dp) },
-                                effects = {
-                                    vibrancy()
-                                    if (isSelected) blur(10.dp.toPx())
-                                },
-                                onDrawSurface = {
-                                    drawRect(
-                                        if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f)
-                                        else Color.White.copy(alpha = 0.15f)
-                                    )
-                                }
-                            )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "${assistant.avatar} ${assistant.name}",
-                            style = TextStyle(
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
-                            )
-                        )
-                    }
-                }
-            }
-        }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1056,7 +1010,6 @@ private fun LiquidGlassChatInputBar(
             )
         }
     }
-    }
 }
 
 @Composable
@@ -1068,12 +1021,13 @@ private fun ConversationDrawerContent(
     onDeleteConversation: (String) -> Unit,
     onRenameConversation: (String, String) -> Unit,
     onNewConversation: () -> Unit,
-    onInteractionChanged: (Boolean) -> Unit = {}
+    onInteractionChanged: (Boolean) -> Unit = {},
+    assistants: List<com.liquidglass.fluxhub.data.AssistantEntity> = emptyList(),
+    currentAssistant: com.liquidglass.fluxhub.data.AssistantEntity? = null,
+    onSwitchAssistant: (com.liquidglass.fluxhub.data.AssistantEntity) -> Unit = {}
 ) {
     ModalDrawerSheet(
         modifier = Modifier
-            .width(320.dp)
-            .fillMaxHeight()
             .width(320.dp)
             .fillMaxHeight()
             .padding(top = 12.dp, bottom = 24.dp, start = 16.dp, end = 16.dp), // 调整间距，使其略微上移
@@ -1339,6 +1293,57 @@ private fun ConversationDrawerContent(
                                 }
                             )
 
+                        }
+                    }
+                }
+                }
+
+                // 助手切换器 (底部)
+                if (assistants.isNotEmpty()) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "切换助手",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 12.dp)
+                    ) {
+                        items(assistants) { assistant ->
+                            val isSelected = assistant.id == currentAssistant?.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(ContinuousRoundedRectangle(16.dp))
+                                    .clickable { onSwitchAssistant(assistant) }
+                                    .drawBackdrop(
+                                        backdrop = backdrop,
+                                        shape = { ContinuousRoundedRectangle(16.dp) },
+                                        effects = {
+                                            vibrancy()
+                                            if (isSelected) blur(10.dp.toPx())
+                                        },
+                                        onDrawSurface = {
+                                            drawRect(
+                                                if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f)
+                                                else Color.White.copy(alpha = 0.15f)
+                                            )
+                                        }
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = "${assistant.avatar} ${assistant.name}",
+                                    style = TextStyle(
+                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                                    )
+                                )
+                            }
                         }
                     }
                 }

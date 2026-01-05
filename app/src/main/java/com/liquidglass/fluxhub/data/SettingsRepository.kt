@@ -18,6 +18,8 @@ class SettingsRepository(private val context: Context) {
         private val BASE_URL = stringPreferencesKey("base_url")
         private val MODEL = stringPreferencesKey("model")
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
+        private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
+        private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -34,6 +36,14 @@ class SettingsRepository(private val context: Context) {
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[CURRENT_CONVERSATION_ID]
+    }
+    
+    val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[THEME_MODE] ?: "system"
+    }
+
+    val wallpaperUri: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[WALLPAPER_URI]
     }
     
     suspend fun setApiKey(value: String) {
@@ -60,6 +70,22 @@ class SettingsRepository(private val context: Context) {
                 preferences[CURRENT_CONVERSATION_ID] = value
             } else {
                 preferences.remove(CURRENT_CONVERSATION_ID)
+            }
+        }
+    }
+    
+    suspend fun setThemeMode(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[THEME_MODE] = value
+        }
+    }
+
+    suspend fun setWallpaperUri(value: String?) {
+        context.dataStore.edit { preferences ->
+            if (value != null) {
+                preferences[WALLPAPER_URI] = value
+            } else {
+                preferences.remove(WALLPAPER_URI)
             }
         }
     }

@@ -139,6 +139,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
     
+    // 显示设置
+    var themeMode by mutableStateOf("system") // system, light, dark
+    var wallpaperUri by mutableStateOf<String?>(null)
+    
     // 当前助手
     var currentAssistant by mutableStateOf<AssistantEntity?>(null)
         private set
@@ -187,6 +191,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.model.collect { model = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.themeMode.collect { themeMode = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.wallpaperUri.collect { wallpaperUri = it }
         }
 
     }
@@ -652,6 +662,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         model = value
         viewModelScope.launch {
             settingsRepository.setModel(value)
+        }
+    }
+
+    fun setThemeMode(value: String) {
+        themeMode = value
+        viewModelScope.launch {
+            settingsRepository.setThemeMode(value)
+        }
+    }
+
+    fun setWallpaperUri(value: String?) {
+        wallpaperUri = value
+        viewModelScope.launch {
+            settingsRepository.setWallpaperUri(value)
         }
     }
     

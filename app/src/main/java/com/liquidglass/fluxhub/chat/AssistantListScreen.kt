@@ -30,6 +30,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.LiquidSlider
+import com.liquidglass.fluxhub.components.LiquidTextField
 import com.liquidglass.fluxhub.data.AssistantEntity
 import java.util.UUID
 
@@ -151,7 +153,7 @@ fun AssistantListScreen(
                 showCreateDialog = false
                 editingAssistant = null
             },
-            onSave = { name, systemPrompt, temperature, topP, avatar ->
+            onSave = { name, systemPrompt, temperature, topP, avatar, modelId ->
                 if (editingAssistant != null) {
                     viewModel.updateAssistant(
                         editingAssistant!!.copy(
@@ -159,7 +161,8 @@ fun AssistantListScreen(
                             systemPrompt = systemPrompt,
                             temperature = temperature,
                             topP = topP,
-                            avatar = avatar
+                            avatar = avatar,
+                            modelId = modelId.takeIf { it.isNotBlank() }
                         )
                     )
                 } else {
@@ -168,12 +171,14 @@ fun AssistantListScreen(
                         systemPrompt = systemPrompt,
                         temperature = temperature,
                         topP = topP,
-                        avatar = avatar
+                        avatar = avatar,
+                        modelId = modelId.takeIf { it.isNotBlank() }
                     )
                 }
                 showCreateDialog = false
                 editingAssistant = null
-            }
+            },
+            backdrop = backdrop
         )
     }
 }
@@ -280,116 +285,165 @@ private fun AssistantCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Composable
 private fun AssistantEditDialog(
     assistant: AssistantEntity?,
     onDismiss: () -> Unit,
-    onSave: (name: String, systemPrompt: String, temperature: Float, topP: Float, avatar: String?) -> Unit
+    onSave: (name: String, systemPrompt: String, temperature: Float, topP: Float, avatar: String?, modelId: String) -> Unit,
+    backdrop: Backdrop
 ) {
     var name by remember { mutableStateOf(assistant?.name ?: "") }
     var systemPrompt by remember { mutableStateOf(assistant?.systemPrompt ?: "") }
     var temperature by remember { mutableStateOf(assistant?.temperature ?: 0.7f) }
     var topP by remember { mutableStateOf(assistant?.topP ?: 1.0f) }
     var avatar by remember { mutableStateOf(assistant?.avatar ?: "🤖") }
+    var modelId by remember { mutableStateOf(assistant?.modelId ?: "") }
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { 
-            Text(if (assistant == null) "创建助手" else "编辑助手") 
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("名称") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                        focusedBorderColor = Color(0xFF007AFF),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(28.dp) },
+                    effects = {
+                        vibrancy()
+                        blur(20.dp.toPx())
+                    },
+                    onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.5f)) }
                 )
+                .padding(24.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text(
+                        text = if (assistant == null) "创建助手" else "编辑助手",
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        )
+                    )
+                }
+
+                item {
+                    LiquidTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = "名称",
+                        backdrop = backdrop
+                    )
+                }
                 
-                OutlinedTextField(
-                    value = avatar,
-                    onValueChange = { avatar = it },
-                    label = { Text("头像 (Emoji)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                        focusedBorderColor = Color(0xFF007AFF),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                item {
+                    LiquidTextField(
+                        value = avatar,
+                        onValueChange = { avatar = it },
+                        label = "头像 (Emoji)",
+                        backdrop = backdrop
                     )
-                )
+                }
                 
-                OutlinedTextField(
-                    value = systemPrompt,
-                    onValueChange = { systemPrompt = it },
-                    label = { Text("系统提示词") },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    maxLines = 5,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White.copy(alpha = 0.1f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                        focusedBorderColor = Color(0xFF007AFF),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                item {
+                    LiquidTextField(
+                        value = systemPrompt,
+                        onValueChange = { systemPrompt = it },
+                        label = "系统提示词",
+                        singleLine = false,
+                        modifier = Modifier.height(120.dp),
+                        backdrop = backdrop
                     )
-                )
+                }
                 
-                // Temperature
-                Text("Temperature: ${String.format("%.1f", temperature)}")
-                Slider(
-                    value = temperature,
-                    onValueChange = { temperature = it },
-                    valueRange = 0f..2f,
-                    steps = 19,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFF007AFF),
-                        activeTrackColor = Color(0xFF007AFF),
-                        inactiveTrackColor = Color(0xFF007AFF).copy(alpha = 0.3f)
+                item {
+                    LiquidTextField(
+                        value = modelId,
+                        onValueChange = { modelId = it },
+                        label = "绑定模型ID (可选, 如 gpt-4)",
+                        backdrop = backdrop
                     )
-                )
-                
-                // Top P
-                Text("Top P: ${String.format("%.2f", topP)}")
-                Slider(
-                    value = topP,
-                    onValueChange = { topP = it },
-                    valueRange = 0f..1f,
-                    steps = 9,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFF007AFF),
-                        activeTrackColor = Color(0xFF007AFF),
-                        inactiveTrackColor = Color(0xFF007AFF).copy(alpha = 0.3f)
-                    )
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { 
-                    if (name.isNotBlank()) {
-                        onSave(name, systemPrompt, temperature, topP, avatar.takeIf { it.isNotBlank() })
+                }
+
+                item {
+                    Column {
+                        Text(
+                            text = "Temperature: ${String.format("%.1f", temperature)}",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+                        )
+                        LiquidSlider(
+                            value = { temperature },
+                            onValueChange = { temperature = it },
+                            valueRange = 0f..2f,
+                            visibilityThreshold = 0.5f,
+                            backdrop = backdrop,
+                            modifier = Modifier.height(30.dp)
+                        )
                     }
                 }
-            ) {
-                Text("保存")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+                
+                item {
+                    Column {
+                        Text(
+                            text = "Top P: ${String.format("%.2f", topP)}",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+                        )
+                        LiquidSlider(
+                            value = { topP },
+                            onValueChange = { topP = it },
+                            valueRange = 0f..1f,
+                            visibilityThreshold = 0.5f,
+                            backdrop = backdrop,
+                            modifier = Modifier.height(30.dp)
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        LiquidButton(
+                            onClick = onDismiss,
+                            backdrop = backdrop,
+                            modifier = Modifier.height(44.dp).padding(horizontal = 8.dp),
+                            isInteractive = true,
+                            tint = Color.White.copy(alpha = 0.1f)
+                        ) {
+                            Text("取消", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                        }
+                        
+                        Spacer(Modifier.width(12.dp))
+                        
+                        LiquidButton(
+                            onClick = {
+                                if (name.isNotBlank()) {
+                                    onSave(name, systemPrompt, temperature, topP, avatar.takeIf { it.isNotBlank() }, modelId)
+                                }
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier.height(44.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF007AFF)
+                        ) {
+                            Text("保存", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }

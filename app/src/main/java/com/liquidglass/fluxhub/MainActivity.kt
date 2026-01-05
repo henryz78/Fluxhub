@@ -19,11 +19,20 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            val isDarkTheme = isSystemInDarkTheme()
+            val chatViewModel: ChatViewModel = viewModel()
+            // 观察主题设置
+            val themeMode = chatViewModel.themeMode
+            val isSystemDark = isSystemInDarkTheme()
+            
+            val isDarkTheme = when (themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemDark
+            }
+            
             val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
             
             MaterialTheme(colorScheme = colorScheme) {
-                val chatViewModel: ChatViewModel = viewModel()
                 MainScreen(viewModel = chatViewModel)
             }
         }
