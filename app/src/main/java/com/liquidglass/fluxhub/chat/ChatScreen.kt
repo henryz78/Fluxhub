@@ -782,12 +782,7 @@ private fun LiquidGlassChatBubble(
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     color = Color.White,
-                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal, // AI 回复使用常规粗细
-                    shadow = androidx.compose.ui.graphics.Shadow(
-                        color = Color.Black.copy(alpha = 0.3f),
-                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
-                        blurRadius = 4f
-                    )
+                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
                 )
             ) {
                 Column {

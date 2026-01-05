@@ -99,26 +99,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val database = AppDatabase.getDatabase(application)
     
-    // Echo TTS Engine
-    private val echoEngine = com.liquidglass.fluxhub.utils.EchoEngine(application)
-    var speakingMessageId by mutableStateOf<String?>(null) // 当前正在朗读的消息 ID
-
-    init {
-        // 配置 TTS 回调
-        echoEngine.onStart = { id ->
-            speakingMessageId = id
-        }
-        echoEngine.onDone = { id ->
-            if (speakingMessageId == id) {
-                speakingMessageId = null
-            }
-        }
-        echoEngine.onError = { id ->
-            if (speakingMessageId == id) {
-                speakingMessageId = null
-            }
-        }
-    }
     private val messageDao = database.messageDao()
     private val conversationDao = database.conversationDao()
     private val settingsRepository = SettingsRepository(application)

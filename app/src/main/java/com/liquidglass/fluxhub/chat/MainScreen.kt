@@ -6,14 +6,8 @@ import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.*
@@ -105,13 +99,10 @@ fun MainScreen(
             val imeHeightDp = with(density) { imeHeight.toDp() }
             val bottomPadding = (80.dp - imeHeightDp).coerceAtLeast(0.dp)
             
-            AnimatedContent(
+            // 使用 Crossfade 代替 AnimatedContent，更轻量减少卡顿
+            Crossfade(
                 targetState = selectedTab,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(300)) + 
-                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
-                     fadeOut(animationSpec = tween(300)))
-                },
+                animationSpec = tween(200),
                 label = "TabContent"
             ) { targetTab ->
                 when (targetTab) {
@@ -164,8 +155,8 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .navigationBarsPadding()
-                    .padding(bottom = 24.dp, start = 48.dp, end = 48.dp)
-                    .widthIn(max = 360.dp) // 增加最大宽度适应 3 个 Tab
+                    .padding(bottom = 8.dp, start = 56.dp, end = 56.dp)
+                    .widthIn(max = 260.dp) // 缩短导航栏宽度
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
