@@ -31,13 +31,16 @@ import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import android.net.Uri
+import com.liquidglass.fluxhub.utils.FileUtils
+import kotlinx.serialization.json.*
 
 private const val TAG = "ChatViewModel"
 
 @Serializable
 data class ChatMessage(
     val role: String,
-    val content: String
+    val content: JsonElement
 )
 
 @Serializable
@@ -113,6 +116,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
+    
+    // 当前选中的图片 URI (Vision)
+    var selectedImageUri by mutableStateOf<Uri?>(null)
     
 
     // 当前会话
@@ -433,7 +439,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun sendMessage(content: String) {
-        if (content.isBlank()) return
+        if (content.isBlank() && selectedImageUri == null) return
+        
+        val finalContent = if (selectedImageUri != null) {
+            val uri = selectedImageUri
+            selectedImageUri = null // 消费图片
+            "![image]($uri)\n$content"
+        } else {
+            content
+        }
         
         if (apiKey.isBlank()) {
             showErrorMessage("请先配置 API Key")
@@ -447,11 +461,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         val conversationId = currentConversationId ?: return
         
-        Log.d(TAG, "sendMessage: $content")
+        Log.d(TAG, "sendMessage: $finalContent")
         
         // 添加用户消息
         val userMessageId = UUID.randomUUID().toString()
-        val userMessage = UiMessage(id = userMessageId, role = "user", content = content)
+        val userMessage = UiMessage(id = userMessageId, role = "user", content = finalContent)
         messages.add(userMessage)
         
         // 保存到数据库
@@ -460,7 +474,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 id = userMessageId,
                 conversationId = conversationId,
                 role = "user",
-                content = content
+                content = finalContent
             ))
             
             // 始终更新会话状态
@@ -525,7 +539,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         val apiMessages = messages
             .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
-            .map { ChatMessage(it.role, it.content) }
+            .map { message ->
+                // 解析 Vision 图片 (Markdown: ![image](uri))
+                val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
+                val contentElement = if (imageMatch != null) {
+                    val uriStr = imageMatch.groupValues[1]
+                    val textContent = message.content.replace(imageMatch.value, "").trim()
+                    
+                    val base64 = try {
+                         FileUtils.uriToBase64(getApplication(), Uri.parse(uriStr))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to load image from URI: $uriStr", e)
+                        null
+                    }
+                    
+                    if (base64 != null) {
+                        buildJsonArray {
+                            add(buildJsonObject {
+                                put("type", "text")
+                                put("text", textContent)
+                            })
+                            add(buildJsonObject {
+                                put("type", "image_url")
+                                put("image_url", buildJsonObject {
+                                    put("url", "data:image/jpeg;base64,$base64")
+                                })
+                            })
+                        }
+                    } else {
+                        JsonPrimitive(message.content)
+                    }
+                } else {
+                    JsonPrimitive(message.content)
+                }
+                
+                ChatMessage(message.role, contentElement)
+            }
         
         val requestData = ChatRequest(
             model = model,

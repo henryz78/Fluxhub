@@ -42,6 +42,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -228,7 +232,8 @@ fun ChatScreen(
                 backdrop = backdrop,
                 bottomPadding = bottomPadding,
                 scope = scope,
-                onInteractionChanged = { isInteractingWithButtons = it }
+                onInteractionChanged = { isInteractingWithButtons = it },
+                onImageSelected = { viewModel.selectedImageUri = it }
             )
         }
     }
@@ -561,15 +566,68 @@ private fun LiquidGlassChatContent(
                 .fillMaxWidth()
                 .imePadding() // 保持键盘适配
         ) {
-            LiquidGlassChatInputBar(
-                text = inputText,
-                onTextChange = onInputTextChange,
-                onSend = onSend,
-                onStop = { viewModel.stopStreaming() },
-                isLoading = viewModel.isLoading,
-                backdrop = backdrop,
-                onInteractionChanged = onInteractionChanged
-            )
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                 // 图片预览
+                 if (viewModel.selectedImageUri != null) {
+                     Box(
+                         modifier = Modifier
+                             .padding(horizontal = 16.dp, vertical = 4.dp)
+                             .size(100.dp)
+                     ) {
+                         Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { RoundedCornerShape(12.dp) },
+                                    effects = { 
+                                         vibrancy()
+                                         blur(10.dp.toPx()) 
+                                    },
+                                    onDrawSurface = { drawRect(Color.White.copy(0.1f)) }
+                                )
+                         ) {
+                             AsyncImage(
+                                 model = viewModel.selectedImageUri,
+                                 contentDescription = "Preview",
+                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                 modifier = Modifier.fillMaxSize()
+                             )
+                         }
+                         
+                         // 删除按钮
+                         Icon(
+                             imageVector = Lucide.X,
+                             contentDescription = "Remove",
+                             tint = Color.White,
+                             modifier = Modifier
+                                 .align(Alignment.TopEnd)
+                                 .padding(6.dp)
+                                 .size(20.dp)
+                                 .clip(androidx.compose.foundation.shape.CircleShape)
+                                 .background(Color.Black.copy(0.5f))
+                                 .clickable { viewModel.selectedImageUri = null }
+                                 .padding(3.dp)
+                         )
+                     }
+                 }
+
+                LiquidGlassChatInputBar(
+                    text = inputText,
+                    onTextChange = onInputTextChange,
+                    onSend = onSend,
+                    onStop = { viewModel.stopStreaming() },
+                    isLoading = viewModel.isLoading,
+                    backdrop = backdrop,
+                    onInteractionChanged = onInteractionChanged,
+                    onPickImage = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                )
+            }
         }
     }
 }
@@ -767,7 +825,8 @@ private fun LiquidGlassChatInputBar(
     onStop: () -> Unit,
     isLoading: Boolean,
     backdrop: Backdrop,
-    onInteractionChanged: (Boolean) -> Unit = {}
+    onInteractionChanged: (Boolean) -> Unit = {},
+    onPickImage: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -776,6 +835,26 @@ private fun LiquidGlassChatInputBar(
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Image Picker Button
+        IconButton(
+            onClick = onPickImage,
+            modifier = Modifier
+                .size(44.dp)
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { androidx.compose.foundation.shape.CircleShape },
+                    effects = { vibrancy(); blur(10.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(0.1f)) }
+                )
+        ) {
+            Icon(
+                imageVector = Lucide.Image,
+                contentDescription = "Image",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         // Input field with glass effect
         Box(
             modifier = Modifier
