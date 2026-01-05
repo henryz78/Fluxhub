@@ -28,6 +28,7 @@ import com.composables.icons.lucide.Trash2
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidTextField
@@ -276,7 +277,6 @@ private fun ProviderCard(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
 @Composable
 private fun ProviderEditDialog(
     provider: ProviderEntity?,

@@ -285,7 +285,6 @@ private fun AssistantCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Composable
 private fun AssistantEditDialog(
     assistant: AssistantEntity?,
     onDismiss: () -> Unit,
