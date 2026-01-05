@@ -411,10 +411,10 @@ private fun LiquidGlassChatContent(
                 onRegenerate = { viewModel.regenerate(message.id) },
                 onDelete = { viewModel.deleteMessage(message.id) },
                 onEditAndResend = {
-                    // 将消息内容填入输入框（使用回调）
+                    // 将消息内容填入输入框
                     onInputTextChange(message.content)
-                    // 删除原消息
-                    viewModel.deleteMessage(message.id)
+                    // 删除原消息及其后续所有消息
+                    viewModel.deleteMessageAndFollowing(message.id)
                     selectedMessageForMenu = null
                 }
             )
@@ -563,8 +563,8 @@ private fun LiquidGlassChatBubble(
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
-    // 用户气泡蓝色，AI 气泡深色半透明背景提高可读性
-    val tintColor = if (isUser) Color(0xFF007AFF) else Color(0xFF1C1C1E)
+    // AI 气泡使用白色 liquid glass 风格
+    val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
     
     Column(
         modifier = Modifier
@@ -610,8 +610,7 @@ private fun LiquidGlassChatBubble(
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        // AI 气泡使用深色背景提高白字可见性
-                        drawRect(tintColor.copy(alpha = if (isUser) 0.45f else 0.75f))
+                        drawRect(tintColor.copy(alpha = 0.45f))
                     }
                 )
                 .drawBehind {

@@ -317,6 +317,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * 删除指定消息及其后续所有消息（用于编辑重发）
+     */
+    fun deleteMessageAndFollowing(messageId: String) {
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex == -1) return
+        
+        // 获取要删除的消息 ID 列表（从该消息开始到最后）
+        val idsToDelete = messages.drop(messageIndex).map { it.id }
+        
+        viewModelScope.launch {
+            idsToDelete.forEach { id ->
+                messageDao.deleteMessage(id)
+            }
+        }
+    }
+    
     fun regenerate(messageId: String) {
         val messageIndex = messages.indexOfFirst { it.id == messageId }
         if (messageIndex == -1) return
