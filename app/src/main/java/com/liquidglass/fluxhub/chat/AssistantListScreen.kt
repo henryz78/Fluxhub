@@ -102,7 +102,7 @@ fun AssistantListScreen(
                     assistant = assistant,
                     isSelected = viewModel.currentAssistant?.id == assistant.id,
                     backdrop = backdrop,
-                    onSelect = { viewModel.setCurrentAssistant(assistant) },
+                    onSelect = { viewModel.switchAssistant(assistant) },
                     onEdit = { editingAssistant = assistant },
                     onDelete = { viewModel.deleteAssistant(assistant.id) }
                 )

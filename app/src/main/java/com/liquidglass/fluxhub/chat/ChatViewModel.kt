@@ -464,7 +464,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun setCurrentAssistant(assistant: AssistantEntity) {
+    fun switchAssistant(assistant: AssistantEntity) {
         currentAssistant = assistant
         applyAssistantSettings(assistant)
     }
