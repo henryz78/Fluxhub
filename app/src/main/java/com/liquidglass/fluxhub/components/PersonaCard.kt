@@ -20,7 +20,6 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.effects.saturation
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.data.Persona
@@ -42,7 +41,6 @@ fun PersonaCard(
                 effects = {
                     vibrancy()
                     blur(8.dp.toPx()) // 更强的模糊
-                    saturation(1.2f)
                 },
                 highlight = { Highlight.Plain },
                 onDrawSurface = {

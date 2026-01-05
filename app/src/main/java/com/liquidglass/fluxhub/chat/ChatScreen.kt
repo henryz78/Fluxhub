@@ -138,11 +138,12 @@ fun ChatScreen(
     val isKeyboardVisible = rememberIsKeyboardVisible()
     // 获取流式消息的状态（用于检测流式更新）
     val isStreaming = viewModel.messages.any { it.isStreaming }
+    val density = androidx.compose.ui.platform.LocalDensity.current
 
     // 智能触底判定扩展逻辑 (参考 RikkaHub)
     fun LazyListState.isAtBottom(): Boolean {
         val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
-        val density = LocalDensity.current
+        
         // 放宽判定条件：只要最后可见项是列表的最后几项之一，且底部接近视口底部，就认为触底
         // 增加容差值 (50% 的最后项高度 或 100dp)
         val tolerance = with(density) { 
