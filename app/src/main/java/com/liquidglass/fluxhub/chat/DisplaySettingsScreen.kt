@@ -50,10 +50,10 @@ fun DisplaySettingsScreen(
             try {
                 val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(it, flag)
-                viewModel.setWallpaperUri(it.toString())
+                viewModel.updateWallpaperUri(it.toString())
             } catch (e: Exception) {
                 // Fallback if persistence fails or already granted
-                viewModel.setWallpaperUri(it.toString())
+                viewModel.updateWallpaperUri(it.toString())
             }
         }
     }
@@ -119,21 +119,21 @@ fun DisplaySettingsScreen(
                     ThemeOption(
                         title = "跟随系统",
                         isSelected = themeMode == "system",
-                        onClick = { viewModel.setThemeMode("system") },
+                        onClick = { viewModel.updateThemeMode("system") },
                         backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOption(
                         title = "浅色",
                         isSelected = themeMode == "light",
-                        onClick = { viewModel.setThemeMode("light") },
+                        onClick = { viewModel.updateThemeMode("light") },
                         backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                     ThemeOption(
                         title = "深色",
                         isSelected = themeMode == "dark",
-                        onClick = { viewModel.setThemeMode("dark") },
+                        onClick = { viewModel.updateThemeMode("dark") },
                         backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
@@ -179,7 +179,7 @@ fun DisplaySettingsScreen(
                     
                     if (wallpaperUri != null) {
                         LiquidButton(
-                            onClick = { viewModel.setWallpaperUri(null) },
+                            onClick = { viewModel.updateWallpaperUri(null) },
                             backdrop = backdrop,
                             modifier = Modifier.height(44.dp), // .weight(1f) optional
                             tint = Color.Red.copy(alpha = 0.6f)

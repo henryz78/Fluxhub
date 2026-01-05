@@ -665,14 +665,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setThemeMode(value: String) {
+    fun updateThemeMode(value: String) {
         themeMode = value
         viewModelScope.launch {
             settingsRepository.setThemeMode(value)
         }
     }
 
-    fun setWallpaperUri(value: String?) {
+    fun updateWallpaperUri(value: String?) {
         wallpaperUri = value
         viewModelScope.launch {
             settingsRepository.setWallpaperUri(value)
