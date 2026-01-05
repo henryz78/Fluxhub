@@ -47,7 +47,12 @@ data class ChatMessage(
 data class ChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
-    val stream: Boolean = false
+    val stream: Boolean = false,
+    val temperature: Float? = null,
+    @kotlinx.serialization.SerialName("top_p")
+    val topP: Float? = null,
+    @kotlinx.serialization.SerialName("max_tokens")
+    val maxTokens: Int? = null
 )
 
 @Serializable
@@ -117,6 +122,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
+    
+    // 请求参数
+    var temperature by mutableStateOf(0.7f)
+    var topP by mutableStateOf(1.0f)
+    var maxTokens by mutableStateOf<Int?>(null) // null = 使用模型默认值
     
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
@@ -590,7 +600,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val requestData = ChatRequest(
             model = model,
             messages = apiMessages,
-            stream = true
+            stream = true,
+            temperature = temperature,
+            topP = topP,
+            maxTokens = maxTokens
         )
         
         val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
