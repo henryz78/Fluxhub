@@ -473,8 +473,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
-        }
-        
         // 发起 AI 请求
         initiateAiResponse(conversationId)
     }
