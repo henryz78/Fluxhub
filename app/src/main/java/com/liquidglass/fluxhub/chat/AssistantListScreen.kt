@@ -44,10 +44,15 @@ fun AssistantListScreen(
     onBack: () -> Unit,
     viewModel: ChatViewModel,
     backdrop: Backdrop,
-    bottomPadding: PaddingValues = PaddingValues(0.dp)
+    bottomPadding: PaddingValues = PaddingValues(0.dp),
+    isSelectionMode: Boolean = false
 ) {
+    val context = LocalContext.current
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingAssistant by remember { mutableStateOf<AssistantEntity?>(null) }
+    
+    val glassOpacity = viewModel.glassOpacity
+    val glassBlur = viewModel.glassBlur
     
     Column(
         modifier = Modifier
@@ -73,8 +78,9 @@ fun AssistantListScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = Color.White)
             }
             
+            
             Text(
-                "助手管理",
+                if (isSelectionMode) "选择助手" else "助手管理",
                 style = TextStyle(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -105,7 +111,12 @@ fun AssistantListScreen(
                     assistant = assistant,
                     isSelected = viewModel.currentAssistant?.id == assistant.id,
                     backdrop = backdrop,
-                    onSelect = { viewModel.switchAssistant(assistant) },
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
+                    onSelect = { 
+                        viewModel.switchAssistant(assistant)
+                        if (isSelectionMode) onBack()
+                    },
                     onEdit = { editingAssistant = assistant },
                     onDelete = { viewModel.deleteAssistant(assistant.id) }
                 )
@@ -190,6 +201,12 @@ private fun AssistantCard(
     backdrop: Backdrop,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
+    isSelected: Boolean,
+    backdrop: Backdrop,
+    glassOpacity: Float = 0.1f,
+    glassBlur: Float = 16f,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Box(
@@ -198,11 +215,11 @@ private fun AssistantCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy() },
+                effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
                 onDrawSurface = {
                     drawRect(
-                        if (isSelected) Color(0xFF007AFF).copy(alpha = 0.3f)
-                        else Color.White.copy(alpha = 0.3f)
+                        if (isSelected) Color(0xFF007AFF).copy(alpha = glassOpacity + 0.2f)
+                        else Color.White.copy(alpha = glassOpacity)
                     )
                 }
             )

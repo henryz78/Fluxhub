@@ -33,6 +33,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.LiquidSlider
 
 @Composable
 fun DisplaySettingsScreen(
@@ -95,49 +96,60 @@ fun DisplaySettingsScreen(
         
         Spacer(Modifier.height(32.dp))
         
-        // Theme Config
+        // Glass Effects Config
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { ContinuousRoundedRectangle(16.dp) },
-                    effects = { vibrancy() },
-                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                    effects = {
+                        vibrancy()
+                        // Use glassBlur from viewModel for preview? Or just standard?
+                        // Using standard for the container itself to ensure visibility
+                    },
+                    onDrawSurface = {
+                         // Use user defined opacity for preview?
+                         drawRect(Color.White.copy(alpha = 0.1f)) // Container defaults
+                    }
                 )
                 .padding(16.dp)
         ) {
             Column {
                 Text(
-                    "主题模式",
+                    "界面风格",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.6f)
                 )
                 Spacer(Modifier.height(16.dp))
                 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ThemeOption(
-                        title = "跟随系统",
-                        isSelected = themeMode == "system",
-                        onClick = { viewModel.updateThemeMode("system") },
-                        backdrop = backdrop,
-                        modifier = Modifier.weight(1f)
-                    )
-                    ThemeOption(
-                        title = "浅色",
-                        isSelected = themeMode == "light",
-                        onClick = { viewModel.updateThemeMode("light") },
-                        backdrop = backdrop,
-                        modifier = Modifier.weight(1f)
-                    )
-                    ThemeOption(
-                        title = "深色",
-                        isSelected = themeMode == "dark",
-                        onClick = { viewModel.updateThemeMode("dark") },
-                        backdrop = backdrop,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                // Opacity
+                Text(
+                    text = "卡片透明度 ${(viewModel.glassOpacity * 100).toInt()}%",
+                    style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                )
+                Spacer(Modifier.height(8.dp))
+                LiquidSlider(
+                    value = { viewModel.glassOpacity },
+                    onValueChange = { viewModel.updateGlassOpacity(it) },
+                    valueRange = 0f..0.5f, // Limit to 50% opacity max for aesthetic
+                    backdrop = backdrop
+                )
+                
+                Spacer(Modifier.height(16.dp))
+
+                // Blur
+                Text(
+                    text = "模糊半径 ${viewModel.glassBlur.toInt()}dp",
+                    style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                )
+                Spacer(Modifier.height(8.dp))
+                LiquidSlider(
+                    value = { viewModel.glassBlur },
+                    onValueChange = { viewModel.updateGlassBlur(it) },
+                    valueRange = 0f..50f,
+                    backdrop = backdrop
+                )
             }
         }
         

@@ -137,16 +137,44 @@ fun MainScreen(
                         },
                         viewModel = viewModel
                     )
-                    1 -> ChatScreen(
-                        backdrop = backdrop,
-                        bottomPadding = PaddingValues(bottom = bottomPadding), 
-                        onNavigateToSettings = { selectedTab = 2 },
-                        viewModel = viewModel,
-                        listState = chatListState,
-                        drawerState = drawerState,
-                        initialPrompt = pendingPrompt,
-                        onPromptConsumed = { pendingPrompt = null }
-                    )
+                    1 -> {
+                        var chatSubPage by remember { mutableStateOf<String?>(null) }
+                        BackHandler(enabled = chatSubPage != null) {
+                            chatSubPage = null
+                        }
+                        
+                        AnimatedContent(
+                            targetState = chatSubPage,
+                            transitionSpec = {
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
+                            },
+                            label = "ChatSubPage"
+                        ) { subPage ->
+                            if (subPage == "assistant_selection") {
+                                AssistantListScreen(
+                                    onBack = { chatSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                                    isSelectionMode = true
+                                )
+                            } else {
+                                ChatScreen(
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding), 
+                                    onNavigateToSettings = { selectedTab = 2 },
+                                    onNavigateToAssistantSelection = { chatSubPage = "assistant_selection" },
+                                    viewModel = viewModel,
+                                    listState = chatListState,
+                                    drawerState = drawerState,
+                                    initialPrompt = pendingPrompt,
+                                    onPromptConsumed = { pendingPrompt = null }
+                                )
+                            }
+                        }
+                    }
                     2 -> {
                         // 设置子页面状态
                         var settingsSubPage by remember { mutableStateOf<String?>(null) }

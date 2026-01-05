@@ -115,6 +115,7 @@ fun ChatScreen(
     backdrop: Backdrop,
     bottomPadding: PaddingValues,
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToAssistantSelection: () -> Unit = {},
     viewModel: ChatViewModel = viewModel(),
     listState: LazyListState = rememberLazyListState(),
     drawerState: DrawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
@@ -1308,42 +1309,51 @@ private fun ConversationDrawerContent(
                         color = Color.White.copy(alpha = 0.4f),
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 12.dp)
+                    LiquidButton(
+                        onClick = onNavigateToAssistantSelection,
+                        backdrop = backdrop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        tint = Color.White.copy(alpha = 0.1f)
                     ) {
-                        items(assistants) { assistant ->
-                            val isSelected = assistant.id == currentAssistant?.id
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .clip(ContinuousRoundedRectangle(16.dp))
-                                    .clickable { onSwitchAssistant(assistant) }
-                                    .drawBackdrop(
-                                        backdrop = backdrop,
-                                        shape = { ContinuousRoundedRectangle(16.dp) },
-                                        effects = {
-                                            vibrancy()
-                                            if (isSelected) blur(10.dp.toPx())
-                                        },
-                                        onDrawSurface = {
-                                            drawRect(
-                                                if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f)
-                                                else Color.White.copy(alpha = 0.15f)
-                                            )
-                                        }
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "${assistant.avatar} ${assistant.name}",
-                                    style = TextStyle(
-                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
-                                    )
+                                    currentAssistant?.avatar ?: "🤖",
+                                    fontSize = 20.sp
                                 )
                             }
+                            
+                            Spacer(Modifier.width(12.dp))
+                            
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "当前助手",
+                                    style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
+                                )
+                                Text(
+                                    currentAssistant?.name ?: "未选择助手",
+                                    style = TextStyle(
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                            
+                            Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.5f))
                         }
                     }
                 }

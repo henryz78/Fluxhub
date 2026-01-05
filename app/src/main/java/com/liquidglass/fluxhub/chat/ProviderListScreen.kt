@@ -47,6 +47,9 @@ fun ProviderListScreen(
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var editingProvider by remember { mutableStateOf<ProviderEntity?>(null) }
+
+    val glassOpacity = viewModel.glassOpacity
+    val glassBlur = viewModel.glassBlur
     
     Column(
         modifier = Modifier
@@ -185,6 +188,13 @@ private fun ProviderCard(
     backdrop: Backdrop,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
+    provider: ProviderEntity,
+    isActive: Boolean,
+    backdrop: Backdrop,
+    glassOpacity: Float = 0.1f,
+    glassBlur: Float = 16f,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Box(
@@ -193,11 +203,11 @@ private fun ProviderCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy() },
+                effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
                 onDrawSurface = {
                     drawRect(
-                        if (isActive) Color(0xFFFF9500).copy(alpha = 0.2f)
-                        else Color.White.copy(alpha = 0.1f)
+                        if (isActive) Color(0xFFFF9500).copy(alpha = glassOpacity + 0.1f)
+                        else Color.White.copy(alpha = glassOpacity)
                     )
                 }
             )

@@ -43,6 +43,9 @@ fun SettingsScreen(
     onNavigateToProviders: () -> Unit = {},
     onNavigateToDisplay: () -> Unit = {}
 ) {
+    val glassOpacity = viewModel.glassOpacity
+    val glassBlur = viewModel.glassBlur
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -106,6 +109,8 @@ fun SettingsScreen(
                     subtitle = "创建和管理 AI 助手",
                     badge = if (viewModel.assistants.isNotEmpty()) "${viewModel.assistants.size}" else null,
                     backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
                     onClick = onNavigateToAssistants
                 )
             }
@@ -118,6 +123,8 @@ fun SettingsScreen(
                     subtitle = viewModel.currentProvider?.name ?: "未配置",
                     badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
                     backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
                     onClick = onNavigateToProviders
                 )
             }
@@ -127,8 +134,10 @@ fun SettingsScreen(
                 SettingsCategoryCard(
                     icon = { Icon(Lucide.Palette, null, tint = Color(0xFF34C759), modifier = Modifier.size(24.dp)) },
                     title = "显示设置",
-                    subtitle = "主题、壁纸设置",
+                    subtitle = "主题、壁纸与效果",
                     backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
                     onClick = onNavigateToDisplay
                 )
             }
@@ -140,6 +149,8 @@ fun SettingsScreen(
                     title = "关于",
                     subtitle = "FluxHub v1.0 · Liquid Glass",
                     backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
                     onClick = { /* TODO */ }
                 )
             }
@@ -155,7 +166,10 @@ private fun SettingsCategoryCard(
     title: String,
     subtitle: String,
     badge: String? = null,
+    badge: String? = null,
     backdrop: Backdrop,
+    glassOpacity: Float = 0.1f,
+    glassBlur: Float = 16f,
     onClick: () -> Unit
 ) {
     Box(
@@ -164,8 +178,8 @@ private fun SettingsCategoryCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy(); blur(16.dp.toPx()) },
-                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.3f)) }
+                effects = { vibrancy(); blur(glassBlur.toPx()) },
+                onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
             )
             .clickable { onClick() }
             .padding(16.dp)

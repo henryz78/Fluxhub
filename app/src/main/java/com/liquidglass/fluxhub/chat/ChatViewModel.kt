@@ -142,6 +142,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
     var wallpaperUri by mutableStateOf<String?>(null)
+
+    var glassOpacity by mutableStateOf(0.1f)
+        private set
+
+    var glassBlur by mutableStateOf(16f)
+        private set
     
     // 当前助手
     var currentAssistant by mutableStateOf<AssistantEntity?>(null)
@@ -197,6 +203,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.wallpaperUri.collect { wallpaperUri = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.glassOpacity.collect { glassOpacity = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.glassBlur.collect { glassBlur = it }
         }
 
     }
@@ -676,6 +688,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         wallpaperUri = value
         viewModelScope.launch {
             settingsRepository.setWallpaperUri(value)
+        }
+    }
+
+    fun updateGlassOpacity(value: Float) {
+        glassOpacity = value
+        viewModelScope.launch {
+            settingsRepository.setGlassOpacity(value)
+        }
+    }
+
+    fun updateGlassBlur(value: Float) {
+        glassBlur = value
+        viewModelScope.launch {
+            settingsRepository.setGlassBlur(value)
         }
     }
     

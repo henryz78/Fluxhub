@@ -20,6 +20,8 @@ class SettingsRepository(private val context: Context) {
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
         private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
+        private val GLASS_OPACITY = androidx.datastore.preferences.core.floatPreferencesKey("glass_opacity")
+        private val GLASS_BLUR = androidx.datastore.preferences.core.floatPreferencesKey("glass_blur")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -44,6 +46,14 @@ class SettingsRepository(private val context: Context) {
 
     val wallpaperUri: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[WALLPAPER_URI]
+    }
+
+    val glassOpacity: Flow<Float> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_OPACITY] ?: 0.1f // Default really transparent
+    }
+
+    val glassBlur: Flow<Float> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_BLUR] ?: 16f
     }
     
     suspend fun setApiKey(value: String) {
@@ -87,6 +97,18 @@ class SettingsRepository(private val context: Context) {
             } else {
                 preferences.remove(WALLPAPER_URI)
             }
+        }
+    }
+
+    suspend fun setGlassOpacity(value: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASS_OPACITY] = value
+        }
+    }
+
+    suspend fun setGlassBlur(value: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASS_BLUR] = value
         }
     }
 }
