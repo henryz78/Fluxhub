@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -95,13 +96,14 @@ fun MainScreen(
         
         // 内容区域
         Box(modifier = Modifier.fillMaxSize()) {
-            // 根据键盘状态动态调整底部 padding (添加动画以减少闪烁)
-            val targetPadding = if (isKeyboardVisible) 0.dp else 80.dp
-            val bottomPadding by animateDpAsState(
-                targetValue = targetPadding,
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                label = "BottomPadding"
-            )
+            // 使用 WindowInsets 计算底部 Padding，实现与键盘的完美物理同步
+            // 当键盘高度 < 80dp 时，Padding 补偿剩余高度
+            // 当键盘高度 >= 80dp 时，Padding 为 0 (由内部 imePadding 接管)
+            // 这样总高度始终 >= 80dp (键盘收起时) 或 = 键盘高度 (键盘弹出时)
+            val density = LocalDensity.current
+            val imeHeight = WindowInsets.ime.getBottom(density)
+            val imeHeightDp = with(density) { imeHeight.toDp() }
+            val bottomPadding = (80.dp - imeHeightDp).coerceAtLeast(0.dp)
             
             AnimatedContent(
                 targetState = selectedTab,
@@ -145,12 +147,19 @@ fun MainScreen(
         }
         
         // 底部导航栏
-        // 键盘弹起或侧边栏打开时隐藏
+        // 使用 Offset 实现键盘跟随动画，仅在 Drawer 打开时使用 AnimatedVisibility 隐藏
+        // 解决键盘收起时的弹跳问题
+        val navDensity = LocalDensity.current
+        val navImeHeight = WindowInsets.ime.getBottom(navDensity)
+        val navImeHeightDp = with(navDensity) { navImeHeight.toDp() }
+
         AnimatedVisibility(
-            visible = !isKeyboardVisible && drawerState.isClosed,
+            visible = drawerState.isClosed,
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = navImeHeightDp)
         ) {
             Box(
                 modifier = Modifier

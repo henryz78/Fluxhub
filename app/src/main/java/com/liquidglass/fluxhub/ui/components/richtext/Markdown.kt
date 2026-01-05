@@ -35,6 +35,8 @@ import androidx.core.net.toUri
 import androidx.compose.runtime.referentialEqualityPolicy
 import com.composables.icons.lucide.Check
 import com.composables.icons.lucide.Copy
+import com.composables.icons.lucide.ChevronUp
+import com.composables.icons.lucide.ChevronDown
 import com.composables.icons.lucide.Lucide
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
