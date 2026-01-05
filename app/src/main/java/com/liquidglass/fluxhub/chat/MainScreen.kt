@@ -6,12 +6,15 @@ import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.*
@@ -138,28 +141,44 @@ fun MainScreen(
                         // 设置子页面状态
                         var settingsSubPage by remember { mutableStateOf<String?>(null) }
                         
-                        when (settingsSubPage) {
-                            "assistants" -> AssistantListScreen(
-                                onBack = { settingsSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding)
-                            )
-                            "api_config" -> ApiConfigScreen(
-                                onBack = { settingsSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding)
-                            )
-                            else -> SettingsScreen(
-                                onBack = { selectedTab = 1 },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                isTab = true,
-                                bottomPadding = PaddingValues(bottom = bottomPadding),
-                                onNavigateToAssistants = { settingsSubPage = "assistants" },
-                                onNavigateToApiConfig = { settingsSubPage = "api_config" }
-                            )
+                        // 处理系统返回键
+                        BackHandler(enabled = settingsSubPage != null) {
+                            settingsSubPage = null
+                        }
+                        
+                        // 带动画的子页面切换
+                        AnimatedContent(
+                            targetState = settingsSubPage,
+                            transitionSpec = {
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
+                            },
+                            label = "SettingsSubPage"
+                        ) { subPage ->
+                            when (subPage) {
+                                "assistants" -> AssistantListScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
+                                "api_config" -> ApiConfigScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
+                                else -> SettingsScreen(
+                                    onBack = { selectedTab = 1 },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    isTab = true,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                                    onNavigateToAssistants = { settingsSubPage = "assistants" },
+                                    onNavigateToApiConfig = { settingsSubPage = "api_config" }
+                                )
+                            }
                         }
                     }
                 }

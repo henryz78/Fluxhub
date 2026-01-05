@@ -327,7 +327,12 @@ private fun AssistantEditDialog(
                     value = temperature,
                     onValueChange = { temperature = it },
                     valueRange = 0f..2f,
-                    steps = 19
+                    steps = 19,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF007AFF),
+                        activeTrackColor = Color(0xFF007AFF),
+                        inactiveTrackColor = Color(0xFF007AFF).copy(alpha = 0.3f)
+                    )
                 )
                 
                 // Top P
@@ -336,7 +341,12 @@ private fun AssistantEditDialog(
                     value = topP,
                     onValueChange = { topP = it },
                     valueRange = 0f..1f,
-                    steps = 9
+                    steps = 9,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFF007AFF),
+                        activeTrackColor = Color(0xFF007AFF),
+                        inactiveTrackColor = Color(0xFF007AFF).copy(alpha = 0.3f)
+                    )
                 )
             }
         },
