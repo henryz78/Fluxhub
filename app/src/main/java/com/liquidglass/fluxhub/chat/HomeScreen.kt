@@ -71,7 +71,7 @@ fun HomeScreen(
             .padding(bottomPadding)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(top = 32.dp, bottom = 16.dp)
+        contentPadding = PaddingValues(top = 32.dp, bottom = 100.dp) // 增加底部空间避免与导航栏重叠
     ) {
         // Logo 和欢迎语
         item {

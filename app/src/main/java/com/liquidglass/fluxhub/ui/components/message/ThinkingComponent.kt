@@ -100,7 +100,7 @@ fun ThinkingComponent(
                 }
             )
             .padding(12.dp)
-            .animateContentSize()
+            // 移除 animateContentSize() 以减少卡顿
     ) {
         Row(
             modifier = Modifier
@@ -148,11 +148,8 @@ fun ThinkingComponent(
             )
         }
 
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
-            exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
-        ) {
+        // 使用简单的 if 替代 AnimatedVisibility 以减少动画开销
+        if (expanded) {
             val scrollState = rememberScrollState()
             
             // 自动滚动到底部 (当仍在思考/生成时)

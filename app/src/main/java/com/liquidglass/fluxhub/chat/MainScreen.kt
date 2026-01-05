@@ -6,7 +6,11 @@ import android.view.ViewTreeObserver
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalDensity
@@ -99,10 +103,14 @@ fun MainScreen(
             val imeHeightDp = with(density) { imeHeight.toDp() }
             val bottomPadding = (80.dp - imeHeightDp).coerceAtLeast(0.dp)
             
-            // 使用 Crossfade 代替 AnimatedContent，更轻量减少卡顿
-            Crossfade(
+            // 恢复使用 AnimatedContent 动画
+            AnimatedContent(
                 targetState = selectedTab,
-                animationSpec = tween(200),
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(300)) + 
+                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
+                     fadeOut(animationSpec = tween(300)))
+                },
                 label = "TabContent"
             ) { targetTab ->
                 when (targetTab) {
@@ -155,8 +163,8 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .navigationBarsPadding()
-                    .padding(bottom = 8.dp, start = 56.dp, end = 56.dp)
-                    .widthIn(max = 260.dp) // 缩短导航栏宽度
+                    .padding(bottom = 8.dp, start = 72.dp, end = 72.dp)
+                    .widthIn(max = 220.dp) // 进一步缩短导航栏宽度
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
