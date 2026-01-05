@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -253,8 +253,15 @@ private fun LiquidGlassChatContent(
     backdrop: Backdrop,
     bottomPadding: PaddingValues,
     scope: kotlinx.coroutines.CoroutineScope,
-    onInteractionChanged: (Boolean) -> Unit
+    onInteractionChanged: (Boolean) -> Unit,
+    onImageSelected: (android.net.Uri?) -> Unit = {}
 ) {
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        onImageSelected(uri)
+    }
+
     // 消息操作菜单状态
     var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
     val clipboardManager = LocalClipboard.current
