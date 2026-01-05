@@ -12,6 +12,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
@@ -93,8 +95,13 @@ fun MainScreen(
         
         // 内容区域
         Box(modifier = Modifier.fillMaxSize()) {
-            // 根据键盘状态动态调整底部 padding
-            val bottomPadding = if (isKeyboardVisible) 0.dp else 100.dp
+            // 根据键盘状态动态调整底部 padding (添加动画以减少闪烁)
+            val targetPadding = if (isKeyboardVisible) 0.dp else 80.dp
+            val bottomPadding by animateDpAsState(
+                targetValue = targetPadding,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "BottomPadding"
+            )
             
             AnimatedContent(
                 targetState = selectedTab,

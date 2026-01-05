@@ -98,6 +98,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         .build()
     
     private val database = AppDatabase.getDatabase(application)
+    
+    // Echo TTS Engine
+    private val echoEngine = com.liquidglass.fluxhub.utils.EchoEngine(application)
+    var speakingMessageId by mutableStateOf<String?>(null) // 当前正在朗读的消息 ID
+
+    init {
+        // 配置 TTS 回调
+        echoEngine.onStart = { id ->
+            speakingMessageId = id
+        }
+        echoEngine.onDone = { id ->
+            if (speakingMessageId == id) {
+                speakingMessageId = null
+            }
+        }
+        echoEngine.onError = { id ->
+            if (speakingMessageId == id) {
+                speakingMessageId = null
+            }
+        }
+    }
     private val messageDao = database.messageDao()
     private val conversationDao = database.conversationDao()
     private val settingsRepository = SettingsRepository(application)
@@ -778,8 +799,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    fun toggleSpeaking(message: UiMessage) {
+        if (speakingMessageId == message.id) {
+            echoEngine.stop()
+            speakingMessageId = null
+        } else {
+            // 如果原本在读别的，先停止
+            if (speakingMessageId != null) {
+                echoEngine.stop()
+            }
+            // 朗读内容（去除 Markdown 图片标签和思考标签等，暂简单处理）
+            val textToSpeak = message.content.replace(Regex("!\\[.*?\\]\\(.*?\\)"), "").trim()
+            if (textToSpeak.isNotEmpty()) {
+                echoEngine.speak(textToSpeak, message.id)
+                speakingMessageId = message.id // 立即设置，预防回调延迟
+            }
+        }
+    }
+    
+    fun stopSpeaking() {
+        echoEngine.stop()
+        speakingMessageId = null
+    }
+
     override fun onCleared() {
         super.onCleared()
         currentEventSource?.cancel()
+        echoEngine.shutdown()
     }
 }

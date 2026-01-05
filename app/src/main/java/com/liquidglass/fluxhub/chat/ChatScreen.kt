@@ -173,6 +173,9 @@ fun ChatScreen(
     
     LaunchedEffect(lastContentKey, loadingState) {
         if (loadingState) {
+            // 简单的防抖：避免每一个字符更新都触发重绘和滚动
+            kotlinx.coroutines.delay(50) 
+            
             // 如果原本就在底部，或者刚开始生成，强制跟随
             if (listState.isAtBottom()) {
                 listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
@@ -480,11 +483,28 @@ private fun LiquidGlassChatContent(
                         ) {
                             Text(
                                 text = "选择模型",
-                                style = MaterialTheme.typography.titleLarge.copy(color = Color.White),
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    color = Color.White,
+                                    shadow = Shadow(
+                                        color = Color.Black.copy(alpha = 0.5f),
+                                        blurRadius = 4f
+                                    )
+                                ),
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
-                            IconButton(onClick = { viewModel.fetchModels() }) {
-                                Icon(Lucide.RefreshCw, contentDescription = "刷新", tint = Color.White)
+                            LiquidButton(
+                                onClick = { viewModel.fetchModels() },
+                                backdrop = backdrop,
+                                modifier = Modifier.size(40.dp),
+                                isInteractive = true,
+                                padding = PaddingValues(0.dp)
+                            ) {
+                                Icon(
+                                    Lucide.RefreshCw, 
+                                    contentDescription = "刷新", 
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
 
@@ -492,7 +512,7 @@ private fun LiquidGlassChatContent(
                         if (viewModel.availableModels.isEmpty()) {
                             Text(
                                 text = "正在加载模型列表...",
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.padding(vertical = 16.dp)
                             )
                         } else {
@@ -515,9 +535,14 @@ private fun LiquidGlassChatContent(
                                         Text(
                                             text = modelName,
                                             style = MaterialTheme.typography.bodyLarge.copy(
-                                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f),
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                shadow = Shadow(
+                                                    color = Color.Black.copy(alpha = 0.5f),
+                                                    blurRadius = 4f
+                                                )
                                             )
+
                                         )
                                         if (isSelected) {
                                             Icon(
@@ -665,7 +690,9 @@ private fun LiquidGlassChatBubble(
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
     // AI 气泡使用白色 liquid glass 风格
+    // AI 气泡使用白色 liquid glass 风格
     val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
+    val keyboardController = LocalSoftwareKeyboardController.current
     
     Column(
         modifier = Modifier
@@ -680,6 +707,18 @@ private fun LiquidGlassChatBubble(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            if (!isUser) {
+                val isSpeaking = viewModel.speakingMessageId == message.id
+                Icon(
+                    imageVector = if (isSpeaking) Lucide.Square else Lucide.Volume2,
+                    contentDescription = if (isSpeaking) "停止" else "朗读",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { viewModel.toggleSpeaking(message) }
+                        .padding(1.dp), // 点击区域微调
+                    tint = Color.White.copy(alpha = 0.9f)
+                )
+            }
             Text(
                 text = if (isUser) "你" else (message.model ?: viewModel.model),
                 style = MaterialTheme.typography.labelSmall.copy(
@@ -730,7 +769,7 @@ private fun LiquidGlassChatBubble(
                     )
                 }
                 .combinedClickable(
-                    onClick = { /* 单击动作 */ },
+                    onClick = { keyboardController?.hide() },
                     onLongClick = onLongClick
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -743,7 +782,7 @@ private fun LiquidGlassChatBubble(
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     color = Color.White,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal, // AI 回复使用常规粗细
                     shadow = androidx.compose.ui.graphics.Shadow(
                         color = Color.Black.copy(alpha = 0.3f),
                         offset = androidx.compose.ui.geometry.Offset(0f, 2f),
@@ -887,7 +926,7 @@ private fun LiquidGlassChatInputBar(
             modifier = Modifier.size(44.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
-            tint = Color.Gray.copy(alpha = 0.5f)
+            tint = Color(0xFF34C759).copy(alpha = 0.8f) // Apple Green
         ) {
             Icon(
                 imageVector = Icons.Default.Add,

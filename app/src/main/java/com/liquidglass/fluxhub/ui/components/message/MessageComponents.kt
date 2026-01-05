@@ -188,7 +188,7 @@ fun MessageActionButtons(
             ActionButton(
                 icon = Lucide.Trash2,
                 contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                tint = Color(0xFFFF453A).copy(alpha = 0.9f),
                 onClick = onDelete
             )
         }
@@ -199,7 +199,7 @@ fun MessageActionButtons(
 private fun ActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
-    tint: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+    tint: Color = Color.White.copy(alpha = 0.9f), // 提高对比度
     onClick: () -> Unit
 ) {
     Icon(

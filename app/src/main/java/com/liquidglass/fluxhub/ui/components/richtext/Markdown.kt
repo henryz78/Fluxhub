@@ -136,7 +136,7 @@ fun MarkdownBlock(
         Column(
             modifier = modifier
                 .padding(start = 4.dp)
-                .animateContentSize() // 顺滑增长
+                // .animateContentSize() // 移除自动尺寸动画以解决展开/收起时的卡顿和布局抖动
         ) {
             astTree.children.fastForEach { child ->
                 MarkdownNode(node = child, content = preprocessed, onClickCitation = onClickCitation)
@@ -530,14 +530,19 @@ private fun CodeBlock(
         }
     }
     
+    val lineCount = code.lines().size
+    val isLongCode = lineCount > 15
+    var isExpanded by remember { mutableStateOf(!isLongCode) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
+            .animateContentSize() // 代码块展开收起需要动画
     ) {
-        // 顶部操作栏：语言标签 + 复制按钮
+        // 顶部操作栏：语言标签 + 复制按钮 + 展开/收起
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -554,39 +559,71 @@ private fun CodeBlock(
                 color = Color.White.copy(alpha = 0.8f)
             )
             
-            // 复制按钮
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable {
-                        scope.launch {
-                            clipboardManager.setClipEntry(
-                                ClipEntry(android.content.ClipData.newPlainText("code", code))
-                            )
-                            showCopied = true
-                        }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 展开/收起指示 (仅长代码显示)
+                if (isLongCode) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { isExpanded = !isExpanded }
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                         verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isExpanded) Lucide.ChevronUp else Lucide.ChevronDown,
+                            contentDescription = if (isExpanded) "收起" else "展开",
+                            modifier = Modifier.size(14.dp),
+                            tint = Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (isExpanded) "收起" else "展开",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
                     }
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = if (showCopied) Lucide.Check else Lucide.Copy,
-                    contentDescription = if (showCopied) "已复制" else "复制代码",
-                    modifier = Modifier.size(12.dp),
-                    tint = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = if (showCopied) "已复制" else "复制",
-                    fontSize = 10.sp,
-                    color = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
-                )
+                    Spacer(Modifier.width(8.dp))
+                }
+
+                // 复制按钮
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable {
+                            scope.launch {
+                                clipboardManager.setClipEntry(
+                                    ClipEntry(android.content.ClipData.newPlainText("code", code))
+                                )
+                                showCopied = true
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = if (showCopied) Lucide.Check else Lucide.Copy,
+                        contentDescription = if (showCopied) "已复制" else "复制代码",
+                        modifier = Modifier.size(12.dp),
+                        tint = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = if (showCopied) "已复制" else "复制",
+                        fontSize = 10.sp,
+                        color = if (showCopied) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
         
         // 代码内容
+        val heightModifier = if (isExpanded) Modifier else Modifier.heightIn(max = 240.dp)
+        
         SelectionContainer {
-            Box(modifier = Modifier.padding(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .then(heightModifier)
+                    .padding(12.dp)
+            ) {
                 HighlightText(
                     code = code,
                     language = language,
@@ -594,6 +631,32 @@ private fun CodeBlock(
                     fontSize = 13.sp,
                     lineHeight = 20.sp
                 )
+                
+                // 收起时的渐变遮罩
+                if (!isExpanded) {
+                   Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(60.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        MaterialTheme.colorScheme.surfaceContainer
+                                    )
+                                )
+                            )
+                            .clickable { isExpanded = true }
+                    ) {
+                        Text(
+                            text = "点击展开查看完整代码",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
+                }
             }
         }
     }
