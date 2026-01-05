@@ -20,6 +20,25 @@ data class ConversationEntity(
     @PrimaryKey
     val id: String,
     val title: String,
+    val assistantId: String? = null, // 绑定的助手
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
+)
+
+/**
+ * 助手实体 - 每个助手有独立的提示词和参数配置
+ */
+@Entity(tableName = "assistants")
+data class AssistantEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val avatar: String? = null, // emoji 或图片 URI
+    val systemPrompt: String = "",
+    val temperature: Float = 0.7f,
+    val topP: Float = 1.0f,
+    val maxTokens: Int? = null,
+    val modelId: String? = null, // 指定模型（可选）
+    val createdAt: Long = System.currentTimeMillis(),
+    val isDefault: Boolean = false // 默认助手
 )

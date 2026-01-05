@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
 import com.liquidglass.fluxhub.data.MessageEntity
+import com.liquidglass.fluxhub.data.AssistantEntity
 import com.liquidglass.fluxhub.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -106,10 +107,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val messageDao = database.messageDao()
     private val conversationDao = database.conversationDao()
+    private val assistantDao = database.assistantDao()
     private val settingsRepository = SettingsRepository(application)
     
     val messages = mutableStateListOf<UiMessage>()
     val availableModels = mutableStateListOf<String>()
+    val assistants = mutableStateListOf<AssistantEntity>()
     
     var isLoading by mutableStateOf(false)
         private set
@@ -123,7 +126,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
     
-    // 请求参数
+    // 请求参数 (现在从当前助手读取)
     var temperature by mutableStateOf(0.7f)
     var topP by mutableStateOf(1.0f)
     var maxTokens by mutableStateOf<Int?>(null) // null = 使用模型默认值
@@ -131,6 +134,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
     
+    // 当前助手
+    var currentAssistant by mutableStateOf<AssistantEntity?>(null)
+        private set
 
     // 当前会话
     var currentConversationId by mutableStateOf<String?>(null)
@@ -152,6 +158,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     init {
         loadSettings()
         startConversationsCollection()
+        startAssistantsCollection()
         loadOrCreateConversation()
     }
     
@@ -438,6 +445,82 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    // 助手 Flow 采集任务
+    private var assistantsJob: Job? = null
+    
+    private fun startAssistantsCollection() {
+        assistantsJob?.cancel()
+        assistantsJob = viewModelScope.launch {
+            assistantDao.getAllAssistants().collect { list ->
+                assistants.clear()
+                assistants.addAll(list)
+                
+                // 如果没有当前助手，尝试加载默认助手
+                if (currentAssistant == null && list.isNotEmpty()) {
+                    currentAssistant = list.find { it.isDefault } ?: list.first()
+                    applyAssistantSettings(currentAssistant!!)
+                }
+            }
+        }
+    }
+    
+    fun setCurrentAssistant(assistant: AssistantEntity) {
+        currentAssistant = assistant
+        applyAssistantSettings(assistant)
+    }
+    
+    private fun applyAssistantSettings(assistant: AssistantEntity) {
+        temperature = assistant.temperature
+        topP = assistant.topP
+        maxTokens = assistant.maxTokens
+        assistant.modelId?.let { model = it }
+    }
+    
+    fun createAssistant(
+        name: String,
+        avatar: String? = null,
+        systemPrompt: String = "",
+        temperature: Float = 0.7f,
+        topP: Float = 1.0f,
+        maxTokens: Int? = null,
+        modelId: String? = null
+    ) {
+        viewModelScope.launch {
+            val assistant = AssistantEntity(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                avatar = avatar,
+                systemPrompt = systemPrompt,
+                temperature = temperature,
+                topP = topP,
+                maxTokens = maxTokens,
+                modelId = modelId,
+                isDefault = assistants.isEmpty() // 第一个助手为默认
+            )
+            assistantDao.insertAssistant(assistant)
+        }
+    }
+    
+    fun updateAssistant(assistant: AssistantEntity) {
+        viewModelScope.launch {
+            assistantDao.updateAssistant(assistant)
+            if (currentAssistant?.id == assistant.id) {
+                currentAssistant = assistant
+                applyAssistantSettings(assistant)
+            }
+        }
+    }
+    
+    fun deleteAssistant(assistantId: String) {
+        viewModelScope.launch {
+            assistantDao.deleteAssistant(assistantId)
+            if (currentAssistant?.id == assistantId) {
+                currentAssistant = assistants.firstOrNull { it.id != assistantId }
+                currentAssistant?.let { applyAssistantSettings(it) }
+            }
+        }
+    }
+    
     fun saveApiKey(value: String) {
         apiKey = value
         viewModelScope.launch {
@@ -597,9 +680,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 ChatMessage(message.role, contentElement)
             }
         
+        // 如果有当前助手的系统提示词，添加到消息开头
+        val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
+        val messagesWithSystem = if (systemPrompt != null) {
+            listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + apiMessages
+        } else {
+            apiMessages
+        }
+        
         val requestData = ChatRequest(
             model = model,
-            messages = apiMessages,
+            messages = messagesWithSystem,
             stream = true,
             temperature = temperature,
             topP = topP,

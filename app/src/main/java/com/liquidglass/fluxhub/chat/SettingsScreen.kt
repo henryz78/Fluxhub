@@ -1,22 +1,35 @@
 package com.liquidglass.fluxhub.chat
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.Backdrop
-import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.User
+import com.composables.icons.lucide.Key
+import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.Info
+import com.composables.icons.lucide.ChevronRight
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.capsule.ContinuousRoundedRectangle
+import com.liquidglass.fluxhub.components.LiquidButton
 
+/**
+ * 设置主页面 - 分类入口
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -24,120 +37,196 @@ fun SettingsScreen(
     viewModel: ChatViewModel,
     backdrop: Backdrop,
     isTab: Boolean = false,
-    bottomPadding: PaddingValues = PaddingValues(0.dp)
+    bottomPadding: PaddingValues = PaddingValues(0.dp),
+    onNavigateToAssistants: () -> Unit = {},
+    onNavigateToApiConfig: () -> Unit = {}
 ) {
-    // 使用本地状态进行编辑
-    var apiKeyInput by remember { mutableStateOf(viewModel.apiKey) }
-    var baseUrlInput by remember { mutableStateOf(viewModel.baseUrl) }
-    
-    LaunchedEffect(viewModel.apiKey) { apiKeyInput = viewModel.apiKey }
-    LaunchedEffect(viewModel.baseUrl) { baseUrlInput = viewModel.baseUrl }
-    
-    Scaffold(
-        topBar = {
-            if (!isTab) {
-                TopAppBar(
-                    title = { Text("设置") },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(bottomPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (isTab) {
-                Text(
-                    text = "设置",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
-                )
-            }
-
-            Text(
-                text = "API 配置",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            
-            OutlinedTextField(
-                value = baseUrlInput,
-                onValueChange = { baseUrlInput = it },
-                label = { Text("Base URL") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    focusedLabelColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            
-            OutlinedTextField(
-                value = apiKeyInput,
-                onValueChange = { apiKeyInput = it },
-                label = { Text("API Key") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f),
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    focusedLabelColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            Text(
-                text = "支持 OpenAI 兼容 API（如 OpenAI、DeepSeek、Groq 等）",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                ),
-                color = Color.White.copy(alpha = 0.8f)
-            )
-            
-            LiquidButton(
-                onClick = {
-                    viewModel.saveApiKey(apiKeyInput)
-                    viewModel.saveBaseUrl(baseUrlInput)
-                    if (!isTab) onBack()
-                },
-                backdrop = backdrop,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                tint = Color(0xFF007AFF)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(bottomPadding)
+    ) {
+        // Top Bar (only if not tab)
+        if (!isTab) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
+                LiquidButton(
+                    onClick = onBack,
+                    backdrop = backdrop,
+                    modifier = Modifier.size(44.dp),
+                    isInteractive = true,
+                    padding = PaddingValues(0.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = Color.White)
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
                 Text(
-                    "保存设置", 
-                    color = Color.White,
+                    "设置",
                     style = TextStyle(
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
                         shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                     )
                 )
             }
+        } else {
+            Text(
+                "设置",
+                style = TextStyle(
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                ),
+                modifier = Modifier.padding(24.dp)
+            )
+        }
+        
+        // 设置分类列表
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 助手管理
+            item {
+                SettingsCategoryCard(
+                    icon = { Icon(Lucide.User, null, tint = Color(0xFF007AFF), modifier = Modifier.size(24.dp)) },
+                    title = "助手管理",
+                    subtitle = "创建和管理 AI 助手",
+                    badge = if (viewModel.assistants.isNotEmpty()) "${viewModel.assistants.size}" else null,
+                    backdrop = backdrop,
+                    onClick = onNavigateToAssistants
+                )
+            }
+            
+            // API 配置
+            item {
+                SettingsCategoryCard(
+                    icon = { Icon(Lucide.Key, null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp)) },
+                    title = "API 配置",
+                    subtitle = viewModel.baseUrl.replace("https://", "").take(25),
+                    badge = if (viewModel.apiKey.isNotBlank()) "✓" else null,
+                    backdrop = backdrop,
+                    onClick = onNavigateToApiConfig
+                )
+            }
+            
+            // 显示设置 (占位)
+            item {
+                SettingsCategoryCard(
+                    icon = { Icon(Lucide.Palette, null, tint = Color(0xFF34C759), modifier = Modifier.size(24.dp)) },
+                    title = "显示设置",
+                    subtitle = "主题、字体大小等",
+                    backdrop = backdrop,
+                    onClick = { /* TODO */ }
+                )
+            }
+            
+            // 关于
+            item {
+                SettingsCategoryCard(
+                    icon = { Icon(Lucide.Info, null, tint = Color(0xFFAF52DE), modifier = Modifier.size(24.dp)) },
+                    title = "关于",
+                    subtitle = "FluxHub v1.0 · Liquid Glass",
+                    backdrop = backdrop,
+                    onClick = { /* TODO */ }
+                )
+            }
+            
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCategoryCard(
+    icon: @Composable () -> Unit,
+    title: String,
+    subtitle: String,
+    badge: String? = null,
+    backdrop: Backdrop,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { ContinuousRoundedRectangle(16.dp) },
+                effects = { vibrancy() },
+                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+            )
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(12.dp) },
+                        effects = { vibrancy() },
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                icon()
+            }
+            
+            Spacer(Modifier.width(16.dp))
+            
+            // Text
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    )
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+            
+            // Badge
+            if (badge != null) {
+                Text(
+                    text = badge,
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF34C759)
+                    ),
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
+            
+            // Arrow
+            Icon(
+                Lucide.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

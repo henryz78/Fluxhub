@@ -41,3 +41,27 @@ interface ConversationDao {
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String)
 }
+
+@Dao
+interface AssistantDao {
+    @Query("SELECT * FROM assistants ORDER BY createdAt DESC")
+    fun getAllAssistants(): Flow<List<AssistantEntity>>
+    
+    @Query("SELECT * FROM assistants WHERE id = :id")
+    suspend fun getAssistant(id: String): AssistantEntity?
+    
+    @Query("SELECT * FROM assistants WHERE isDefault = 1 LIMIT 1")
+    suspend fun getDefaultAssistant(): AssistantEntity?
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAssistant(assistant: AssistantEntity)
+    
+    @Update
+    suspend fun updateAssistant(assistant: AssistantEntity)
+    
+    @Query("DELETE FROM assistants WHERE id = :id")
+    suspend fun deleteAssistant(id: String)
+    
+    @Query("UPDATE assistants SET isDefault = 0")
+    suspend fun clearDefaultAssistant()
+}

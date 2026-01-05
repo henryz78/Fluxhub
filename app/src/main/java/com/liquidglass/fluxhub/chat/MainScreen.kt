@@ -134,13 +134,34 @@ fun MainScreen(
                         initialPrompt = pendingPrompt,
                         onPromptConsumed = { pendingPrompt = null }
                     )
-                    2 -> SettingsScreen(
-                        onBack = { selectedTab = 1 },
-                        viewModel = viewModel,
-                        backdrop = backdrop,
-                        isTab = true,
-                        bottomPadding = PaddingValues(bottom = bottomPadding)
-                    )
+                    2 -> {
+                        // 设置子页面状态
+                        var settingsSubPage by remember { mutableStateOf<String?>(null) }
+                        
+                        when (settingsSubPage) {
+                            "assistants" -> AssistantListScreen(
+                                onBack = { settingsSubPage = null },
+                                viewModel = viewModel,
+                                backdrop = backdrop,
+                                bottomPadding = PaddingValues(bottom = bottomPadding)
+                            )
+                            "api_config" -> ApiConfigScreen(
+                                onBack = { settingsSubPage = null },
+                                viewModel = viewModel,
+                                backdrop = backdrop,
+                                bottomPadding = PaddingValues(bottom = bottomPadding)
+                            )
+                            else -> SettingsScreen(
+                                onBack = { selectedTab = 1 },
+                                viewModel = viewModel,
+                                backdrop = backdrop,
+                                isTab = true,
+                                bottomPadding = PaddingValues(bottom = bottomPadding),
+                                onNavigateToAssistants = { settingsSubPage = "assistants" },
+                                onNavigateToApiConfig = { settingsSubPage = "api_config" }
+                            )
+                        }
+                    }
                 }
             }
         }
