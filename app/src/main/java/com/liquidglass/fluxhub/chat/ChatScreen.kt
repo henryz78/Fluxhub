@@ -1783,12 +1783,20 @@ private fun ToolboxListPage(
                 isInteractive = true,
                 tint = Color.White.copy(alpha = 0.2f)
             ) {
-                Icon(
-                    imageVector = Lucide.X,
-                    contentDescription = "关闭",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
+                Box {
+                    Icon(
+                        imageVector = Lucide.X,
+                        contentDescription = null,
+                        tint = Color.Black.copy(alpha = 0.5f),
+                        modifier = Modifier.size(32.dp).offset(1.dp, 1.dp)
+                    )
+                    Icon(
+                        imageVector = Lucide.X,
+                        contentDescription = "关闭",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
         }
         
@@ -1857,7 +1865,10 @@ private fun ToolboxListItem(
                 text = title,
                 color = Color.White,
                 fontWeight = FontWeight.Medium,
-                fontSize = 16.sp
+                fontSize = 16.sp,
+                style = TextStyle(
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                )
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1902,12 +1913,20 @@ private fun ToolboxDetailHeader(
             isInteractive = true,
             tint = Color.White.copy(alpha = 0.2f)
         ) {
-            Icon(
-                imageVector = Lucide.ChevronLeft,
-                contentDescription = "返回",
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
-            )
+            Box {
+                Icon(
+                    imageVector = Lucide.ChevronLeft,
+                    contentDescription = null,
+                    tint = Color.Black.copy(alpha = 0.5f),
+                    modifier = Modifier.size(32.dp).offset(1.dp, 1.dp)
+                )
+                Icon(
+                    imageVector = Lucide.ChevronLeft,
+                    contentDescription = "返回",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
         Text(
             text = title,
@@ -1943,9 +1962,18 @@ private fun ToolboxThinkingBudgetPage(
         )
         
         // 滑块
+        var sliderValue by remember { mutableFloatStateOf(viewModel.thinkingBudget.toFloat()) }
+        LaunchedEffect(viewModel.thinkingBudget) {
+            if (sliderValue.toInt() != viewModel.thinkingBudget) {
+                sliderValue = viewModel.thinkingBudget.toFloat()
+            }
+        }
         com.liquidglass.fluxhub.components.LiquidSlider(
-            value = { viewModel.thinkingBudget.toFloat() },
-            onValueChange = { viewModel.updateThinkingBudget(it.toInt()) },
+            value = { sliderValue },
+            onValueChange = { 
+                sliderValue = it
+                viewModel.updateThinkingBudget(it.toInt())
+            },
             valueRange = 0f..32768f,
             visibilityThreshold = 512f,
             backdrop = backdrop,
@@ -2128,9 +2156,18 @@ private fun ToolboxContextSizePage(
         )
         
         // 滑块
+        var sliderValue by remember { mutableFloatStateOf(viewModel.contextSize.toFloat()) }
+        LaunchedEffect(viewModel.contextSize) {
+            if (sliderValue.toInt() != viewModel.contextSize) {
+                sliderValue = viewModel.contextSize.toFloat()
+            }
+        }
         com.liquidglass.fluxhub.components.LiquidSlider(
-            value = { viewModel.contextSize.toFloat() },
-            onValueChange = { viewModel.updateContextSize(it.toInt()) },
+            value = { sliderValue },
+            onValueChange = { 
+                sliderValue = it
+                viewModel.updateContextSize(it.toInt()) 
+            },
             valueRange = 1f..128f,
             visibilityThreshold = 4f,
             backdrop = backdrop,
