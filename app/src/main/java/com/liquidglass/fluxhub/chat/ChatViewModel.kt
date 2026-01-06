@@ -534,6 +534,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
+            // 先同步删除状态到后端（标记为已删除）
+            if (adminUrl.isNotBlank()) {
+                val conv = conversationDao.getConversation(conversationId)
+                if (conv != null) {
+                    val convData = ConversationSyncData(
+                        id = conv.id,
+                        title = conv.title,
+                        assistantId = conv.assistantId,
+                        isDeleted = true,
+                        updatedAt = System.currentTimeMillis(),
+                        messages = emptyList()
+                    )
+                    adminSyncService.syncConversations(listOf(convData))
+                }
+            }
+            
             // 删除消息
             messageDao.deleteMessagesForConversation(conversationId)
             // 删除会话
@@ -782,6 +798,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+            // 同步到后端
+            syncProvidersToAdmin()
         }
     }
     
@@ -793,6 +811,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+            // 同步到后端
+            syncProvidersToAdmin()
         }
     }
     
@@ -806,6 +826,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fetchModels()
                 }
             }
+            // 同步到后端
+            syncProvidersToAdmin()
         }
     }
     
@@ -1065,6 +1087,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     content = contentStr,
                                     model = model
                                 ))
+                                // 同步对话到后端
+                                syncCurrentConversationToAdmin()
                             }
                         }
                     } else {
@@ -1272,6 +1296,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
                             model = model
                         ))
+                        // 同步对话到后端
+                        syncCurrentConversationToAdmin()
                     } else {
                         // 如果没有内容，显示错误
                         if (index >= 0) {
