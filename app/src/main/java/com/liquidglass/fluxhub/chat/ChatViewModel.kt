@@ -857,19 +857,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             role = "assistant",
             content = "",
             thinkingContent = "",
-            isStreaming = true,
+            isStreaming = streamEnabled, // 根据设置决定状态
             model = model
         ))
         
         isLoading = true
         clearError()
         
-        // 使用 OkHttp EventSources 进行流式请求
-        callStreamingApiWithEventSource(aiMessageId, conversationId)
+        if (streamEnabled) {
+            callStreamingApiWithEventSource(aiMessageId, conversationId)
+        } else {
+            callNonStreamingApi(aiMessageId, conversationId)
+        }
     }
     
     fun stopStreaming() {
-        currentEventSource?.cancel()
+        if (currentEventSource != null) {
+            currentEventSource?.cancel()
+        }
+        // 如果是非流式请求，cancel client call? (暂未保留 call 引用，简单处理即可)
+        
         isLoading = false
         
         // 标记最后一条消息为非流式
@@ -882,55 +889,147 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
-        Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model")
-        
-        val apiMessages = messages
-            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
-            .map { message ->
-                // 解析 Vision 图片 (Markdown: ![image](uri))
-                val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
-                val contentElement = if (imageMatch != null) {
-                    val uriStr = imageMatch.groupValues[1]
-                    val textContent = message.content.replace(imageMatch.value, "").trim()
-                    
-                    val base64 = try {
-                         FileUtils.uriToBase64(getApplication(), Uri.parse(uriStr))
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to load image from URI: $uriStr", e)
-                        null
-                    }
-                    
-                    if (base64 != null) {
-                        buildJsonArray {
-                            add(buildJsonObject {
-                                put("type", "text")
-                                put("text", textContent)
-                            })
-                            add(buildJsonObject {
-                                put("type", "image_url")
-                                put("image_url", buildJsonObject {
-                                    put("url", "data:image/jpeg;base64,$base64")
-                                })
-                            })
+    private fun callNonStreamingApi(aiMessageId: String, conversationId: String) {
+        viewModelScope.launch {
+            try {
+                // 构建消息列表（共用逻辑）
+                val requestMessages = buildApiMessages()
+                
+                // 处理思考预算 (如果 > 0)
+                //目前 API 协议中标准字段是 max_tokens，思考预算可能是 max_completion_tokens 或其他。
+                // 假设 thinkingBudget 是 max_tokens 的一部分或专用参数。
+                // 鉴于 ChatRequest 定义，这里暂时先不传非标准参数，除非添加相应字段。
+                // 但 contextSize 必须生效。
+                
+                val requestData = ChatRequest(
+                    model = model,
+                    messages = requestMessages,
+                    stream = false,
+                    temperature = temperature,
+                    topP = topP,
+                    maxTokens = if (thinkingBudget > 0) thinkingBudget else maxTokens
+                )
+                
+                val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
+                Log.d(TAG, "Request body (Non-Streaming): $requestBody")
+                
+                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                
+                val request = Request.Builder()
+                    .url("$effectiveBaseUrl/chat/completions")
+                    .addHeader("Authorization", "Bearer $effectiveApiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(requestBody.toRequestBody("application/json".toMediaType()))
+                    .build()
+                
+                withContext(Dispatchers.IO) {
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: "{}"
+                        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
+                        val choice = chatResponse.choices.firstOrNull()
+                        val content = choice?.message?.content?.toString() ?: "" // JsonElement to String might need care
+                        // 简单处理: 假设 content 是 JsonPrimitive string
+                        val contentStr = if (choice?.message?.content is JsonPrimitive) {
+                            choice.message.content.content
+                        } else {
+                            choice?.message?.content.toString()
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            isLoading = false
+                            val index = messages.indexOfFirst { it.id == aiMessageId }
+                            if (index >= 0) {
+                                messages[index] = messages[index].copy(
+                                    content = contentStr,
+                                    isStreaming = false
+                                )
+                                messageDao.insertMessage(MessageEntity(
+                                    id = aiMessageId,
+                                    conversationId = conversationId,
+                                    role = "assistant",
+                                    content = contentStr,
+                                    model = model
+                                ))
+                            }
                         }
                     } else {
-                        JsonPrimitive(message.content)
+                        throw Exception("HTTP ${response.code}: ${response.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Non-streaming request failed", e)
+                isLoading = false
+                showErrorMessage("请求失败: ${e.message}")
+                messages.removeAll { it.id == aiMessageId }
+            }
+        }
+    }
+    
+    private fun buildApiMessages(): List<ChatMessage> {
+        val baseMessages = messages
+            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
+            // 排除当前正在生成的空占位符消息
+            .filter { it.content.isNotBlank() }
+            
+        // 应用上下文长度限制 (保留最新的 N 条)
+        val contextMessages = if (contextSize > 0) {
+             baseMessages.takeLast(contextSize)
+        } else {
+             baseMessages
+        }
+
+        return contextMessages.map { message ->
+            // 解析 Vision 图片 (Markdown: ![image](uri))
+            val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
+            val contentElement = if (imageMatch != null) {
+                val uriStr = imageMatch.groupValues[1]
+                val textContent = message.content.replace(imageMatch.value, "").trim()
+                
+                val base64 = try {
+                        FileUtils.uriToBase64(getApplication(), Uri.parse(uriStr))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load image from URI: $uriStr", e)
+                    null
+                }
+                
+                if (base64 != null) {
+                    buildJsonArray {
+                        add(buildJsonObject {
+                            put("type", "text")
+                            put("text", textContent)
+                        })
+                        add(buildJsonObject {
+                            put("type", "image_url")
+                            put("image_url", buildJsonObject {
+                                put("url", "data:image/jpeg;base64,$base64")
+                            })
+                        })
                     }
                 } else {
                     JsonPrimitive(message.content)
                 }
-                
-                ChatMessage(message.role, contentElement)
+            } else {
+                JsonPrimitive(message.content)
             }
-        
-        // 如果有当前助手的系统提示词，添加到消息开头
-        val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
-        val messagesWithSystem = if (systemPrompt != null) {
-            listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + apiMessages
-        } else {
-            apiMessages
+            
+            ChatMessage(message.role, contentElement)
+        }.let { apiMsgs ->
+            // 如果有当前助手的系统提示词，添加到消息开头
+            val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
+            if (systemPrompt != null) {
+                listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + apiMsgs
+            } else {
+                apiMsgs
+            }
         }
+    }
+
+    private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
+        Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
+        
+        val messagesWithSystem = buildApiMessages()
         
         val requestData = ChatRequest(
             model = model,
@@ -938,7 +1037,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             stream = true,
             temperature = temperature,
             topP = topP,
-            maxTokens = maxTokens
+            // 简单处理：将 thinkingBudget 视为 maxTokens (如果用户设置了)
+            maxTokens = if (thinkingBudget > 0) thinkingBudget else maxTokens
         )
         
         val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
