@@ -1264,7 +1264,7 @@ private fun LiquidGlassChatInputBar(
         LiquidButton(
             onClick = onPickImage,
             backdrop = backdrop,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(52.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
             tint = Color(0xFF34C759).copy(alpha = 0.8f) // Apple Green
@@ -1273,7 +1273,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(36.dp)
             )
         }
 
@@ -1337,7 +1337,7 @@ private fun LiquidGlassChatInputBar(
             LiquidButton(
                 onClick = onOpenToolbox,
                 backdrop = backdrop,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(48.dp),
                 isInteractive = true,
                 onPressed = onInteractionChanged,
                 tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
@@ -1346,7 +1346,7 @@ private fun LiquidGlassChatInputBar(
                     imageVector = Lucide.SlidersHorizontal,
                     contentDescription = "工具箱",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
             
@@ -1363,7 +1363,7 @@ private fun LiquidGlassChatInputBar(
                     imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                     contentDescription = if (isLoading) "停止" else "发送",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -1779,7 +1779,7 @@ private fun ToolboxListPage(
             LiquidButton(
                 onClick = onDismiss,
                 backdrop = backdrop,
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(48.dp),
                 isInteractive = true,
                 tint = Color.White.copy(alpha = 0.2f)
             ) {
@@ -1787,7 +1787,7 @@ private fun ToolboxListPage(
                     imageVector = Lucide.X,
                     contentDescription = "关闭",
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
@@ -1898,7 +1898,7 @@ private fun ToolboxDetailHeader(
         LiquidButton(
             onClick = onBack,
             backdrop = backdrop,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(48.dp),
             isInteractive = true,
             tint = Color.White.copy(alpha = 0.2f)
         ) {
@@ -1906,7 +1906,7 @@ private fun ToolboxDetailHeader(
                 imageVector = Lucide.ChevronLeft,
                 contentDescription = "返回",
                 tint = Color.White,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(32.dp)
             )
         }
         Text(
@@ -2028,7 +2028,10 @@ private fun ToolboxWebSearchPage(
                 text = "启用网络搜索",
                 color = Color.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                style = TextStyle(
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                )
             )
             com.liquidglass.fluxhub.components.LiquidToggle(
                 selected = { viewModel.webSearchEnabled },
@@ -2076,7 +2079,10 @@ private fun ToolboxStreamOutputPage(
                 text = "启用流式输出",
                 color = Color.White,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                style = TextStyle(
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                )
             )
             com.liquidglass.fluxhub.components.LiquidToggle(
                 selected = { viewModel.streamEnabled },
