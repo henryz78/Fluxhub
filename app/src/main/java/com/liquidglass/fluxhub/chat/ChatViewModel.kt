@@ -498,14 +498,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 conversations.clear()
                 conversations.addAll(filteredList)
                 
-                // 确保当前选中的会话在列表中，如果不在（例如切换了助手），则切到第一个或新建
+                // 仅在当前会话ID不为空且不在列表中时处理
+                // 移除自动创建逻辑，避免重复创建会话
                 if (currentConversationId != null && conversations.none { it.id == currentConversationId }) {
                     if (conversations.isNotEmpty()) {
                         switchConversation(conversations.first().id)
-                    } else {
-                        // 如果该助手下没有会话，自动创建一个
-                        createNewConversation()
                     }
+                    // 不再自动创建会话，由用户手动创建
                 }
             }
         }

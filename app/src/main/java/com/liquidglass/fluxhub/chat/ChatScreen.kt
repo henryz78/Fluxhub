@@ -282,13 +282,34 @@ private fun LiquidGlassChatContent(
         onImageSelected(uri)
     }
     
+    // 拍照功能：使用 TakePicture 并保存到临时文件
+    val context = LocalContext.current
+    var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        // 将 Bitmap 保存为临时文件并传递 URI
-        // 简化处理：直接使用图片选择器作为替代
-        if (bitmap != null) {
-            // TODO: 保存 bitmap 为文件并获取 URI
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempPhotoUri != null) {
+            onImageSelected(tempPhotoUri)
+        }
+        tempPhotoUri = null
+    }
+    
+    // 创建临时文件 URI 的辅助函数
+    fun createTempImageUri(): android.net.Uri? {
+        return try {
+            val tempFile = java.io.File.createTempFile(
+                "photo_${System.currentTimeMillis()}",
+                ".jpg",
+                context.cacheDir
+            )
+            androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                tempFile
+            )
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -944,8 +965,12 @@ private fun LiquidGlassChatContent(
                         LiquidButton(
                             onClick = {
                                 showUploadOptions = false
-                                // 使用系统相机拍照
-                                photoPicker.launch("image/*") // 简化：先用图片选择器代替
+                                // 创建临时文件并启动相机
+                                val uri = createTempImageUri()
+                                if (uri != null) {
+                                    tempPhotoUri = uri
+                                    cameraLauncher.launch(uri)
+                                }
                             },
                             backdrop = backdrop,
                             modifier = Modifier.fillMaxWidth().height(50.dp),

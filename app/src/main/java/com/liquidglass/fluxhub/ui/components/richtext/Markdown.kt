@@ -83,6 +83,7 @@ object HeaderStyle {
     val H6 = TextStyle(fontStyle = FontStyle.Normal, fontWeight = FontWeight.Bold, fontSize = 12.sp)
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MarkdownBlock(
     content: String,
