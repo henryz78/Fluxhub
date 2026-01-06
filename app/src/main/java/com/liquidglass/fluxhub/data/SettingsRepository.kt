@@ -71,7 +71,7 @@ class SettingsRepository(private val context: Context) {
     }
     
     val adminUrl: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[ADMIN_URL] ?: ""
+        preferences[ADMIN_URL] ?: "https://fluxhub.zeabur.app"
     }
     
     suspend fun setApiKey(value: String) {

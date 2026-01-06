@@ -155,8 +155,170 @@ fun SettingsScreen(
                 )
             }
             
+            // 账号管理
+            item {
+                val authState = viewModel.authState
+                val authStatusText = when (authState) {
+                    is AuthState.Checking -> "验证中..."
+                    is AuthState.NoServer -> "未配置后端"
+                    is AuthState.Authenticated -> "已绑定"
+                    is AuthState.Blocked -> "账号被禁用"
+                    is AuthState.Error -> "连接失败"
+                }
+                val authStatusColor = when (authState) {
+                    is AuthState.Authenticated -> Color(0xFF34C759)
+                    is AuthState.NoServer -> Color(0xFF8E8E93)
+                    is AuthState.Checking -> Color(0xFF007AFF)
+                    else -> Color(0xFFFF3B30)
+                }
+                
+                AccountManagementCard(
+                    viewModel = viewModel,
+                    backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
+                    statusText = authStatusText,
+                    statusColor = authStatusColor
+                )
+            }
+            
             item { Spacer(Modifier.height(24.dp)) }
         }
+    }
+}
+
+@Composable
+private fun AccountManagementCard(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    glassOpacity: Float,
+    glassBlur: Float,
+    statusText: String,
+    statusColor: Color
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var adminUrlInput by remember { mutableStateOf(viewModel.adminUrl) }
+    
+    // 同步 adminUrl
+    LaunchedEffect(viewModel.adminUrl) {
+        adminUrlInput = viewModel.adminUrl
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { ContinuousRoundedRectangle(16.dp) },
+                effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+            )
+            .clickable { showDialog = true }
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(12.dp) },
+                        effects = { vibrancy() },
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Lucide.User, null, tint = Color(0xFF5856D6), modifier = Modifier.size(24.dp))
+            }
+            
+            Spacer(Modifier.width(16.dp))
+            
+            // Text
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "账号管理",
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    )
+                )
+                Text(
+                    text = if (viewModel.adminUrl.isNotBlank()) statusText else "点击配置后端地址",
+                    color = if (viewModel.adminUrl.isNotBlank()) statusColor else Color.White.copy(alpha = 0.6f),
+                    fontSize = 12.sp
+                )
+            }
+            
+            // Arrow
+            Icon(
+                Lucide.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+    
+    // 配置对话框
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("账号管理") },
+            text = {
+                Column {
+                    Text("后端地址", fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = adminUrlInput,
+                        onValueChange = { adminUrlInput = it },
+                        placeholder = { Text("https://your-admin.zeabur.app") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // 状态显示
+                    val authState = viewModel.authState
+                    when (authState) {
+                        is AuthState.Authenticated -> {
+                            Text("✅ 账号已绑定", color = Color(0xFF34C759))
+                        }
+                        is AuthState.NoServer -> {
+                            Text("⚪ 未配置后端（离线模式）", color = Color.Gray)
+                        }
+                        is AuthState.Checking -> {
+                            Text("🔄 正在验证...", color = Color(0xFF007AFF))
+                        }
+                        is AuthState.Blocked -> {
+                            Text("⛔ ${authState.message}", color = Color(0xFFFF3B30))
+                        }
+                        is AuthState.Error -> {
+                            Text("⚠️ ${authState.message}", color = Color(0xFFFF9500))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateAdminUrl(adminUrlInput)
+                    showDialog = false
+                }) {
+                    Text("保存")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
