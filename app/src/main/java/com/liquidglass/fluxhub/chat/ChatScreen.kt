@@ -1333,11 +1333,11 @@ private fun LiquidGlassChatInputBar(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Toolbox button (smaller, above send)
+            // Toolbox button (above send)
             LiquidButton(
                 onClick = onOpenToolbox,
                 backdrop = backdrop,
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(40.dp),
                 isInteractive = true,
                 onPressed = onInteractionChanged,
                 tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
@@ -1346,7 +1346,7 @@ private fun LiquidGlassChatInputBar(
                     imageVector = Lucide.SlidersHorizontal,
                     contentDescription = "工具箱",
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
             
@@ -1363,7 +1363,7 @@ private fun LiquidGlassChatInputBar(
                     imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                     contentDescription = if (isLoading) "停止" else "发送",
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -1779,7 +1779,7 @@ private fun ToolboxListPage(
             LiquidButton(
                 onClick = onDismiss,
                 backdrop = backdrop,
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(40.dp),
                 isInteractive = true,
                 tint = Color.White.copy(alpha = 0.2f)
             ) {
@@ -1787,7 +1787,7 @@ private fun ToolboxListPage(
                     imageVector = Lucide.X,
                     contentDescription = "关闭",
                     tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -1895,7 +1895,7 @@ private fun ToolboxDetailHeader(
         LiquidButton(
             onClick = onBack,
             backdrop = backdrop,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(40.dp),
             isInteractive = true,
             tint = Color.White.copy(alpha = 0.2f)
         ) {
@@ -1903,7 +1903,7 @@ private fun ToolboxDetailHeader(
                 imageVector = Lucide.ChevronLeft,
                 contentDescription = "返回",
                 tint = Color.White,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
         Text(
