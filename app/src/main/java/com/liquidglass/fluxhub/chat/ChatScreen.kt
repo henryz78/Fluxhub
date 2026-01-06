@@ -199,8 +199,7 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             viewModel.sendMessage(inputText)
             inputText = ""
-            // 不手动隐藏键盘，让用户决定是否继续输入
-            // 这也避免了与 WindowInsets 动画的冲突
+            keyboardController?.hide()
         }
     }
     
@@ -1258,7 +1257,7 @@ private fun LiquidGlassChatInputBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Add Button (File/Image)
         LiquidButton(
@@ -1328,44 +1327,38 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Toolbox + Send/Stop buttons (vertical stack)
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Toolbox button (Moved to row)
+        LiquidButton(
+            onClick = onOpenToolbox,
+            backdrop = backdrop,
+            modifier = Modifier.size(48.dp),
+            isInteractive = true,
+            onPressed = onInteractionChanged,
+            tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
         ) {
-            // Toolbox button (above send)
-            LiquidButton(
-                onClick = onOpenToolbox,
-                backdrop = backdrop,
-                modifier = Modifier.size(48.dp),
-                isInteractive = true,
-                onPressed = onInteractionChanged,
-                tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
-            ) {
-                Icon(
-                    imageVector = Lucide.SlidersHorizontal,
-                    contentDescription = "工具箱",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            Icon(
+                imageVector = Lucide.SlidersHorizontal,
+                contentDescription = "工具箱",
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
+        }
             
-            // Send/Stop button
-            LiquidButton(
-                onClick = if (isLoading) onStop else onSend,
-                backdrop = backdrop,
-                modifier = Modifier.size(56.dp),
-                isInteractive = isLoading || text.isNotBlank(),
-                onPressed = onInteractionChanged,
-                tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
-            ) {
-                Icon(
-                    imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
-                    contentDescription = if (isLoading) "停止" else "发送",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+        // Send/Stop button
+        LiquidButton(
+            onClick = if (isLoading) onStop else onSend,
+            backdrop = backdrop,
+            modifier = Modifier.size(56.dp),
+            isInteractive = isLoading || text.isNotBlank(),
+            onPressed = onInteractionChanged,
+            tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
+        ) {
+            Icon(
+                imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
+                contentDescription = if (isLoading) "停止" else "发送",
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }
