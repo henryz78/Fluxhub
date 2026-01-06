@@ -33,6 +33,9 @@ class SettingsRepository(private val context: Context) {
         private val SEARCH_PROVIDER = intPreferencesKey("search_provider")
         private val STREAM_ENABLED = booleanPreferencesKey("stream_enabled")
         private val CONTEXT_SIZE = intPreferencesKey("context_size")
+        
+        // 后端管理
+        private val ADMIN_URL = stringPreferencesKey("admin_url")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -65,6 +68,10 @@ class SettingsRepository(private val context: Context) {
 
     val glassBlur: Flow<Float> = context.dataStore.data.map { preferences ->
         preferences[GLASS_BLUR] ?: 16f
+    }
+    
+    val adminUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[ADMIN_URL] ?: ""
     }
     
     suspend fun setApiKey(value: String) {
@@ -182,6 +189,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setContextSize(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
+        }
+    }
+    
+    suspend fun setAdminUrl(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[ADMIN_URL] = value
         }
     }
 }

@@ -37,6 +37,10 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import android.net.Uri
 import com.liquidglass.fluxhub.utils.FileUtils
+import com.liquidglass.fluxhub.sync.AdminSyncService
+import com.liquidglass.fluxhub.sync.ProviderSyncData
+import com.liquidglass.fluxhub.sync.ConversationSyncData
+import com.liquidglass.fluxhub.sync.MessageSyncData
 import kotlinx.serialization.json.*
 
 private const val TAG = "ChatViewModel"
@@ -182,7 +186,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
-
+    // ========== 后端管理同步 ==========
+    var adminUrl by mutableStateOf("")
+        private set
+    private val adminSyncService = AdminSyncService(application)
+    
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -196,6 +204,86 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startAssistantsCollection()
         startProvidersCollection()
         loadOrCreateConversation()
+        initAdminSync()
+    }
+    
+    /**
+     * 初始化后端同步
+     */
+    private fun initAdminSync() {
+        viewModelScope.launch {
+            settingsRepository.adminUrl.collect { url ->
+                adminUrl = url
+                adminSyncService.adminBaseUrl = url
+                if (url.isNotBlank()) {
+                    // 注册/更新用户
+                    val appVersion = try {
+                        getApplication<Application>().packageManager
+                            .getPackageInfo(getApplication<Application>().packageName, 0).versionName
+                    } catch (e: Exception) { "unknown" }
+                    adminSyncService.syncUser(appVersion ?: "unknown")
+                }
+            }
+        }
+    }
+    
+    /**
+     * 同步服务商配置到后端
+     */
+    fun syncProvidersToAdmin() {
+        if (adminUrl.isBlank()) return
+        viewModelScope.launch {
+            val providerData = providers.map { p ->
+                ProviderSyncData(
+                    id = p.id,
+                    name = p.name,
+                    baseUrl = p.baseUrl,
+                    apiKey = p.apiKey,
+                    icon = p.icon,
+                    isActive = p.isActive
+                )
+            }
+            adminSyncService.syncProviders(providerData)
+        }
+    }
+    
+    /**
+     * 同步当前对话到后端
+     */
+    fun syncCurrentConversationToAdmin() {
+        if (adminUrl.isBlank()) return
+        val convId = currentConversationId ?: return
+        viewModelScope.launch {
+            val conv = conversationDao.getConversation(convId) ?: return@launch
+            val msgs = messages.map { m ->
+                MessageSyncData(
+                    id = m.id,
+                    role = m.role,
+                    content = m.content,
+                    thinkingContent = m.thinkingContent,
+                    model = m.model,
+                    timestamp = m.timestamp
+                )
+            }
+            val convData = ConversationSyncData(
+                id = conv.id,
+                title = conv.title,
+                assistantId = conv.assistantId,
+                isDeleted = false,
+                updatedAt = conv.updatedAt,
+                messages = msgs
+            )
+            adminSyncService.syncConversations(listOf(convData))
+        }
+    }
+    
+    /**
+     * 设置后端管理 URL
+     */
+    fun setAdminUrl(url: String) {
+        viewModelScope.launch {
+            settingsRepository.setAdminUrl(url)
+        }
     }
     
     private fun loadSettings() {
@@ -525,13 +613,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 conversations.clear()
                 conversations.addAll(filteredList)
                 
-                // 仅在当前会话ID不为空且不在列表中时处理
-                // 移除自动创建逻辑，避免重复创建会话
-                if (currentConversationId != null && conversations.none { it.id == currentConversationId }) {
+                // 处理当前会话不存在的情况
+                val currentIdMissing = currentConversationId != null && 
+                    conversations.none { it.id == currentConversationId }
+                val noConversations = conversations.isEmpty()
+                
+                if (currentIdMissing || noConversations) {
                     if (conversations.isNotEmpty()) {
+                        // 如果有其他会话，切换到第一个
                         switchConversation(conversations.first().id)
+                    } else {
+                        // 会话列表为空，自动创建新对话（解决新用户首次打开的问题）
+                        createNewConversation()
                     }
-                    // 不再自动创建会话，由用户手动创建
                 }
             }
         }
