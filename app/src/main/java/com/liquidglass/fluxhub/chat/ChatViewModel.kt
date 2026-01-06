@@ -729,8 +729,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             content
         }
         
-        if (apiKey.isBlank()) {
-            showErrorMessage("请先配置 API Key")
+        // 优先从当前 Provider 获取配置，确保使用最新值
+        val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+        val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+        
+        if (effectiveApiKey.isBlank()) {
+            showErrorMessage("请先配置服务商")
             return
         }
         
@@ -876,9 +880,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
         Log.d(TAG, "Request body: $requestBody")
         
+        // 优先从 currentProvider 获取配置
+        val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+        val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+        
         val request = Request.Builder()
-            .url("$baseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
+            .url("$effectiveBaseUrl/chat/completions")
+            .addHeader("Authorization", "Bearer $effectiveApiKey")
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "text/event-stream")
             .post(requestBody.toRequestBody("application/json".toMediaType()))
