@@ -300,6 +300,26 @@ private fun LiquidGlassChatContent(
         cameraOutputFile = null
         cameraOutputUri = null
     }
+    
+    // 相机权限请求
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // 权限已授予，启动相机
+            try {
+                cameraOutputFile = java.io.File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+                cameraOutputUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    cameraOutputFile!!
+                )
+                cameraLauncher.launch(cameraOutputUri!!)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     // 消息操作菜单状态
     var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
@@ -953,17 +973,24 @@ private fun LiquidGlassChatContent(
                         LiquidButton(
                             onClick = {
                                 showUploadOptions = false
-                                // 创建临时文件并使用 FileProvider 获取 URI
-                                try {
-                                    cameraOutputFile = java.io.File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
-                                    cameraOutputUri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        cameraOutputFile!!
-                                    )
-                                    cameraLauncher.launch(cameraOutputUri!!)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
+                                // 检查并请求相机权限
+                                val permission = android.Manifest.permission.CAMERA
+                                if (androidx.core.content.ContextCompat.checkSelfPermission(context, permission) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    // 权限已授予，直接启动相机
+                                    try {
+                                        cameraOutputFile = java.io.File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+                                        cameraOutputUri = androidx.core.content.FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            cameraOutputFile!!
+                                        )
+                                        cameraLauncher.launch(cameraOutputUri!!)
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                } else {
+                                    // 请求权限
+                                    cameraPermissionLauncher.launch(permission)
                                 }
                             },
                             backdrop = backdrop,
