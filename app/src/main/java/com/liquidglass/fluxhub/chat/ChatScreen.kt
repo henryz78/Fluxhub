@@ -1865,8 +1865,11 @@ private fun ToolboxListItem(
             ) {
                 Text(
                     text = value,
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    style = TextStyle(
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    )
                 )
                 Icon(
                     imageVector = Lucide.ChevronRight,
@@ -1955,8 +1958,11 @@ private fun ToolboxThinkingBudgetPage(
         Spacer(Modifier.height(24.dp))
         Text(
             text = "快捷档位",
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.7f),
             fontSize = 14.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            ),
             modifier = Modifier.padding(bottom = 12.dp)
         )
         LazyRow(
@@ -1980,9 +1986,12 @@ private fun ToolboxThinkingBudgetPage(
         Spacer(Modifier.height(24.dp))
         Text(
             text = "思考预算控制 AI 在回复前进行深度推理的程度。较高的值可能带来更深思熟虑的回答，但会增加响应时间。设为 0 则关闭思考功能。",
-            color = Color.White.copy(alpha = 0.5f),
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
-            lineHeight = 20.sp
+            lineHeight = 20.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
         )
     }
 }
@@ -2025,9 +2034,12 @@ private fun ToolboxWebSearchPage(
         // 说明文字
         Text(
             text = "启用后，AI 将能够搜索互联网获取最新信息来回答您的问题。这对于查询实时数据、新闻和不在 AI 训练数据中的内容特别有用。",
-            color = Color.White.copy(alpha = 0.5f),
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
-            lineHeight = 20.sp
+            lineHeight = 20.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
         )
     }
 }
@@ -2070,9 +2082,12 @@ private fun ToolboxStreamOutputPage(
         // 说明文字
         Text(
             text = "流式输出会逐字显示 AI 的回复，让您无需等待完整回复即可开始阅读。关闭后，将在 AI 完成全部思考后一次性显示完整回复。",
-            color = Color.White.copy(alpha = 0.5f),
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
-            lineHeight = 20.sp
+            lineHeight = 20.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
         )
     }
 }
@@ -2115,8 +2130,11 @@ private fun ToolboxContextSizePage(
         Spacer(Modifier.height(24.dp))
         Text(
             text = "快捷档位",
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.7f),
             fontSize = 14.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            ),
             modifier = Modifier.padding(bottom = 12.dp)
         )
         LazyRow(
@@ -2140,9 +2158,12 @@ private fun ToolboxContextSizePage(
         Spacer(Modifier.height(24.dp))
         Text(
             text = "上下文长度决定 AI 能「记住」多少条之前的对话消息。较大的值能让 AI 保持更好的对话连贯性，但会消耗更多 token 配额。",
-            color = Color.White.copy(alpha = 0.5f),
+            color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
-            lineHeight = 20.sp
+            lineHeight = 20.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
         )
     }
 }
