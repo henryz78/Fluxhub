@@ -2139,7 +2139,7 @@ private fun ToolboxContextSizePage(
         // 说明文字
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "上下文长度决定 AI 能"记住"多少条之前的对话消息。较大的值能让 AI 保持更好的对话连贯性，但会消耗更多 token 配额。",
+            text = "上下文长度决定 AI 能「记住」多少条之前的对话消息。较大的值能让 AI 保持更好的对话连贯性，但会消耗更多 token 配额。",
             color = Color.White.copy(alpha = 0.5f),
             fontSize = 13.sp,
             lineHeight = 20.sp
