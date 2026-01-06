@@ -1257,7 +1257,7 @@ private fun LiquidGlassChatInputBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Add Button (File/Image)
@@ -1779,7 +1779,7 @@ private fun ToolboxListPage(
             LiquidButton(
                 onClick = onDismiss,
                 backdrop = backdrop,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(44.dp),
                 isInteractive = true,
                 tint = Color.White.copy(alpha = 0.2f)
             ) {
@@ -1787,7 +1787,7 @@ private fun ToolboxListPage(
                     imageVector = Lucide.X,
                     contentDescription = "关闭",
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
@@ -1898,7 +1898,7 @@ private fun ToolboxDetailHeader(
         LiquidButton(
             onClick = onBack,
             backdrop = backdrop,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = true,
             tint = Color.White.copy(alpha = 0.2f)
         ) {
@@ -1906,7 +1906,7 @@ private fun ToolboxDetailHeader(
                 imageVector = Lucide.ChevronLeft,
                 contentDescription = "返回",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
         Text(
@@ -1977,7 +1977,14 @@ private fun ToolboxThinkingBudgetPage(
                     isInteractive = true,
                     tint = if (viewModel.thinkingBudget == value) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.1f)
                 ) {
-                    Text(label, color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = label,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        style = TextStyle(
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        )
+                    )
                 }
             }
         }
@@ -2149,7 +2156,14 @@ private fun ToolboxContextSizePage(
                     isInteractive = true,
                     tint = if (viewModel.contextSize == value) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.1f)
                 ) {
-                    Text("$value", color = Color.White, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = "$value",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        style = TextStyle(
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        )
+                    )
                 }
             }
         }
