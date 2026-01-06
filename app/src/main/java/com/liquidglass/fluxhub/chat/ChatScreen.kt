@@ -282,25 +282,23 @@ private fun LiquidGlassChatContent(
         onImageSelected(uri)
     }
     
-    // 拍照功能：使用 TakePicturePreview 获取 Bitmap
+    // 拍照功能：使用 TakePicture + FileProvider
     val context = LocalContext.current
+    var cameraOutputUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var cameraOutputFile by remember { mutableStateOf<java.io.File?>(null) }
     
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            // 将 Bitmap 保存为临时文件
-            try {
-                val tempFile = java.io.File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
-                java.io.FileOutputStream(tempFile).use { out ->
-                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
-                }
-                val uri = android.net.Uri.fromFile(tempFile)
-                onImageSelected(uri)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraOutputUri != null) {
+            onImageSelected(cameraOutputUri)
         }
+        // 如果失败，清理临时文件
+        if (!success) {
+            cameraOutputFile?.delete()
+        }
+        cameraOutputFile = null
+        cameraOutputUri = null
     }
 
     // 消息操作菜单状态
@@ -955,7 +953,18 @@ private fun LiquidGlassChatContent(
                         LiquidButton(
                             onClick = {
                                 showUploadOptions = false
-                                cameraLauncher.launch(null)
+                                // 创建临时文件并使用 FileProvider 获取 URI
+                                try {
+                                    cameraOutputFile = java.io.File(context.cacheDir, "camera_${System.currentTimeMillis()}.jpg")
+                                    cameraOutputUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        cameraOutputFile!!
+                                    )
+                                    cameraLauncher.launch(cameraOutputUri!!)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             },
                             backdrop = backdrop,
                             modifier = Modifier.fillMaxWidth().height(50.dp),
