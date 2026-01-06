@@ -525,13 +525,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 conversations.clear()
                 conversations.addAll(filteredList)
                 
-                // 仅在当前会话ID不为空且不在列表中时处理
-                // 移除自动创建逻辑，避免重复创建会话
-                if (currentConversationId != null && conversations.none { it.id == currentConversationId }) {
+                // 处理当前会话不存在的情况
+                val currentIdMissing = currentConversationId != null && 
+                    conversations.none { it.id == currentConversationId }
+                val noConversations = conversations.isEmpty()
+                
+                if (currentIdMissing || noConversations) {
                     if (conversations.isNotEmpty()) {
+                        // 如果有其他会话，切换到第一个
                         switchConversation(conversations.first().id)
+                    } else {
+                        // 会话列表为空，自动创建新对话（解决新用户首次打开的问题）
+                        createNewConversation()
                     }
-                    // 不再自动创建会话，由用户手动创建
                 }
             }
         }

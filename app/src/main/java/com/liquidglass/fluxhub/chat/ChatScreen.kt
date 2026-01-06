@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
@@ -211,12 +212,21 @@ fun ChatScreen(
     
     LaunchedEffect(lastContentKey, loadingState) {
         if (loadingState) {
-            // 简单的防抖
-            kotlinx.coroutines.delay(50) 
+            kotlinx.coroutines.delay(32)  // 更短的防抖时间，提升响应性
             
             // 仅当用户在底部时跟随滚动 (吸附效果)
             if (listState.isAtBottom()) {
-                scrollToBottom(animate = false) // 流式输出时使用非动画滚动，避免跳动
+                // 使用增量滚动，比 scrollToItem 更平滑
+                val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                if (lastItem != null) {
+                    val viewportEnd = listState.layoutInfo.viewportEndOffset
+                    val itemBottom = lastItem.offset + lastItem.size
+                    val overflowPx = itemBottom - viewportEnd
+                    if (overflowPx > 0) {
+                        // 平滑地滚动刚好露出内容
+                        listState.scrollBy(overflowPx.toFloat() + 16f) // 额外 16px 留白
+                    }
+                }
             }
         }
     }
@@ -1282,24 +1292,24 @@ private fun LiquidGlassChatInputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Add Button (File/Image)
+        // Add Button (File/Image) - 更紧凑
         LiquidButton(
             onClick = onPickImage,
             backdrop = backdrop,
-            modifier = Modifier.size(52.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
-            tint = Color(0xFF34C759).copy(alpha = 0.8f) // Apple Green
+            tint = Color(0xFF34C759).copy(alpha = 0.8f)
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
 
@@ -1320,8 +1330,8 @@ private fun LiquidGlassChatInputBar(
                         drawRect(Color.White.copy(alpha = 0.15f))
                     }
                 )
-                .heightIn(min = 56.dp, max = 150.dp)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .heightIn(min = 48.dp, max = 180.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             BasicTextField(
@@ -1357,28 +1367,28 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Toolbox button (Moved to row)
+        // Toolbox button - 更紧凑
         LiquidButton(
             onClick = onOpenToolbox,
             backdrop = backdrop,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(40.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
-            tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
+            tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
         ) {
             Icon(
                 imageVector = Lucide.SlidersHorizontal,
                 contentDescription = "工具箱",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
             
-        // Send/Stop button
+        // Send/Stop button - 更紧凑
         LiquidButton(
             onClick = if (isLoading) onStop else onSend,
             backdrop = backdrop,
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier.size(48.dp),
             isInteractive = isLoading || text.isNotBlank(),
             onPressed = onInteractionChanged,
             tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
@@ -1387,7 +1397,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -1802,24 +1812,16 @@ private fun ToolboxListPage(
             LiquidButton(
                 onClick = onDismiss,
                 backdrop = backdrop,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(44.dp),
                 isInteractive = true,
-                tint = Color.White.copy(alpha = 0.2f)
+                tint = Color(0xFF1C1C1E).copy(alpha = 0.4f)
             ) {
-                Box {
-                    Icon(
-                        imageVector = Lucide.X,
-                        contentDescription = null,
-                        tint = Color.Black.copy(alpha = 0.5f),
-                        modifier = Modifier.size(32.dp).offset(1.dp, 1.dp)
-                    )
-                    Icon(
-                        imageVector = Lucide.X,
-                        contentDescription = "关闭",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Lucide.X,
+                    contentDescription = "关闭",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
         
@@ -1932,24 +1934,16 @@ private fun ToolboxDetailHeader(
         LiquidButton(
             onClick = onBack,
             backdrop = backdrop,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = true,
-            tint = Color.White.copy(alpha = 0.2f)
+            tint = Color(0xFF1C1C1E).copy(alpha = 0.4f)
         ) {
-            Box {
-                Icon(
-                    imageVector = Lucide.ChevronLeft,
-                    contentDescription = null,
-                    tint = Color.Black.copy(alpha = 0.5f),
-                    modifier = Modifier.size(32.dp).offset(1.dp, 1.dp)
-                )
-                Icon(
-                    imageVector = Lucide.ChevronLeft,
-                    contentDescription = "返回",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            Icon(
+                imageVector = Lucide.ChevronLeft,
+                contentDescription = "返回",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
         Text(
             text = title,
@@ -2098,6 +2092,19 @@ private fun ToolboxWebSearchPage(
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
             lineHeight = 20.sp,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
+        )
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // API 支持提示
+        Text(
+            text = "⚠️ 注意：此功能需要 API 提供商支持。部分 API（如 OpenAI 标准接口）可能不支持网络搜索，开启后可能无效果。请确认您的服务商是否支持此功能。",
+            color = Color(0xFFFFCC00).copy(alpha = 0.8f),
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
             style = TextStyle(
                 shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
             )
