@@ -17,6 +17,17 @@ import java.util.concurrent.TimeUnit
 private const val TAG = "AdminSyncService"
 
 /**
+ * 登录/注册结果
+ */
+sealed class AuthResult {
+    data class Success(val userId: String) : AuthResult()
+    data class Disabled(val message: String = "账号已被禁用") : AuthResult()
+    data class RegistrationClosed(val message: String = "注册已关闭") : AuthResult()
+    data class NetworkError(val message: String = "网络错误") : AuthResult()
+    object NoServer : AuthResult() // 未配置服务器
+}
+
+/**
  * 与后端管理系统同步数据的服务
  */
 class AdminSyncService(private val context: Context) {
@@ -32,18 +43,21 @@ class AdminSyncService(private val context: Context) {
     var adminBaseUrl: String = ""
     
     // 设备唯一标识
-    private val deviceId: String by lazy {
+    val deviceId: String by lazy {
         Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
     }
     
     // 当前用户 ID (由后端返回)
-    private var userId: String? = null
+    var userId: String? = null
+        private set
     
     /**
-     * 注册/更新用户信息
+     * 登录/注册用户（返回详细结果）
      */
-    suspend fun syncUser(appVersion: String): String? = withContext(Dispatchers.IO) {
-        if (adminBaseUrl.isBlank()) return@withContext null
+    suspend fun authenticate(appVersion: String): AuthResult = withContext(Dispatchers.IO) {
+        if (adminBaseUrl.isBlank()) {
+            return@withContext AuthResult.NoServer
+        }
         
         try {
             val body = json.encodeToString(
@@ -56,20 +70,36 @@ class AdminSyncService(private val context: Context) {
                 .build()
             
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val result = response.body?.string()?.let { 
-                    json.decodeFromString<UserSyncResponse>(it) 
+            val responseBody = response.body?.string() ?: "{}"
+            
+            when (response.code) {
+                200 -> {
+                    val result = json.decodeFromString<UserSyncResponse>(responseBody)
+                    userId = result.userId
+                    Log.d(TAG, "Auth success: $userId")
+                    return@withContext AuthResult.Success(result.userId)
                 }
-                userId = result?.userId
-                Log.d(TAG, "User synced: $userId")
-                return@withContext userId
-            } else {
-                Log.e(TAG, "User sync failed: ${response.code}")
+                403 -> {
+                    // 解析错误信息
+                    val error = try {
+                        json.decodeFromString<ErrorResponse>(responseBody).error
+                    } catch (e: Exception) { "访问被拒绝" }
+                    
+                    return@withContext if (error.contains("禁用")) {
+                        AuthResult.Disabled(error)
+                    } else {
+                        AuthResult.RegistrationClosed(error)
+                    }
+                }
+                else -> {
+                    Log.e(TAG, "Auth failed: ${response.code}")
+                    return@withContext AuthResult.NetworkError("服务器错误: ${response.code}")
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "User sync error", e)
+            Log.e(TAG, "Auth error", e)
+            return@withContext AuthResult.NetworkError("网络连接失败: ${e.message}")
         }
-        null
     }
     
     /**
@@ -133,7 +163,13 @@ data class UserSyncRequest(
 
 @Serializable
 data class UserSyncResponse(
-    val userId: String
+    val userId: String,
+    val isDisabled: Boolean = false
+)
+
+@Serializable
+data class ErrorResponse(
+    val error: String
 )
 
 @Serializable

@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -237,6 +238,89 @@ fun ChatScreen(
             viewModel.sendMessage(inputText)
             inputText = ""
             keyboardController?.hide()
+        }
+    }
+    
+    // 认证状态检查
+    val authState = viewModel.authState
+    
+    when (authState) {
+        is AuthState.Checking -> {
+            // 显示加载中
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(Modifier.height(16.dp))
+                    Text("正在验证...", color = Color.White)
+                }
+            }
+            return
+        }
+        is AuthState.Blocked -> {
+            // 显示被阻止界面
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Text("⛔", fontSize = 64.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        authState.message,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        "请联系管理员",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+            return
+        }
+        is AuthState.Error -> {
+            // 显示错误界面（可重试）
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Text("⚠️", fontSize = 64.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        authState.message,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    LiquidButton(
+                        onClick = { viewModel.retryAuth() },
+                        backdrop = backdrop,
+                        modifier = Modifier,
+                        isInteractive = true,
+                        tint = Color(0xFF007AFF)
+                    ) {
+                        Text("重试", color = Color.White)
+                    }
+                }
+            }
+            return
+        }
+        else -> {
+            // 已认证或无服务器，继续正常流程
         }
     }
     

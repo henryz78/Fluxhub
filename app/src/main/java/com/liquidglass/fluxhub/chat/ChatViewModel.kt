@@ -38,12 +38,24 @@ import java.util.concurrent.TimeUnit
 import android.net.Uri
 import com.liquidglass.fluxhub.utils.FileUtils
 import com.liquidglass.fluxhub.sync.AdminSyncService
+import com.liquidglass.fluxhub.sync.AuthResult
 import com.liquidglass.fluxhub.sync.ProviderSyncData
 import com.liquidglass.fluxhub.sync.ConversationSyncData
 import com.liquidglass.fluxhub.sync.MessageSyncData
 import kotlinx.serialization.json.*
 
 private const val TAG = "ChatViewModel"
+
+/**
+ * 认证状态
+ */
+sealed class AuthState {
+    object Checking : AuthState()
+    object NoServer : AuthState() // 未配置服务器，直接使用
+    data class Authenticated(val userId: String) : AuthState()
+    data class Blocked(val message: String) : AuthState() // 被禁用或注册关闭
+    data class Error(val message: String) : AuthState() // 网络错误
+}
 
 @Serializable
 data class ChatMessage(
@@ -191,6 +203,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     private val adminSyncService = AdminSyncService(application)
     
+    // 认证状态
+    var authState by mutableStateOf<AuthState>(AuthState.Checking)
+        private set
+    
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -208,20 +224,65 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 初始化后端同步
+     * 初始化后端同步并验证用户
      */
     private fun initAdminSync() {
         viewModelScope.launch {
             settingsRepository.adminUrl.collect { url ->
                 adminUrl = url
                 adminSyncService.adminBaseUrl = url
-                if (url.isNotBlank()) {
-                    // 注册/更新用户
+                
+                if (url.isBlank()) {
+                    // 未配置服务器，允许使用
+                    authState = AuthState.NoServer
+                } else {
+                    // 开始认证
+                    authState = AuthState.Checking
                     val appVersion = try {
                         getApplication<Application>().packageManager
                             .getPackageInfo(getApplication<Application>().packageName, 0).versionName
                     } catch (e: Exception) { "unknown" }
-                    adminSyncService.syncUser(appVersion ?: "unknown")
+                    
+                    when (val result = adminSyncService.authenticate(appVersion ?: "unknown")) {
+                        is AuthResult.Success -> {
+                            authState = AuthState.Authenticated(result.userId)
+                        }
+                        is AuthResult.Disabled -> {
+                            authState = AuthState.Blocked(result.message)
+                        }
+                        is AuthResult.RegistrationClosed -> {
+                            authState = AuthState.Blocked(result.message)
+                        }
+                        is AuthResult.NetworkError -> {
+                            authState = AuthState.Error(result.message)
+                        }
+                        is AuthResult.NoServer -> {
+                            authState = AuthState.NoServer
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * 重试认证
+     */
+    fun retryAuth() {
+        viewModelScope.launch {
+            if (adminUrl.isNotBlank()) {
+                authState = AuthState.Checking
+                val appVersion = try {
+                    getApplication<Application>().packageManager
+                        .getPackageInfo(getApplication<Application>().packageName, 0).versionName
+                } catch (e: Exception) { "unknown" }
+                
+                when (val result = adminSyncService.authenticate(appVersion ?: "unknown")) {
+                    is AuthResult.Success -> authState = AuthState.Authenticated(result.userId)
+                    is AuthResult.Disabled -> authState = AuthState.Blocked(result.message)
+                    is AuthResult.RegistrationClosed -> authState = AuthState.Blocked(result.message)
+                    is AuthResult.NetworkError -> authState = AuthState.Error(result.message)
+                    is AuthResult.NoServer -> authState = AuthState.NoServer
                 }
             }
         }
