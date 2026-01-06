@@ -143,54 +143,81 @@ fun ChatScreen(
     val isStreaming = viewModel.messages.any { it.isStreaming }
     val density = androidx.compose.ui.platform.LocalDensity.current
 
-    // 智能触底判定扩展逻辑 (参考 RikkaHub)
+    // 智能触底判定扩展逻辑
     fun LazyListState.isAtBottom(): Boolean {
-        val lastItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
+        val layoutInfo = layoutInfo
+        val totalItems = layoutInfo.totalItemsCount
+        if (totalItems == 0) return true
         
-        // 放宽判定条件：只要最后可见项是列表的最后几项之一，且底部接近视口底部，就认为触底
-        // 增加容差值 (50% 的最后项高度 或 100dp)
-        val tolerance = with(density) { 
-            (lastItem.size * 0.5f).coerceAtLeast(100.dp.toPx()) + 64.dp.toPx() 
+        val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
+        
+        // 允许的偏差值：最后两个 Item (消息 + Spacer)
+        val isLastItemVisible = lastVisibleItem.index >= totalItems - 2
+        
+        // 如果最后 Item 可见，并且其底部没有超出视口太多，则认为在底部
+        val viewportEnd = layoutInfo.viewportEndOffset
+        val tolerance = with(density) { 100.dp.toPx() } // 100dp 容差
+        
+        return isLastItemVisible && (lastVisibleItem.offset + lastVisibleItem.size <= viewportEnd + tolerance)
+    }
+
+    // 辅助函数：滚动到底部
+    suspend fun scrollToBottom(animate: Boolean = true) {
+        val totalItems = listState.layoutInfo.totalItemsCount
+        if (totalItems > 0) {
+            val targetIndex = totalItems - 1
+            if (animate) {
+                listState.animateScrollToItem(targetIndex)
+            } else {
+                listState.scrollToItem(targetIndex)
+            }
         }
-        return lastItem.index >= layoutInfo.totalItemsCount - 2 &&
-               (lastItem.offset + lastItem.size <= layoutInfo.viewportEndOffset + tolerance)
     }
 
     // 自动跟随键盘滚动
     ImeLazyListAutoScroller(lazyListState = listState)
     
-    // 显式监听键盘唤起，确保滚动到底部
-    LaunchedEffect(isKeyboardVisible) {
-        if (isKeyboardVisible && viewModel.messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(100)
-            // 滚动到最底部 (包括 spacer)
-            listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+    // 1. 新消息出现 (ID 变化) -> 强制滚动到底部
+    val lastMessageId = viewModel.messages.lastOrNull()?.id
+    LaunchedEffect(lastMessageId) {
+        if (lastMessageId != null) {
+            // 给一点延迟让 Item 进入布局
+            kotlinx.coroutines.delay(100) 
+            scrollToBottom(animate = true)
         }
     }
 
-    // AI 正在说话或思考时的全时吸附滚动
+    // 2. 键盘状态变化 -> 调整滚动位置
+    LaunchedEffect(isKeyboardVisible) {
+        if (isKeyboardVisible) {
+            // 键盘弹出，强制滚到底以露出输入框上方的内容
+            kotlinx.coroutines.delay(100)
+            scrollToBottom(animate = true)
+        } else {
+            // 键盘收起
+            // 如果正在加载(用户刚发完消息) 或者 本来就在底部，保持底部位置，适应新视口
+            if (isStreaming || viewModel.isLoading || listState.isAtBottom()) {
+                kotlinx.coroutines.delay(100)
+                scrollToBottom(animate = true)
+            }
+        }
+    }
+
+    // 3. AI 正在说话或思考时的全时吸附滚动
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    // 监听最后一条消息的 ID 和内容长度，以触发高频滚动检查
+    // 监听最后一条消息的内容长度，触发高频滚动
     val lastMessage = viewModel.messages.lastOrNull()
     val lastContentKey = lastMessage?.let { it.id + it.content.length + (it.thinkingContent?.length ?: 0) } ?: ""
     
     LaunchedEffect(lastContentKey, loadingState) {
         if (loadingState) {
-            // 简单的防抖：避免每一个字符更新都触发重绘和滚动
+            // 简单的防抖
             kotlinx.coroutines.delay(50) 
             
-            // 如果原本就在底部，或者刚开始生成，强制跟随
+            // 仅当用户在底部时跟随滚动 (吸附效果)
             if (listState.isAtBottom()) {
-                listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                scrollToBottom(animate = false) // 流式输出时使用非动画滚动，避免跳动
             }
-        }
-    }
-    
-    // 新消息添加时滚动到底部
-    LaunchedEffect(viewModel.messages.size) {
-        if (viewModel.messages.isNotEmpty()) {
-            kotlinx.coroutines.delay(50) 
-            listState.animateScrollToItem(viewModel.messages.lastIndex + 1) // +1 确保 spacer 可见
         }
     }
     
@@ -1294,7 +1321,8 @@ private fun LiquidGlassChatInputBar(
                     }
                 )
                 .heightIn(min = 56.dp, max = 150.dp)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
             BasicTextField(
                 value = text,
@@ -1303,19 +1331,21 @@ private fun LiquidGlassChatInputBar(
                 textStyle = TextStyle(
                     color = Color.White,
                     fontSize = 16.sp,
+                    lineHeight = 24.sp,
                     shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                 ),
                 cursorBrush = SolidColor(Color(0xFF007AFF)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { onSend() }),
                 decorationBox = { innerTextField ->
-                    Box {
+                    Box(contentAlignment = Alignment.CenterStart) {
                         if (text.isEmpty()) {
                             BasicText(
                                 text = "输入消息...",
                                 style = TextStyle(
                                     color = Color.White.copy(alpha = 0.5f),
                                     fontSize = 16.sp,
+                                    lineHeight = 24.sp,
                                     shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
                                 )
                             )

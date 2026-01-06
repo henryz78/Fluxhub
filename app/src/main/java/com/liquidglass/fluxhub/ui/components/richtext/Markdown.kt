@@ -358,7 +358,10 @@ private fun MarkdownNode(
         }
 
         // 纯文本
-        MarkdownTokenTypes.TEXT -> {
+        MarkdownTokenTypes.TEXT,
+        MarkdownElementTypes.HTML_BLOCK,
+        MarkdownTokenTypes.HTML_TAG,
+        MarkdownTokenTypes.HTML_BLOCK_CONTENT -> {
             // 简单处理常见的 HTML 实体
             val rawText = node.getTextInNode(content)
             val decodedText = rawText

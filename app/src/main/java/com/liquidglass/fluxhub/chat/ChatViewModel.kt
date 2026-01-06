@@ -544,13 +544,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         assistantsJob?.cancel()
         assistantsJob = viewModelScope.launch {
             assistantDao.getAllAssistants().collect { list ->
-                assistants.clear()
-                assistants.addAll(list)
-                
-                // 如果没有当前助手，尝试加载默认助手
-                if (currentAssistant == null && list.isNotEmpty()) {
-                    currentAssistant = list.find { it.isDefault } ?: list.first()
-                    applyAssistantSettings(currentAssistant!!)
+                if (list.isEmpty()) {
+                    // 如果列表为空，创建一个默认助手
+                    launch {
+                        val defaultAssistant = AssistantEntity(
+                            id = UUID.randomUUID().toString(),
+                            name = "通用助手",
+                            avatar = "🤖",
+                            systemPrompt = "你是一个有用的 AI 助手。",
+                            isDefault = true,
+                            modelId = null, // 使用默认模型
+                            temperature = 0.7f,
+                            topP = 1.0f
+                        )
+                        assistantDao.insertAssistant(defaultAssistant)
+                    }
+                    // 清空当前列表并等待下一次数据发射
+                    assistants.clear()
+                } else {
+                    assistants.clear()
+                    assistants.addAll(list)
+                    
+                    // 如果没有当前助手，尝试加载默认助手
+                    if (currentAssistant == null) {
+                        currentAssistant = list.find { it.isDefault } ?: list.first()
+                        applyAssistantSettings(currentAssistant!!)
+                    }
                 }
             }
         }
