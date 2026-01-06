@@ -1947,7 +1947,7 @@ private fun ToolboxThinkingBudgetPage(
             value = { viewModel.thinkingBudget.toFloat() },
             onValueChange = { viewModel.updateThinkingBudget(it.toInt()) },
             valueRange = 0f..32768f,
-            visibilityThreshold = 256f,
+            visibilityThreshold = 512f,
             backdrop = backdrop,
             modifier = Modifier
                 .fillMaxWidth()
@@ -2126,7 +2126,7 @@ private fun ToolboxContextSizePage(
             value = { viewModel.contextSize.toFloat() },
             onValueChange = { viewModel.updateContextSize(it.toInt()) },
             valueRange = 1f..128f,
-            visibilityThreshold = 1f,
+            visibilityThreshold = 4f,
             backdrop = backdrop,
             modifier = Modifier
                 .fillMaxWidth()
