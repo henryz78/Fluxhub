@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
@@ -43,8 +44,9 @@ fun DisplaySettingsScreen(
     bottomPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val context = LocalContext.current
-    val themeMode = viewModel.themeMode
     val wallpaperUri = viewModel.wallpaperUri
+    val glassOpacity = viewModel.glassOpacity
+    val glassBlur = viewModel.glassBlur
     
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -103,8 +105,8 @@ fun DisplaySettingsScreen(
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { ContinuousRoundedRectangle(16.dp) },
-                    effects = { vibrancy() },
-                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
                 )
                 .padding(16.dp)
         ) {
@@ -134,7 +136,7 @@ fun DisplaySettingsScreen(
                         LiquidButton(
                             onClick = { viewModel.updateWallpaperUri(null) },
                             backdrop = backdrop,
-                            modifier = Modifier.height(44.dp), // .weight(1f) optional
+                            modifier = Modifier.height(44.dp),
                             tint = Color.Red.copy(alpha = 0.6f)
                         ) {
                             Text("恢复默认", color = Color.White, fontWeight = FontWeight.Bold)
@@ -151,32 +153,5 @@ fun DisplaySettingsScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ThemeOption(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    backdrop: Backdrop,
-    modifier: Modifier = Modifier
-) {
-    LiquidButton(
-        onClick = onClick,
-        backdrop = backdrop,
-        modifier = modifier.height(40.dp),
-        tint = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.1f)
-    ) {
-        if (isSelected) {
-            Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-        }
-        Text(
-            title,
-            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = 13.sp
-        )
     }
 }

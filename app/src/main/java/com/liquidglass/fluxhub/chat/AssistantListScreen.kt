@@ -288,8 +288,31 @@ private fun AssistantCard(
                 IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                     Icon(Lucide.Pencil, "编辑", tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
                 }
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                
+                var showDeleteDialog by remember { mutableStateOf(false) }
+                IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Lucide.Trash2, "删除", tint = Color(0xFFFF3B30).copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                }
+                
+                if (showDeleteDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteDialog = false },
+                        title = { Text("删除助手") },
+                        text = { Text("确定要删除此助手吗？此操作不可撤销。") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                onDelete()
+                                showDeleteDialog = false
+                            }) {
+                                Text("删除", color = Color(0xFFFF3B30))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteDialog = false }) {
+                                Text("取消")
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -426,9 +449,9 @@ private fun AssistantEditDialog(
                             backdrop = backdrop,
                             modifier = Modifier.height(44.dp).padding(horizontal = 8.dp),
                             isInteractive = true,
-                            tint = Color.White.copy(alpha = 0.1f)
+                            tint = Color(0xFF8E8E93).copy(alpha = 0.5f)
                         ) {
-                            Text("取消", fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                            Text("取消", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                         
                         Spacer(Modifier.width(12.dp))

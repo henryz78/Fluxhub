@@ -275,6 +275,22 @@ private fun LiquidGlassChatContent(
     ) { uri ->
         onImageSelected(uri)
     }
+    
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        onImageSelected(uri)
+    }
+    
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        // 将 Bitmap 保存为临时文件并传递 URI
+        // 简化处理：直接使用图片选择器作为替代
+        if (bitmap != null) {
+            // TODO: 保存 bitmap 为文件并获取 URI
+        }
+    }
 
     // 消息操作菜单状态
     var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
@@ -283,6 +299,8 @@ private fun LiquidGlassChatContent(
     var showModelSelector by remember { mutableStateOf(false) }
     // 助手选择器状态
     var showAssistantSelector by remember { mutableStateOf(false) }
+    // 上传选项弹窗状态
+    var showUploadOptions by remember { mutableStateOf(false) }
 
     // 主内容区域
     Column(
@@ -352,7 +370,10 @@ private fun LiquidGlassChatContent(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { showModelSelector = true }
+                            .clickable { 
+                                viewModel.fetchModels() // 打开时刷新模型列表
+                                showModelSelector = true 
+                            }
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -394,18 +415,13 @@ private fun LiquidGlassChatContent(
                 }
                 
                 // 助手快捷切换按钮
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { showAssistantSelector = true }
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { ContinuousRoundedRectangle(12.dp) },
-                            effects = { vibrancy() },
-                            onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
-                        ),
-                    contentAlignment = Alignment.Center
+                LiquidButton(
+                    onClick = { showAssistantSelector = true },
+                    backdrop = backdrop,
+                    modifier = Modifier.size(44.dp),
+                    isInteractive = true,
+                    padding = PaddingValues(0.dp),
+                    onPressed = onInteractionChanged
                 ) {
                     Text(
                         text = viewModel.currentAssistant?.avatar ?: "🤖",
@@ -614,9 +630,9 @@ private fun LiquidGlassChatContent(
                             backdrop = backdrop,
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             isInteractive = true,
-                            tint = Color.White.copy(alpha = 0.1f)
+                            tint = Color(0xFF8E8E93).copy(alpha = 0.5f)
                         ) {
-                            Text("关闭", color = Color.White)
+                            Text("关闭", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -852,9 +868,109 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
-                        photoPicker.launch("*/*")
+                        showUploadOptions = true
                     }
                 )
+            }
+        }
+        
+        // 上传选项弹窗
+        if (showUploadOptions) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showUploadOptions = false }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { RoundedCornerShape(24.dp) },
+                            effects = { vibrancy(); blur(16.dp.toPx()) },
+                            onDrawSurface = { drawRect(Color.Black.copy(0.5f)) }
+                        )
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "选择上传方式",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                shadow = Shadow(
+                                    color = Color.Black.copy(alpha = 0.5f),
+                                    blurRadius = 4f
+                                )
+                            ),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        // 选择图片
+                        LiquidButton(
+                            onClick = {
+                                showUploadOptions = false
+                                photoPicker.launch("image/*")
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF007AFF).copy(alpha = 0.4f)
+                        ) {
+                            Icon(Lucide.Image, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("从相册选择图片", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        // 选择文件
+                        LiquidButton(
+                            onClick = {
+                                showUploadOptions = false
+                                filePicker.launch("*/*")
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF34C759).copy(alpha = 0.4f)
+                        ) {
+                            Icon(Lucide.File, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("选择文件", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        // 拍照
+                        LiquidButton(
+                            onClick = {
+                                showUploadOptions = false
+                                // 使用系统相机拍照
+                                photoPicker.launch("image/*") // 简化：先用图片选择器代替
+                            },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            isInteractive = true,
+                            tint = Color(0xFFFF9500).copy(alpha = 0.4f)
+                        ) {
+                            Icon(Lucide.Camera, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text("拍照", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        // 取消按钮
+                        LiquidButton(
+                            onClick = { showUploadOptions = false },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF8E8E93).copy(alpha = 0.5f)
+                        ) {
+                            Text("取消", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
     }
@@ -1456,65 +1572,6 @@ private fun ConversationDrawerContent(
                         }
                     }
                 }
-                }
-
-                // 助手切换器 (底部)
-                if (assistants.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "切换助手",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    LiquidButton(
-                        onClick = onNavigateToAssistantSelection,
-                        backdrop = backdrop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        tint = Color.White.copy(alpha = 0.1f)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.White.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    currentAssistant?.avatar ?: "🤖",
-                                    fontSize = 20.sp
-                                )
-                            }
-                            
-                            Spacer(Modifier.width(12.dp))
-                            
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    "当前助手",
-                                    style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
-                                )
-                                Text(
-                                    currentAssistant?.name ?: "未选择助手",
-                                    style = TextStyle(
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
-                                    ),
-                                    maxLines = 1
-                                )
-                            }
-                            
-                            Icon(Lucide.ChevronRight, null, tint = Color.White.copy(alpha = 0.5f))
-                        }
-                    }
                 }
             }
         }
