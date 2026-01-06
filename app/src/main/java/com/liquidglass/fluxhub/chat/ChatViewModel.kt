@@ -170,6 +170,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var agreementAccepted by mutableStateOf(true) // 默认 true 防止闪烁，实际值从 DataStore 加载
         private set
     
+    // ========== 工具箱配置项（全局持久存储）==========
+    var thinkingBudget by mutableStateOf(1024)
+        private set
+    var webSearchEnabled by mutableStateOf(false)
+        private set
+    var searchProvider by mutableStateOf(0)
+        private set
+    var streamEnabled by mutableStateOf(true)
+        private set
+    var contextSize by mutableStateOf(64)
+        private set
+    
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -217,7 +229,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.agreementAccepted.collect { agreementAccepted = it }
         }
-
+        // 加载工具箱配置项
+        viewModelScope.launch {
+            settingsRepository.thinkingBudget.collect { thinkingBudget = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.searchProvider.collect { searchProvider = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.streamEnabled.collect { streamEnabled = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.contextSize.collect { contextSize = it }
+        }
     }
     
     fun acceptAgreement() {
@@ -715,6 +742,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         glassBlur = value
         viewModelScope.launch {
             settingsRepository.setGlassBlur(value)
+        }
+    }
+    
+    // ========== 工具箱配置项更新方法 ==========
+    
+    fun updateThinkingBudget(value: Int) {
+        thinkingBudget = value
+        viewModelScope.launch {
+            settingsRepository.setThinkingBudget(value)
+        }
+    }
+    
+    fun updateWebSearchEnabled(value: Boolean) {
+        webSearchEnabled = value
+        viewModelScope.launch {
+            settingsRepository.setWebSearchEnabled(value)
+        }
+    }
+    
+    fun updateSearchProvider(value: Int) {
+        searchProvider = value
+        viewModelScope.launch {
+            settingsRepository.setSearchProvider(value)
+        }
+    }
+    
+    fun updateStreamEnabled(value: Boolean) {
+        streamEnabled = value
+        viewModelScope.launch {
+            settingsRepository.setStreamEnabled(value)
+        }
+    }
+    
+    fun updateContextSize(value: Int) {
+        contextSize = value
+        viewModelScope.launch {
+            settingsRepository.setContextSize(value)
         }
     }
     

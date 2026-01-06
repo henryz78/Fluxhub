@@ -5,6 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,9 +23,16 @@ class SettingsRepository(private val context: Context) {
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
         private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
-        private val GLASS_OPACITY = androidx.datastore.preferences.core.floatPreferencesKey("glass_opacity")
-        private val GLASS_BLUR = androidx.datastore.preferences.core.floatPreferencesKey("glass_blur")
-        private val AGREEMENT_ACCEPTED = androidx.datastore.preferences.core.booleanPreferencesKey("agreement_accepted")
+        private val GLASS_OPACITY = floatPreferencesKey("glass_opacity")
+        private val GLASS_BLUR = floatPreferencesKey("glass_blur")
+        private val AGREEMENT_ACCEPTED = booleanPreferencesKey("agreement_accepted")
+        
+        // 工具箱配置项（全局持久存储）
+        private val THINKING_BUDGET = intPreferencesKey("thinking_budget")
+        private val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")
+        private val SEARCH_PROVIDER = intPreferencesKey("search_provider")
+        private val STREAM_ENABLED = booleanPreferencesKey("stream_enabled")
+        private val CONTEXT_SIZE = intPreferencesKey("context_size")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -120,6 +130,58 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAgreementAccepted(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AGREEMENT_ACCEPTED] = value
+        }
+    }
+    
+    // ========== 工具箱配置项 ==========
+    
+    val thinkingBudget: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[THINKING_BUDGET] ?: 1024 // 默认 1024 tokens
+    }
+    
+    val webSearchEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[WEB_SEARCH_ENABLED] ?: false
+    }
+    
+    val searchProvider: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[SEARCH_PROVIDER] ?: 0
+    }
+    
+    val streamEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[STREAM_ENABLED] ?: true // 默认开启流式输出
+    }
+    
+    val contextSize: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[CONTEXT_SIZE] ?: 64 // 默认 64 条消息
+    }
+    
+    suspend fun setThinkingBudget(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[THINKING_BUDGET] = value.coerceIn(0, 32768)
+        }
+    }
+    
+    suspend fun setWebSearchEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[WEB_SEARCH_ENABLED] = value
+        }
+    }
+    
+    suspend fun setSearchProvider(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[SEARCH_PROVIDER] = value
+        }
+    }
+    
+    suspend fun setStreamEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[STREAM_ENABLED] = value
+        }
+    }
+    
+    suspend fun setContextSize(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
         }
     }
 }

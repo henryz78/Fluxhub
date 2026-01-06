@@ -330,6 +330,8 @@ private fun LiquidGlassChatContent(
     var showAssistantSelector by remember { mutableStateOf(false) }
     // 上传选项弹窗状态
     var showUploadOptions by remember { mutableStateOf(false) }
+    // 工具箱弹窗状态
+    var showToolbox by remember { mutableStateOf(false) }
 
     // 主内容区域
     Column(
@@ -898,6 +900,9 @@ private fun LiquidGlassChatContent(
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
                         showUploadOptions = true
+                    },
+                    onOpenToolbox = {
+                        showToolbox = true
                     }
                 )
             }
@@ -1018,6 +1023,15 @@ private fun LiquidGlassChatContent(
                     }
                 }
             }
+        }
+        
+        // 工具箱弹窗
+        if (showToolbox) {
+            ToolboxDialog(
+                backdrop = backdrop,
+                viewModel = viewModel,
+                onDismiss = { showToolbox = false }
+            )
         }
     }
 }
@@ -1236,11 +1250,11 @@ private fun LiquidGlassChatInputBar(
     isLoading: Boolean,
     backdrop: Backdrop,
     onInteractionChanged: (Boolean) -> Unit = {},
-    onPickImage: () -> Unit = {}
+    onPickImage: () -> Unit = {},
+    onOpenToolbox: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1259,7 +1273,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp) // 再次放大图标
+                modifier = Modifier.size(32.dp)
             )
         }
 
@@ -1314,21 +1328,44 @@ private fun LiquidGlassChatInputBar(
             )
         }
         
-        // Send/Stop button
-        LiquidButton(
-            onClick = if (isLoading) onStop else onSend,
-            backdrop = backdrop,
-            modifier = Modifier.size(56.dp),
-            isInteractive = isLoading || text.isNotBlank(),
-            onPressed = onInteractionChanged,
-            tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
+        // Toolbox + Send/Stop buttons (vertical stack)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
-                contentDescription = if (isLoading) "停止" else "发送",
-                tint = Color.White,
-                modifier = Modifier.size(22.dp)
-            )
+            // Toolbox button (smaller, above send)
+            LiquidButton(
+                onClick = onOpenToolbox,
+                backdrop = backdrop,
+                modifier = Modifier.size(36.dp),
+                isInteractive = true,
+                onPressed = onInteractionChanged,
+                tint = Color(0xFF9B59B6).copy(alpha = 0.7f) // Purple
+            ) {
+                Icon(
+                    imageVector = Lucide.SlidersHorizontal,
+                    contentDescription = "工具箱",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            // Send/Stop button
+            LiquidButton(
+                onClick = if (isLoading) onStop else onSend,
+                backdrop = backdrop,
+                modifier = Modifier.size(56.dp),
+                isInteractive = isLoading || text.isNotBlank(),
+                onPressed = onInteractionChanged,
+                tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
+            ) {
+                Icon(
+                    imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
+                    contentDescription = if (isLoading) "停止" else "发送",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }
@@ -1623,3 +1660,489 @@ private fun ConversationDrawerContent(
         }
     }
 
+// ========== 工具箱弹窗 ==========
+
+private sealed class ToolboxPage {
+    object List : ToolboxPage()
+    object ThinkingBudget : ToolboxPage()
+    object WebSearch : ToolboxPage()
+    object StreamOutput : ToolboxPage()
+    object ContextSize : ToolboxPage()
+}
+
+@Composable
+private fun ToolboxDialog(
+    backdrop: Backdrop,
+    viewModel: ChatViewModel,
+    onDismiss: () -> Unit
+) {
+    var currentPage by remember { mutableStateOf<ToolboxPage>(ToolboxPage.List) }
+    
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = {
+            if (currentPage == ToolboxPage.List) {
+                onDismiss()
+            } else {
+                currentPage = ToolboxPage.List
+            }
+        },
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .fillMaxHeight(0.7f)
+                .clip(RoundedCornerShape(28.dp))
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { RoundedCornerShape(28.dp) },
+                    effects = { vibrancy(); blur(20.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.Black.copy(0.6f)) }
+                )
+        ) {
+            AnimatedContent(
+                targetState = currentPage,
+                transitionSpec = {
+                    if (targetState == ToolboxPage.List) {
+                        slideInHorizontally { -it } + fadeIn() togetherWith 
+                            slideOutHorizontally { it } + fadeOut()
+                    } else {
+                        slideInHorizontally { it } + fadeIn() togetherWith 
+                            slideOutHorizontally { -it } + fadeOut()
+                    }
+                },
+                label = "toolbox_page"
+            ) { page ->
+                when (page) {
+                    ToolboxPage.List -> ToolboxListPage(
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        onNavigate = { currentPage = it },
+                        onDismiss = onDismiss
+                    )
+                    ToolboxPage.ThinkingBudget -> ToolboxThinkingBudgetPage(
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        onBack = { currentPage = ToolboxPage.List }
+                    )
+                    ToolboxPage.WebSearch -> ToolboxWebSearchPage(
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        onBack = { currentPage = ToolboxPage.List }
+                    )
+                    ToolboxPage.StreamOutput -> ToolboxStreamOutputPage(
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        onBack = { currentPage = ToolboxPage.List }
+                    )
+                    ToolboxPage.ContextSize -> ToolboxContextSizePage(
+                        viewModel = viewModel,
+                        backdrop = backdrop,
+                        onBack = { currentPage = ToolboxPage.List }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolboxListPage(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    onNavigate: (ToolboxPage) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        // 标题栏
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "快捷配置",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                )
+            )
+            LiquidButton(
+                onClick = onDismiss,
+                backdrop = backdrop,
+                modifier = Modifier.size(36.dp),
+                isInteractive = true,
+                tint = Color.White.copy(alpha = 0.2f)
+            ) {
+                Icon(
+                    imageVector = Lucide.X,
+                    contentDescription = "关闭",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        
+        // 配置项列表
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 思考预算
+            ToolboxListItem(
+                title = "思考预算",
+                value = if (viewModel.thinkingBudget == 0) "关闭" else "${viewModel.thinkingBudget} tokens",
+                backdrop = backdrop,
+                onClick = { onNavigate(ToolboxPage.ThinkingBudget) }
+            )
+            
+            // 网络搜索
+            ToolboxListItem(
+                title = "网络搜索",
+                value = if (viewModel.webSearchEnabled) "已开启" else "已关闭",
+                backdrop = backdrop,
+                onClick = { onNavigate(ToolboxPage.WebSearch) }
+            )
+            
+            // 流式输出
+            ToolboxListItem(
+                title = "流式输出",
+                value = if (viewModel.streamEnabled) "已开启" else "已关闭",
+                backdrop = backdrop,
+                onClick = { onNavigate(ToolboxPage.StreamOutput) }
+            )
+            
+            // 上下文长度
+            ToolboxListItem(
+                title = "上下文长度",
+                value = "${viewModel.contextSize} 条消息",
+                backdrop = backdrop,
+                onClick = { onNavigate(ToolboxPage.ContextSize) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolboxListItem(
+    title: String,
+    value: String,
+    backdrop: Backdrop,
+    onClick: () -> Unit
+) {
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        isInteractive = true,
+        tint = Color.White.copy(alpha = 0.1f)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+                fontSize = 16.sp
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = value,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp
+                )
+                Icon(
+                    imageVector = Lucide.ChevronRight,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolboxDetailHeader(
+    title: String,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        LiquidButton(
+            onClick = onBack,
+            backdrop = backdrop,
+            modifier = Modifier.size(36.dp),
+            isInteractive = true,
+            tint = Color.White.copy(alpha = 0.2f)
+        ) {
+            Icon(
+                imageVector = Lucide.ChevronLeft,
+                contentDescription = "返回",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            )
+        )
+    }
+}
+
+@Composable
+private fun ToolboxThinkingBudgetPage(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        ToolboxDetailHeader(title = "思考预算", backdrop = backdrop, onBack = onBack)
+        
+        // 当前值显示
+        Text(
+            text = if (viewModel.thinkingBudget == 0) "已关闭" else "${viewModel.thinkingBudget} tokens",
+            color = Color.White,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(vertical = 24.dp)
+        )
+        
+        // 滑块
+        com.liquidglass.fluxhub.components.LiquidSlider(
+            value = { viewModel.thinkingBudget.toFloat() },
+            onValueChange = { viewModel.updateThinkingBudget(it.toInt()) },
+            valueRange = 0f..32768f,
+            visibilityThreshold = 256f,
+            backdrop = backdrop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        )
+        
+        // 快捷档位按钮
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "快捷档位",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val presets = listOf(0 to "关闭", 1024 to "1K", 4096 to "4K", 8192 to "8K", 16384 to "16K", 32768 to "32K")
+            items(presets) { (value, label) ->
+                LiquidButton(
+                    onClick = { viewModel.updateThinkingBudget(value) },
+                    backdrop = backdrop,
+                    modifier = Modifier.height(40.dp),
+                    isInteractive = true,
+                    tint = if (viewModel.thinkingBudget == value) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.1f)
+                ) {
+                    Text(label, color = Color.White, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        
+        // 说明文字
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "思考预算控制 AI 在回复前进行深度推理的程度。较高的值可能带来更深思熟虑的回答，但会增加响应时间。设为 0 则关闭思考功能。",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 13.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun ToolboxWebSearchPage(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        ToolboxDetailHeader(title = "网络搜索", backdrop = backdrop, onBack = onBack)
+        
+        // 开关
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "启用网络搜索",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+            com.liquidglass.fluxhub.components.LiquidToggle(
+                selected = { viewModel.webSearchEnabled },
+                onSelect = { viewModel.updateWebSearchEnabled(it) },
+                backdrop = backdrop,
+                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+            )
+        }
+        
+        // 说明文字
+        Text(
+            text = "启用后，AI 将能够搜索互联网获取最新信息来回答您的问题。这对于查询实时数据、新闻和不在 AI 训练数据中的内容特别有用。",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 13.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun ToolboxStreamOutputPage(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        ToolboxDetailHeader(title = "流式输出", backdrop = backdrop, onBack = onBack)
+        
+        // 开关
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "启用流式输出",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+            com.liquidglass.fluxhub.components.LiquidToggle(
+                selected = { viewModel.streamEnabled },
+                onSelect = { viewModel.updateStreamEnabled(it) },
+                backdrop = backdrop,
+                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+            )
+        }
+        
+        // 说明文字
+        Text(
+            text = "流式输出会逐字显示 AI 的回复，让您无需等待完整回复即可开始阅读。关闭后，将在 AI 完成全部思考后一次性显示完整回复。",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 13.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun ToolboxContextSizePage(
+    viewModel: ChatViewModel,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+    ) {
+        ToolboxDetailHeader(title = "上下文长度", backdrop = backdrop, onBack = onBack)
+        
+        // 当前值显示
+        Text(
+            text = "${viewModel.contextSize} 条消息",
+            color = Color.White,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(vertical = 24.dp)
+        )
+        
+        // 滑块
+        com.liquidglass.fluxhub.components.LiquidSlider(
+            value = { viewModel.contextSize.toFloat() },
+            onValueChange = { viewModel.updateContextSize(it.toInt()) },
+            valueRange = 1f..128f,
+            visibilityThreshold = 1f,
+            backdrop = backdrop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        )
+        
+        // 快捷档位按钮
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "快捷档位",
+            color = Color.White.copy(alpha = 0.6f),
+            fontSize = 14.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val presets = listOf(8, 16, 32, 64, 96, 128)
+            items(presets) { value ->
+                LiquidButton(
+                    onClick = { viewModel.updateContextSize(value) },
+                    backdrop = backdrop,
+                    modifier = Modifier.height(40.dp),
+                    isInteractive = true,
+                    tint = if (viewModel.contextSize == value) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.1f)
+                ) {
+                    Text("$value", color = Color.White, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        
+        // 说明文字
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "上下文长度决定 AI 能"记住"多少条之前的对话消息。较大的值能让 AI 保持更好的对话连贯性，但会消耗更多 token 配额。",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 13.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
