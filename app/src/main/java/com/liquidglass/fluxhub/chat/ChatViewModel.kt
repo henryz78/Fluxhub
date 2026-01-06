@@ -339,9 +339,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 设置后端管理 URL
+     * 更新后端管理 URL
      */
-    fun setAdminUrl(url: String) {
+    fun updateAdminUrl(url: String) {
         viewModelScope.launch {
             settingsRepository.setAdminUrl(url)
         }
