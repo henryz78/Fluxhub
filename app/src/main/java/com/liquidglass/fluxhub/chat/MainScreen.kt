@@ -94,7 +94,7 @@ fun MainScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     androidx.compose.material3.CircularProgressIndicator(color = Color.White)
                     Spacer(Modifier.height(16.dp))
-                    androidx.compose.material3.Text("正在验证...", color = Color.White)
+                    androidx.compose.material3.Text("正在加载液态玻璃...", color = Color.White)
                 }
             }
             return
