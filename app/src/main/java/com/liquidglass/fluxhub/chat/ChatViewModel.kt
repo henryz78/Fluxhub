@@ -371,9 +371,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 同步服务商配置到后端
      */
     fun syncProvidersToAdmin() {
-        if (authState !is AuthState.Authenticated) return
+        if (authState !is AuthState.Authenticated) {
+            android.util.Log.d("ChatVM", "syncProvidersToAdmin: 未登录，跳过同步")
+            return
+        }
         viewModelScope.launch {
-            val providerData = providers.map { p ->
+            // 直接从数据库读取最新数据，避免 Flow 延迟问题
+            val latestProviders = providerDao.getAllProvidersList()
+            android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步 ${latestProviders.size} 个服务商")
+            
+            val providerData = latestProviders.map { p ->
                 ProviderSyncData(
                     id = p.id,
                     name = p.name,
@@ -383,7 +390,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     isActive = p.isActive
                 )
             }
-            adminSyncService.syncProviders(providerData)
+            val success = adminSyncService.syncProviders(providerData)
+            android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步结果 = $success")
         }
     }
     
