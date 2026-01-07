@@ -206,6 +206,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var authState by mutableStateOf<AuthState>(AuthState.Checking)
         private set
     
+    // 是否正在登录/注册/续期中（用于局部 Loading 状态）
+    var isCheckingAuth by mutableStateOf(false)
+        private set
+    
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -298,7 +302,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun login(username: String, password: String) {
         viewModelScope.launch {
-            authState = AuthState.Checking
+            isCheckingAuth = true
             
             when (val result = adminSyncService.login(username, password)) {
                 is AuthResult.Success -> {
@@ -314,6 +318,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             }
+            isCheckingAuth = false
         }
     }
     
@@ -322,7 +327,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun register(username: String, email: String, password: String, inviteCode: String = "") {
         viewModelScope.launch {
-            authState = AuthState.Checking
+            isCheckingAuth = true
             
             when (val result = adminSyncService.register(username, email, password, inviteCode)) {
                 is AuthResult.Success -> {
@@ -334,6 +339,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     authState = AuthState.Error(result.message)
                 }
             }
+            isCheckingAuth = false
         }
     }
     
@@ -353,7 +359,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun renewAccount(inviteCode: String) {
         viewModelScope.launch {
-            authState = AuthState.Checking
+            isCheckingAuth = true
             
             when (val result = adminSyncService.renew(inviteCode)) {
                 is AuthResult.Success -> {
@@ -364,35 +370,35 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     authState = AuthState.Expired(result.message)
                 }
             }
+            isCheckingAuth = false
         }
     }
     
     /**
      * 同步服务商配置到后端
      */
-    fun syncProvidersToAdmin() {
+    suspend fun syncProvidersToAdmin() {
         if (authState !is AuthState.Authenticated) {
             android.util.Log.d("ChatVM", "syncProvidersToAdmin: 未登录，跳过同步")
             return
         }
-        viewModelScope.launch {
-            // 直接从数据库读取最新数据，避免 Flow 延迟问题
-            val latestProviders = providerDao.getAllProvidersList()
-            android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步 ${latestProviders.size} 个服务商")
-            
-            val providerData = latestProviders.map { p ->
-                ProviderSyncData(
-                    id = p.id,
-                    name = p.name,
-                    baseUrl = p.baseUrl,
-                    apiKey = p.apiKey,
-                    icon = p.icon,
-                    isActive = p.isActive
-                )
-            }
-            val success = adminSyncService.syncProviders(providerData)
-            android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步结果 = $success")
+        
+        // 直接从数据库读取最新数据，避免 Flow 延迟问题
+        val latestProviders = providerDao.getAllProvidersList()
+        android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步 ${latestProviders.size} 个服务商")
+        
+        val providerData = latestProviders.map { p ->
+            ProviderSyncData(
+                id = p.id,
+                name = p.name,
+                baseUrl = p.baseUrl,
+                apiKey = p.apiKey,
+                icon = p.icon,
+                isActive = p.isActive
+            )
         }
+        val success = adminSyncService.syncProviders(providerData)
+        android.util.Log.d("ChatVM", "syncProvidersToAdmin: 同步结果 = $success")
     }
     
     /**

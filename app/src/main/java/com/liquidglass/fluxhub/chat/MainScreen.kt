@@ -116,6 +116,7 @@ fun MainScreen(
                 AuthScreen(
                     backdrop = backdrop,
                     authState = authState,
+                    isCheckingAuth = viewModel.isCheckingAuth,
                     onLogin = { username, password ->
                         viewModel.login(username, password)
                     },
@@ -158,6 +159,7 @@ fun MainScreen(
             ExpiredScreen(
                 backdrop = backdrop,
                 message = authState.message,
+                isCheckingAuth = viewModel.isCheckingAuth,
                 onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
                 onLogout = { viewModel.logout() }
             )

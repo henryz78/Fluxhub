@@ -28,7 +28,9 @@ import com.composables.icons.lucide.*
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 
@@ -39,6 +41,7 @@ import com.liquidglass.fluxhub.components.LiquidButton
 fun AuthScreen(
     backdrop: Backdrop,
     authState: AuthState,
+    isCheckingAuth: Boolean,
     onLogin: (username: String, password: String) -> Unit,
     onRegister: (username: String, email: String, password: String, inviteCode: String) -> Unit
 ) {
@@ -114,7 +117,12 @@ fun AuthScreen(
                     .drawBackdrop(
                         backdrop = backdrop,
                         shape = { ContinuousRoundedRectangle(24.dp) },
-                        effects = { vibrancy(); blur(20.dp.toPx()) },
+                        effects = { 
+                            vibrancy()
+                            blur(12.dp.toPx()) 
+                            lens(4.dp.toPx(), 16.dp.toPx())
+                        },
+                        highlight = { Highlight.Plain },
                         onDrawSurface = { drawRect(Color.White.copy(alpha = 0.12f)) }
                     )
                     .padding(24.dp)
@@ -248,6 +256,10 @@ fun AuthScreen(
                                     errorMessage = "请填写所有字段"
                                     return@LiquidButton
                                 }
+                                if (!email.trim().lowercase().endsWith("@gmail.com")) {
+                                    errorMessage = "邮箱必须使用 Gmail (@gmail.com)"
+                                    return@LiquidButton
+                                }
                                 if (password != confirmPassword) {
                                     errorMessage = "两次密码不一致"
                                     return@LiquidButton
@@ -261,10 +273,10 @@ fun AuthScreen(
                         },
                         backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth().height(50.dp),
-                        isInteractive = true,
+                        isInteractive = !isCheckingAuth,
                         tint = Color(0xFF007AFF)
                     ) {
-                        if (authState is AuthState.Checking) {
+                        if (isCheckingAuth) {
                             CircularProgressIndicator(
                                 color = Color.White,
                                 strokeWidth = 2.dp,
@@ -317,7 +329,12 @@ private fun AuthTextField(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(12.dp) },
-                effects = { vibrancy() },
+                effects = { 
+                    vibrancy()
+                    blur(8.dp.toPx())
+                    lens(2.dp.toPx(), 8.dp.toPx())
+                },
+                highlight = { Highlight.Plain },
                 onDrawSurface = { drawRect(Color.White.copy(alpha = 0.08f)) }
             )
             .padding(horizontal = 16.dp),
@@ -373,6 +390,7 @@ private fun AuthTextField(
 fun ExpiredScreen(
     backdrop: Backdrop,
     message: String,
+    isCheckingAuth: Boolean,
     onRenew: (inviteCode: String) -> Unit,
     onLogout: () -> Unit
 ) {
@@ -475,10 +493,10 @@ fun ExpiredScreen(
                 },
                 backdrop = backdrop,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                isInteractive = true,
+                isInteractive = !isCheckingAuth,
                 tint = Color(0xFF34C759)
             ) {
-                if (isLoading) {
+                if (isCheckingAuth) {
                     CircularProgressIndicator(
                         color = Color.White,
                         strokeWidth = 2.dp,
