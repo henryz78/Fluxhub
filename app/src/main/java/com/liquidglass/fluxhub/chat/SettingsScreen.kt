@@ -46,6 +46,70 @@ fun SettingsScreen(
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
     
+    // About Dialog State
+    var showAboutDialog by remember { mutableStateOf(false) }
+    
+    // About Dialog
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            containerColor = Color(0xFF1C1C1E),
+            title = {
+                Text(
+                    "关于 FluxHub",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "💎",
+                        fontSize = 48.sp
+                    )
+                    Text(
+                        "FluxHub",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        "v1.0 · Liquid Glass Edition",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    Text(
+                        "一款基于 Liquid Glass 设计语言的 AI 聊天应用，为您带来沉浸式的对话体验。",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    Text(
+                        "由 Henry 制作 ❤️",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF007AFF)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) {
+                    Text("好的", color = Color(0xFF007AFF))
+                }
+            }
+        )
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -151,7 +215,7 @@ fun SettingsScreen(
                     backdrop = backdrop,
                     glassOpacity = glassOpacity,
                     glassBlur = glassBlur,
-                    onClick = { /* TODO */ }
+                    onClick = { showAboutDialog = true }
                 )
             }
             
