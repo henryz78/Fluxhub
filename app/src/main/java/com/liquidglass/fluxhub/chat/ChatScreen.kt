@@ -269,8 +269,7 @@ fun ChatScreen(
                 },
                 onRegister = { username, email, password ->
                     viewModel.register(username, email, password)
-                },
-                onRetry = { }
+                }
             )
             return
         }
