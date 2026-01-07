@@ -51,17 +51,19 @@ fun SettingsScreen(
     
     // About Dialog
     if (showAboutDialog) {
-        AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
-            containerColor = Color(0xFF1C1C1E),
-            title = {
-                Text(
-                    "关于 FluxHub",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            },
-            text = {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showAboutDialog = false }
+        ) {
+            Box(
+                modifier = Modifier
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(24.dp) },
+                        effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                    )
+                    .padding(24.dp)
+            ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -75,7 +77,10 @@ fun SettingsScreen(
                         "FluxHub",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color.White,
+                        style = TextStyle(
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        )
                     )
                     Text(
                         "v1.0 · Liquid Glass Edition",
@@ -100,14 +105,27 @@ fun SettingsScreen(
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF007AFF)
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) {
-                    Text("好的", color = Color(0xFF007AFF))
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    LiquidButton(
+                        onClick = { showAboutDialog = false },
+                        backdrop = backdrop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        isInteractive = true,
+                        tint = Color(0xFF007AFF).copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            "好的",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
-        )
+        }
     }
     
     Column(
