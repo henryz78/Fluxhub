@@ -144,6 +144,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
+
+    fun stopGeneration() {
+        currentEventSource?.cancel()
+        isLoading = false
+    }
     
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
