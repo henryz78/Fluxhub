@@ -608,7 +608,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
             // 先同步删除状态到后端（标记为已删除）
-            if (adminUrl.isNotBlank()) {
+            if (authState is AuthState.Authenticated) {
                 val conv = conversationDao.getConversation(conversationId)
                 if (conv != null) {
                     val convData = ConversationSyncData(

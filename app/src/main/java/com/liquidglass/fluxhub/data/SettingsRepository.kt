@@ -220,10 +220,4 @@ class SettingsRepository(private val context: Context) {
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
         }
     }
-    
-    suspend fun setAdminUrl(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[ADMIN_URL] = value
-        }
-    }
 }
