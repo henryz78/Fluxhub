@@ -78,6 +78,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
 import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
 
+import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
+import com.liquidglass.fluxhub.chat.ui.components.DynamicIsland
+import com.liquidglass.fluxhub.chat.ui.components.DynamicIslandState
+import com.liquidglass.fluxhub.chat.ui.components.DynamicIslandData
+
 private const val TAG = "ChatScreen"
 
 @Composable
@@ -369,6 +374,23 @@ private fun LiquidGlassChatContent(
     // 工具箱弹窗状态
     var showToolbox by remember { mutableStateOf(false) }
 
+    // Dynamic Island State Sync
+    var dynamicIslandState by remember { mutableStateOf(DynamicIslandState.Hidden) }
+    
+    // 监听 isLoading 状态变化
+    LaunchedEffect(viewModel.isLoading) {
+        if (viewModel.isLoading) {
+            if (dynamicIslandState == DynamicIslandState.Hidden) {
+                dynamicIslandState = DynamicIslandState.Collapsed
+            }
+        } else {
+            dynamicIslandState = DynamicIslandState.Hidden
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
     // 主内容区域
     Column(
         modifier = Modifier
@@ -1069,6 +1091,26 @@ private fun LiquidGlassChatContent(
                 onDismiss = { showToolbox = false }
             )
         }
+    }
+
+    // Dynamic Island - Overlay
+    DynamicIsland(
+        data = DynamicIslandData(
+            title = if (viewModel.isLoading) "AI 正在思考..." else "AI 就绪",
+            modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
+            assistantAvatar = viewModel.currentAssistant?.avatar ?: "🤖",
+            state = dynamicIslandState
+        ),
+        backdrop = backdrop,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding(), // 避开状态栏，悬浮在顶部
+        onExpand = { dynamicIslandState = DynamicIslandState.Expanded },
+        onCollapse = { dynamicIslandState = DynamicIslandState.Collapsed },
+        onLongPress = { dynamicIslandState = DynamicIslandState.LongPressMenu },
+        onStopGeneration = { viewModel.stopGeneration() },
+        onDismiss = { /* Optional */ }
+    )
     }
 }
 
