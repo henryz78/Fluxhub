@@ -162,6 +162,63 @@ class AdminSyncService(private val context: Context) {
     }
     
     /**
+     * 使用激活码续期
+     */
+    suspend fun renew(inviteCode: String): AuthResult = withContext(Dispatchers.IO) {
+        val token = authToken ?: return@withContext AuthResult.Error("未登录")
+        
+        try {
+            val body = json.encodeToString(RenewRequest(inviteCode = inviteCode))
+            
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/user-auth/renew")
+                .header("Authorization", "Bearer $token")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "{}"
+            
+            if (response.isSuccessful) {
+                // 续期成功，重新验证获取用户信息
+                val user = verifyTokenInternal(token)
+                if (user != null) {
+                    Log.d(TAG, "Renew success: ${user.username}")
+                    return@withContext AuthResult.Success(token, user.id, user.username)
+                }
+                return@withContext AuthResult.Success(token, userId ?: "", "")
+            } else {
+                val error = try {
+                    json.decodeFromString<ErrorResponse>(responseBody).error
+                } catch (e: Exception) { "续期失败" }
+                Log.e(TAG, "Renew failed: $error")
+                return@withContext AuthResult.Error(error)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Renew error", e)
+            return@withContext AuthResult.Error("网络连接失败")
+        }
+    }
+    
+    private suspend fun verifyTokenInternal(token: String): UserInfo? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/user-auth/me")
+                .header("Authorization", "Bearer $token")
+                .get()
+                .build()
+            
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                return@withContext json.decodeFromString<UserInfo>(response.body?.string() ?: "{}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Verify token internal error", e)
+        }
+        return@withContext null
+    }
+    
+    /**
      * 同步服务商配置
      */
     suspend fun syncProviders(providers: List<ProviderSyncData>): Boolean = withContext(Dispatchers.IO) {
@@ -230,6 +287,11 @@ data class RegisterRequest(
 data class LoginRequest(
     val username: String,
     val password: String
+)
+
+@Serializable
+data class RenewRequest(
+    val inviteCode: String
 )
 
 @Serializable

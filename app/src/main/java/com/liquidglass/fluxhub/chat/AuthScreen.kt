@@ -251,7 +251,7 @@ fun AuthScreen(
                                     errorMessage = "密码至少6位"
                                     return@LiquidButton
                                 }
-                                onRegister(username, email, password)
+                                onRegister(username, email, password, inviteCode)
                             }
                         },
                         backdrop = backdrop,
@@ -357,6 +357,163 @@ private fun AuthTextField(
                     }
                 }
             )
+        }
+    }
+}
+
+/**
+ * 账户过期续期界面
+ */
+@Composable
+fun ExpiredScreen(
+    backdrop: Backdrop,
+    message: String,
+    onRenew: (inviteCode: String) -> Unit,
+    onLogout: () -> Unit
+) {
+    var inviteCode by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    
+    val keyboardController = LocalSoftwareKeyboardController.current
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // 图标
+            Text("⏰", fontSize = 64.sp)
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // 标题
+            Text(
+                "账户已过期",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            
+            Spacer(Modifier.height(8.dp))
+            
+            // 消息
+            Text(
+                message,
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(Modifier.height(32.dp))
+            
+            // 激活码输入框
+            LiquidGlassCard(
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth(),
+                isInteractive = true,
+                tint = Color(0xFF007AFF).copy(alpha = 0.1f)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text(
+                        "请输入激活码续期",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
+                    )
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    AuthTextField(
+                        value = inviteCode,
+                        onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
+                        placeholder = "激活码",
+                        icon = Lucide.Ticket,
+                        backdrop = backdrop,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                keyboardController?.hide()
+                                if (inviteCode.isNotBlank()) {
+                                    isLoading = true
+                                    onRenew(inviteCode)
+                                } else {
+                                    errorMessage = "请输入激活码"
+                                }
+                            }
+                        )
+                    )
+                    
+                    // 错误提示
+                    AnimatedVisibility(errorMessage != null) {
+                        Column {
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                errorMessage ?: "",
+                                color = Color(0xFFFF6B6B),
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(24.dp))
+                    
+                    // 续期按钮
+                    LiquidButton(
+                        onClick = {
+                            keyboardController?.hide()
+                            if (inviteCode.isNotBlank()) {
+                                isLoading = true
+                                onRenew(inviteCode)
+                            } else {
+                                errorMessage = "请输入激活码"
+                            }
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        isInteractive = true,
+                        tint = Color(0xFF34C759)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                "激活账户",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            // 退出登录
+            TextButton(onClick = onLogout) {
+                Text(
+                    "切换账号",
+                    color = Color(0xFFFF3B30),
+                    fontSize = 14.sp
+                )
+            }
         }
     }
 }

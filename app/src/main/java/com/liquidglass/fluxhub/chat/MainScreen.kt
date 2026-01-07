@@ -153,6 +153,16 @@ fun MainScreen(
             }
             return
         }
+        is AuthState.Expired -> {
+            // 显示过期续期界面
+            ExpiredScreen(
+                backdrop = backdrop,
+                message = authState.message,
+                onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
+                onLogout = { viewModel.logout() }
+            )
+            return
+        }
         is AuthState.Authenticated -> {
             // 已认证，继续正常流程
         }
