@@ -1879,7 +1879,7 @@ private fun ToolboxListItem(
             .fillMaxWidth()
             .height(56.dp),
         isInteractive = true,
-        tint = Color.White.copy(alpha = 0.1f)
+        tint = Color.White.copy(alpha = 0.2f)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1962,82 +1962,81 @@ private fun ToolboxThinkingBudgetPage(
     backdrop: Backdrop,
     onBack: () -> Unit
 ) {
+    // 根据 thinkingBudget 值确定当前级别
+    val currentLevel = when (viewModel.thinkingBudget) {
+        0 -> "off"
+        in 1..4096 -> "low"
+        in 4097..16000 -> "medium"
+        else -> "high"
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp)
     ) {
-        ToolboxDetailHeader(title = "思考预算", backdrop = backdrop, onBack = onBack)
+        ToolboxDetailHeader(title = "深度思考", backdrop = backdrop, onBack = onBack)
         
-        // 当前值显示
+        // 当前状态显示
+        val statusText = when (currentLevel) {
+            "off" -> "已关闭"
+            "low" -> "轻度思考"
+            "medium" -> "中度思考"
+            else -> "深度思考"
+        }
         Text(
-            text = if (viewModel.thinkingBudget == 0) "已关闭" else "${viewModel.thinkingBudget} tokens",
+            text = statusText,
             color = Color.White,
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(vertical = 24.dp)
         )
         
-        // 滑块
-        var sliderValue by remember { mutableFloatStateOf(viewModel.thinkingBudget.toFloat()) }
-        LaunchedEffect(viewModel.thinkingBudget) {
-            if (sliderValue.toInt() != viewModel.thinkingBudget) {
-                sliderValue = viewModel.thinkingBudget.toFloat()
-            }
-        }
-        com.liquidglass.fluxhub.components.LiquidSlider(
-            value = { sliderValue },
-            onValueChange = { 
-                sliderValue = it
-                viewModel.updateThinkingBudget(it.toInt())
-            },
-            valueRange = 0f..32768f,
-            visibilityThreshold = 512f,
-            backdrop = backdrop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-        )
-        
-        // 快捷档位按钮
-        Spacer(Modifier.height(24.dp))
-        Text(
-            text = "快捷档位",
-            color = Color.White.copy(alpha = 0.7f),
-            fontSize = 14.sp,
-            style = TextStyle(
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-            ),
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // 级别选项卡片
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val presets = listOf(0 to "关闭", 1024 to "1K", 4096 to "4K", 8192 to "8K", 16384 to "16K", 32768 to "32K")
-            items(presets) { (value, label) ->
-                LiquidButton(
-                    onClick = { viewModel.updateThinkingBudget(value) },
-                    backdrop = backdrop,
-                    modifier = Modifier.height(40.dp),
-                    isInteractive = true,
-                    tint = if (viewModel.thinkingBudget == value) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.1f)
-                ) {
-                    Text(
-                        text = label,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        style = TextStyle(
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                        )
-                    )
-                }
-            }
+            // 关闭
+            ReasoningLevelCard(
+                title = "关闭",
+                description = "不使用深度思考，直接生成回复",
+                isSelected = currentLevel == "off",
+                backdrop = backdrop,
+                onClick = { viewModel.updateThinkingBudget(0) }
+            )
+            
+            // 轻度
+            ReasoningLevelCard(
+                title = "轻度",
+                description = "简单推理，适合一般问答",
+                isSelected = currentLevel == "low",
+                backdrop = backdrop,
+                onClick = { viewModel.updateThinkingBudget(1024) }
+            )
+            
+            // 中度
+            ReasoningLevelCard(
+                title = "中度",
+                description = "较深入推理，适合复杂问题",
+                isSelected = currentLevel == "medium",
+                backdrop = backdrop,
+                onClick = { viewModel.updateThinkingBudget(8192) }
+            )
+            
+            // 深度
+            ReasoningLevelCard(
+                title = "深度",
+                description = "最强推理能力，适合数学、编程等",
+                isSelected = currentLevel == "high",
+                backdrop = backdrop,
+                onClick = { viewModel.updateThinkingBudget(32000) }
+            )
         }
         
         // 说明文字
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "思考预算控制 AI 在回复前进行深度推理的程度。较高的值可能带来更深思熟虑的回答，但会增加响应时间。设为 0 则关闭思考功能。",
+            text = "深度思考让 AI 在回复前进行推理。需要模型支持此功能（如 o1、DeepSeek R1 等）。",
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 13.sp,
             lineHeight = 20.sp,
@@ -2045,6 +2044,53 @@ private fun ToolboxThinkingBudgetPage(
                 shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
             )
         )
+    }
+}
+
+@Composable
+private fun ReasoningLevelCard(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    backdrop: Backdrop,
+    onClick: () -> Unit
+) {
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+        isInteractive = true,
+        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = description,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp
+                )
+            }
+            if (isSelected) {
+                Icon(
+                    imageVector = Lucide.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF34C759),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -2203,7 +2249,7 @@ private fun ToolboxContextSizePage(
             backdrop = backdrop,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(30.dp)
         )
         
         // 快捷档位按钮

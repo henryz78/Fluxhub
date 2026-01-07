@@ -56,7 +56,9 @@ data class ChatRequest(
     @kotlinx.serialization.SerialName("top_p")
     val topP: Float? = null,
     @kotlinx.serialization.SerialName("max_tokens")
-    val maxTokens: Int? = null
+    val maxTokens: Int? = null,
+    @kotlinx.serialization.SerialName("reasoning_effort")
+    val reasoningEffort: String? = null
 )
 
 @Serializable
@@ -1056,14 +1058,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         val messagesWithSystem = buildApiMessages()
         
+        // 根据 thinkingBudget 计算 reasoning_effort 级别
+        val reasoningEffort = when (thinkingBudget) {
+            0 -> null // 关闭时不传此参数
+            in 1..4096 -> "low"
+            in 4097..16000 -> "medium"
+            else -> "high"
+        }
+        
         val requestData = ChatRequest(
             model = model,
             messages = messagesWithSystem,
             stream = true,
             temperature = temperature,
             topP = topP,
-            // 简单处理：将 thinkingBudget 视为 maxTokens (如果用户设置了)
-            maxTokens = if (thinkingBudget > 0) thinkingBudget else maxTokens
+            maxTokens = maxTokens,
+            reasoningEffort = reasoningEffort
         )
         
         val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
