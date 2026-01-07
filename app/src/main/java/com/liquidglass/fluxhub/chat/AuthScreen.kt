@@ -415,92 +415,74 @@ fun ExpiredScreen(
             Spacer(Modifier.height(32.dp))
             
             // 激活码输入框
-            LiquidGlassCard(
+            AuthTextField(
+                value = inviteCode,
+                onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
+                placeholder = "激活码",
+                icon = Lucide.Ticket,
                 backdrop = backdrop,
-                modifier = Modifier.fillMaxWidth(),
-                isInteractive = true,
-                tint = Color(0xFF007AFF).copy(alpha = 0.1f)
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        "请输入激活码续期",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-                    
-                    Spacer(Modifier.height(16.dp))
-                    
-                    AuthTextField(
-                        value = inviteCode,
-                        onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
-                        placeholder = "激活码",
-                        icon = Lucide.Ticket,
-                        backdrop = backdrop,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                keyboardController?.hide()
-                                if (inviteCode.isNotBlank()) {
-                                    isLoading = true
-                                    onRenew(inviteCode)
-                                } else {
-                                    errorMessage = "请输入激活码"
-                                }
-                            }
-                        )
-                    )
-                    
-                    // 错误提示
-                    AnimatedVisibility(errorMessage != null) {
-                        Column {
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                errorMessage ?: "",
-                                color = Color(0xFFFF6B6B),
-                                fontSize = 14.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(24.dp))
-                    
-                    // 续期按钮
-                    LiquidButton(
-                        onClick = {
-                            keyboardController?.hide()
-                            if (inviteCode.isNotBlank()) {
-                                isLoading = true
-                                onRenew(inviteCode)
-                            } else {
-                                errorMessage = "请输入激活码"
-                            }
-                        },
-                        backdrop = backdrop,
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        isInteractive = true,
-                        tint = Color(0xFF34C759)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        keyboardController?.hide()
+                        if (inviteCode.isNotBlank()) {
+                            isLoading = true
+                            onRenew(inviteCode)
                         } else {
-                            Text(
-                                "激活账户",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            errorMessage = "请输入激活码"
                         }
                     }
+                )
+            )
+            
+            // 错误提示
+            AnimatedVisibility(errorMessage != null) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        errorMessage ?: "",
+                        color = Color(0xFFFF6B6B),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+            
+            // 续期按钮
+            LiquidButton(
+                onClick = {
+                    keyboardController?.hide()
+                    if (inviteCode.isNotBlank()) {
+                        isLoading = true
+                        onRenew(inviteCode)
+                    } else {
+                        errorMessage = "请输入激活码"
+                    }
+                },
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                isInteractive = true,
+                tint = Color(0xFF34C759)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text(
+                        "激活账户",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
             
