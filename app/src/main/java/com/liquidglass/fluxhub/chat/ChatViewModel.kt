@@ -281,11 +281,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 用户注册
      */
-    fun register(username: String, email: String, password: String) {
+    fun register(username: String, email: String, password: String, inviteCode: String = "") {
         viewModelScope.launch {
             authState = AuthState.Checking
             
-            when (val result = adminSyncService.register(username, email, password)) {
+            when (val result = adminSyncService.register(username, email, password, inviteCode)) {
                 is AuthResult.Success -> {
                     // 保存认证信息
                     settingsRepository.saveAuth(result.token, result.userId, result.username)

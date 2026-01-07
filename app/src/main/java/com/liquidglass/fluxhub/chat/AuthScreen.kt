@@ -38,13 +38,14 @@ fun AuthScreen(
     backdrop: Backdrop,
     authState: AuthState,
     onLogin: (username: String, password: String) -> Unit,
-    onRegister: (username: String, email: String, password: String) -> Unit
+    onRegister: (username: String, email: String, password: String, inviteCode: String) -> Unit
 ) {
     var isLoginMode by remember { mutableStateOf(true) }
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var inviteCode by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -182,13 +183,26 @@ fun AuthScreen(
                                 isPassword = true,
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Next
+                                )
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            // 邀请码
+                            AuthTextField(
+                                value = inviteCode,
+                                onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
+                                placeholder = "邀请码",
+                                icon = Lucide.Ticket,
+                                backdrop = backdrop,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text,
                                     imeAction = ImeAction.Done
                                 ),
                                 keyboardActions = KeyboardActions(
                                     onDone = {
                                         keyboardController?.hide()
                                         if (password == confirmPassword) {
-                                            onRegister(username, email, password)
+                                            onRegister(username, email, password, inviteCode)
                                         } else {
                                             errorMessage = "两次密码不一致"
                                         }

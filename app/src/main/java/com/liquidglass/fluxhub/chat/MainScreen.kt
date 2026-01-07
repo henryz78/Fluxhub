@@ -119,8 +119,8 @@ fun MainScreen(
                     onLogin = { username, password ->
                         viewModel.login(username, password)
                     },
-                    onRegister = { username, email, password ->
-                        viewModel.register(username, email, password)
+                    onRegister = { username, email, password, inviteCode ->
+                        viewModel.register(username, email, password, inviteCode)
                     }
                 )
             }

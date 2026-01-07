@@ -47,10 +47,10 @@ class AdminSyncService(private val context: Context) {
     /**
      * 用户注册
      */
-    suspend fun register(username: String, email: String, password: String): AuthResult = withContext(Dispatchers.IO) {
+    suspend fun register(username: String, email: String, password: String, inviteCode: String = ""): AuthResult = withContext(Dispatchers.IO) {
         try {
             val body = json.encodeToString(
-                RegisterRequest(username = username, email = email, password = password)
+                RegisterRequest(username = username, email = email, password = password, inviteCode = inviteCode.ifBlank { null })
             )
             
             val request = Request.Builder()
@@ -222,7 +222,8 @@ class AdminSyncService(private val context: Context) {
 data class RegisterRequest(
     val username: String,
     val email: String,
-    val password: String
+    val password: String,
+    val inviteCode: String? = null
 )
 
 @Serializable
