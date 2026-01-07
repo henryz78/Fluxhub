@@ -3,6 +3,7 @@ package com.liquidglass.fluxhub.chat.ui.components
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +27,7 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.rememberBackdrop
 import com.composables.icons.lucide.*
 import com.composables.icons.lucide.Lucide
 import com.liquidglass.fluxhub.components.LiquidButton
@@ -158,7 +160,7 @@ fun DynamicIsland(
                     when (targetState) {
                         DynamicIslandState.Collapsed -> CollapsedContent(data)
                         DynamicIslandState.Expanded -> ExpandedContent(data)
-                        DynamicIslandState.LongPressMenu -> LongPressMenuContent(onStopGeneration, onCollapse)
+                        DynamicIslandState.LongPressMenu -> LongPressMenuContent(data, onStopGeneration, onCollapse, backdrop)
                         else -> {}
                     }
                 }
@@ -186,7 +188,7 @@ private fun CollapsedContent(data: DynamicIslandData) {
         )
         
         Icon(
-            imageVector = Lucide.Loader2, // 或者其他加载图标
+            imageVector = Lucide.Loader, // 已修复: Loader2 -> Loader
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.8f),
             modifier = Modifier
@@ -249,9 +251,14 @@ private fun ExpandedContent(data: DynamicIslandData) {
 
 @Composable
 private fun LongPressMenuContent(
+    data: DynamicIslandData,
     onStop: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    backdrop: Backdrop // 传入 backdrop 以创建 empty backdrop
 ) {
+    // 创建一个不绘图的 backdrop 用于子组件
+    val emptyBackdrop = rememberBackdrop(backdrop) {}
+
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -263,14 +270,13 @@ private fun LongPressMenuContent(
                 onStop()
                 onCancel()
             },
-            backdrop = Backdrop.Empty, // 内部已经有背景了
+            backdrop = emptyBackdrop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
             isInteractive = true,
-            containerColor = Color(0xFFFF3B30).copy(alpha = 0.2f), // 红色背景
-            contentColor = Color(0xFFFF453A),
-            description = "停止生成"
+            surfaceColor = Color(0xFFFF3B30).copy(alpha = 0.2f), // 红色背景替代 containerColor
+            tint = Color(0xFFFF453A) // 红色前景替代 contentColor
         ) {
            Row(verticalAlignment = Alignment.CenterVertically) {
                Icon(Lucide.Square, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -284,14 +290,13 @@ private fun LongPressMenuContent(
         // 取消按钮
         LiquidButton(
             onClick = onCancel,
-            backdrop = Backdrop.Empty,
+            backdrop = emptyBackdrop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp),
             isInteractive = true,
-            containerColor = Color.White.copy(alpha = 0.1f),
-            contentColor = Color.White,
-            description = "取消"
+            surfaceColor = Color.White.copy(alpha = 0.1f), // 替代 containerColor
+            tint = Color.White // 替代 contentColor
         ) {
             Text("关闭")
         }
