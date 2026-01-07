@@ -27,7 +27,7 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.rememberBackdrop
+import com.kyant.backdrop.backdrops.rememberBackdrop
 import com.composables.icons.lucide.*
 import com.composables.icons.lucide.Lucide
 import com.liquidglass.fluxhub.components.LiquidButton
