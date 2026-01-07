@@ -51,9 +51,9 @@ private const val TAG = "ChatViewModel"
  */
 sealed class AuthState {
     object Checking : AuthState()
-    object NoServer : AuthState() // 未配置服务器，直接使用
-    data class Authenticated(val userId: String) : AuthState()
-    data class Blocked(val message: String) : AuthState() // 被禁用或注册关闭
+    object NotLoggedIn : AuthState() // 未登录
+    data class Authenticated(val userId: String, val username: String) : AuthState()
+    data class Blocked(val message: String) : AuthState() // 被禁用
     data class Error(val message: String) : AuthState() // 网络错误
 }
 
@@ -198,9 +198,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
-    // ========== 后端管理同步 ==========
-    var adminUrl by mutableStateOf("")
-        private set
+    // ========== 用户认证 ==========
     private val adminSyncService = AdminSyncService(application)
     
     // 认证状态
@@ -220,45 +218,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startAssistantsCollection()
         startProvidersCollection()
         loadOrCreateConversation()
-        initAdminSync()
+        checkAuth()
     }
     
     /**
-     * 初始化后端同步并验证用户
+     * 检查登录状态（启动时调用）
      */
-    private fun initAdminSync() {
+    private fun checkAuth() {
         viewModelScope.launch {
-            settingsRepository.adminUrl.collect { url ->
-                adminUrl = url
-                adminSyncService.adminBaseUrl = url
-                
-                if (url.isBlank()) {
-                    // 未配置服务器，允许使用
-                    authState = AuthState.NoServer
-                } else {
-                    // 开始认证
-                    authState = AuthState.Checking
-                    val appVersion = try {
-                        getApplication<Application>().packageManager
-                            .getPackageInfo(getApplication<Application>().packageName, 0).versionName
-                    } catch (e: Exception) { "unknown" }
-                    
-                    when (val result = adminSyncService.authenticate(appVersion ?: "unknown")) {
-                        is AuthResult.Success -> {
-                            authState = AuthState.Authenticated(result.userId)
-                        }
-                        is AuthResult.Disabled -> {
-                            authState = AuthState.Blocked(result.message)
-                        }
-                        is AuthResult.RegistrationClosed -> {
-                            authState = AuthState.Blocked(result.message)
-                        }
-                        is AuthResult.NetworkError -> {
-                            authState = AuthState.Error(result.message)
-                        }
-                        is AuthResult.NoServer -> {
-                            authState = AuthState.NoServer
-                        }
+            // 从存储中读取 Token
+            val token = settingsRepository.authToken.first()
+            
+            if (token.isNullOrBlank()) {
+                authState = AuthState.NotLoggedIn
+                return@launch
+            }
+            
+            // 设置 Token 并验证
+            adminSyncService.authToken = token
+            
+            when (val result = adminSyncService.verifyToken()) {
+                is AuthResult.Success -> {
+                    authState = AuthState.Authenticated(result.userId, result.username)
+                }
+                is AuthResult.Error -> {
+                    if (result.message.contains("禁用")) {
+                        authState = AuthState.Blocked(result.message)
+                    } else {
+                        // Token 无效，需要重新登录
+                        settingsRepository.clearAuth()
+                        authState = AuthState.NotLoggedIn
                     }
                 }
             }
@@ -266,25 +255,57 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 重试认证
+     * 用户登录
      */
-    fun retryAuth() {
+    fun login(username: String, password: String) {
         viewModelScope.launch {
-            if (adminUrl.isNotBlank()) {
-                authState = AuthState.Checking
-                val appVersion = try {
-                    getApplication<Application>().packageManager
-                        .getPackageInfo(getApplication<Application>().packageName, 0).versionName
-                } catch (e: Exception) { "unknown" }
-                
-                when (val result = adminSyncService.authenticate(appVersion ?: "unknown")) {
-                    is AuthResult.Success -> authState = AuthState.Authenticated(result.userId)
-                    is AuthResult.Disabled -> authState = AuthState.Blocked(result.message)
-                    is AuthResult.RegistrationClosed -> authState = AuthState.Blocked(result.message)
-                    is AuthResult.NetworkError -> authState = AuthState.Error(result.message)
-                    is AuthResult.NoServer -> authState = AuthState.NoServer
+            authState = AuthState.Checking
+            
+            when (val result = adminSyncService.login(username, password)) {
+                is AuthResult.Success -> {
+                    // 保存认证信息
+                    settingsRepository.saveAuth(result.token, result.userId, result.username)
+                    authState = AuthState.Authenticated(result.userId, result.username)
+                }
+                is AuthResult.Error -> {
+                    if (result.message.contains("禁用")) {
+                        authState = AuthState.Blocked(result.message)
+                    } else {
+                        authState = AuthState.Error(result.message)
+                    }
                 }
             }
+        }
+    }
+    
+    /**
+     * 用户注册
+     */
+    fun register(username: String, email: String, password: String) {
+        viewModelScope.launch {
+            authState = AuthState.Checking
+            
+            when (val result = adminSyncService.register(username, email, password)) {
+                is AuthResult.Success -> {
+                    // 保存认证信息
+                    settingsRepository.saveAuth(result.token, result.userId, result.username)
+                    authState = AuthState.Authenticated(result.userId, result.username)
+                }
+                is AuthResult.Error -> {
+                    authState = AuthState.Error(result.message)
+                }
+            }
+        }
+    }
+    
+    /**
+     * 用户登出
+     */
+    fun logout() {
+        viewModelScope.launch {
+            adminSyncService.logout()
+            settingsRepository.clearAuth()
+            authState = AuthState.NotLoggedIn
         }
     }
     
@@ -292,7 +313,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 同步服务商配置到后端
      */
     fun syncProvidersToAdmin() {
-        if (adminUrl.isBlank()) return
+        if (authState !is AuthState.Authenticated) return
         viewModelScope.launch {
             val providerData = providers.map { p ->
                 ProviderSyncData(
@@ -312,7 +333,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 同步当前对话到后端
      */
     fun syncCurrentConversationToAdmin() {
-        if (adminUrl.isBlank()) return
+        if (authState !is AuthState.Authenticated) return
         val convId = currentConversationId ?: return
         viewModelScope.launch {
             val conv = conversationDao.getConversation(convId) ?: return@launch
@@ -335,15 +356,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 messages = msgs
             )
             adminSyncService.syncConversations(listOf(convData))
-        }
-    }
-    
-    /**
-     * 更新后端管理 URL
-     */
-    fun updateAdminUrl(url: String) {
-        viewModelScope.launch {
-            settingsRepository.setAdminUrl(url)
         }
     }
     

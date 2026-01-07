@@ -34,8 +34,10 @@ class SettingsRepository(private val context: Context) {
         private val STREAM_ENABLED = booleanPreferencesKey("stream_enabled")
         private val CONTEXT_SIZE = intPreferencesKey("context_size")
         
-        // 后端管理
-        private val ADMIN_URL = stringPreferencesKey("admin_url")
+        // 用户认证
+        private val AUTH_TOKEN = stringPreferencesKey("auth_token")
+        private val USER_ID = stringPreferencesKey("user_id")
+        private val USERNAME = stringPreferencesKey("username")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -70,8 +72,17 @@ class SettingsRepository(private val context: Context) {
         preferences[GLASS_BLUR] ?: 16f
     }
     
-    val adminUrl: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[ADMIN_URL] ?: "https://fluxhub.zeabur.app"
+    // 用户认证存储
+    val authToken: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[AUTH_TOKEN]
+    }
+    
+    val userId: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USER_ID]
+    }
+    
+    val username: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USERNAME]
     }
     
     suspend fun setApiKey(value: String) {
@@ -137,6 +148,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAgreementAccepted(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AGREEMENT_ACCEPTED] = value
+        }
+    }
+    
+    // ========== 用户认证 ==========
+    
+    suspend fun saveAuth(token: String, userId: String, username: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTH_TOKEN] = token
+            preferences[USER_ID] = userId
+            preferences[USERNAME] = username
+        }
+    }
+    
+    suspend fun clearAuth() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(AUTH_TOKEN)
+            preferences.remove(USER_ID)
+            preferences.remove(USERNAME)
         }
     }
     

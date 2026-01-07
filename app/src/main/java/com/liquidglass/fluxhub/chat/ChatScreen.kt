@@ -259,8 +259,23 @@ fun ChatScreen(
             }
             return
         }
+        is AuthState.NotLoggedIn, is AuthState.Error -> {
+            // 显示登录界面
+            AuthScreen(
+                backdrop = backdrop,
+                authState = authState,
+                onLogin = { username, password ->
+                    viewModel.login(username, password)
+                },
+                onRegister = { username, email, password ->
+                    viewModel.register(username, email, password)
+                },
+                onRetry = { }
+            )
+            return
+        }
         is AuthState.Blocked -> {
-            // 显示被阻止界面
+            // 显示被封禁界面（可登出）
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -278,49 +293,21 @@ fun ChatScreen(
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(24.dp))
-                    Text(
-                        "请联系管理员",
-                        color = Color.Gray,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-            return
-        }
-        is AuthState.Error -> {
-            // 显示错误界面（可重试）
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Text("⚠️", fontSize = 64.sp)
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        authState.message,
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(24.dp))
                     LiquidButton(
-                        onClick = { viewModel.retryAuth() },
+                        onClick = { viewModel.logout() },
                         backdrop = backdrop,
                         modifier = Modifier,
                         isInteractive = true,
-                        tint = Color(0xFF007AFF)
+                        tint = Color(0xFFFF3B30)
                     ) {
-                        Text("重试", color = Color.White)
+                        Text("切换账号", color = Color.White)
                     }
                 }
             }
             return
         }
-        else -> {
-            // 已认证或无服务器，继续正常流程
+        is AuthState.Authenticated -> {
+            // 已认证，继续正常流程
         }
     }
     

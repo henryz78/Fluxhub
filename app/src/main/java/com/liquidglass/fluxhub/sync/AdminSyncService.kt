@@ -1,7 +1,6 @@
 package com.liquidglass.fluxhub.sync
 
 import android.content.Context
-import android.provider.Settings
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,15 +15,15 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "AdminSyncService"
 
+// 后端地址（硬编码）
+private const val ADMIN_BASE_URL = "https://fluxhub.zeabur.app"
+
 /**
  * 登录/注册结果
  */
 sealed class AuthResult {
-    data class Success(val userId: String) : AuthResult()
-    data class Disabled(val message: String = "账号已被禁用") : AuthResult()
-    data class RegistrationClosed(val message: String = "注册已关闭") : AuthResult()
-    data class NetworkError(val message: String = "网络错误") : AuthResult()
-    object NoServer : AuthResult() // 未配置服务器
+    data class Success(val token: String, val userId: String, val username: String) : AuthResult()
+    data class Error(val message: String) : AuthResult()
 }
 
 /**
@@ -39,82 +38,144 @@ class AdminSyncService(private val context: Context) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
     
-    // 后端地址 - 部署后修改为实际地址
-    var adminBaseUrl: String = ""
+    // 用户 Token（登录后设置）
+    var authToken: String? = null
     
-    // 设备唯一标识
-    val deviceId: String by lazy {
-        Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
-    }
-    
-    // 当前用户 ID (由后端返回)
+    // 当前用户 ID
     var userId: String? = null
-        private set
     
     /**
-     * 登录/注册用户（返回详细结果）
+     * 用户注册
      */
-    suspend fun authenticate(appVersion: String): AuthResult = withContext(Dispatchers.IO) {
-        if (adminBaseUrl.isBlank()) {
-            return@withContext AuthResult.NoServer
-        }
-        
+    suspend fun register(username: String, email: String, password: String): AuthResult = withContext(Dispatchers.IO) {
         try {
             val body = json.encodeToString(
-                UserSyncRequest(deviceId = deviceId, appVersion = appVersion)
+                RegisterRequest(username = username, email = email, password = password)
             )
             
             val request = Request.Builder()
-                .url("$adminBaseUrl/api/users/sync")
+                .url("$ADMIN_BASE_URL/api/user-auth/register")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .build()
             
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: "{}"
             
-            when (response.code) {
-                200 -> {
-                    val result = json.decodeFromString<UserSyncResponse>(responseBody)
-                    userId = result.userId
-                    Log.d(TAG, "Auth success: $userId")
-                    return@withContext AuthResult.Success(result.userId)
-                }
-                403 -> {
-                    // 解析错误信息
-                    val error = try {
-                        json.decodeFromString<ErrorResponse>(responseBody).error
-                    } catch (e: Exception) { "访问被拒绝" }
-                    
-                    return@withContext if (error.contains("禁用")) {
-                        AuthResult.Disabled(error)
-                    } else {
-                        AuthResult.RegistrationClosed(error)
-                    }
-                }
-                else -> {
-                    Log.e(TAG, "Auth failed: ${response.code}")
-                    return@withContext AuthResult.NetworkError("服务器错误: ${response.code}")
-                }
+            if (response.isSuccessful) {
+                val result = json.decodeFromString<AuthResponse>(responseBody)
+                authToken = result.token
+                userId = result.user.id
+                Log.d(TAG, "Register success: ${result.user.username}")
+                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
+            } else {
+                val error = try {
+                    json.decodeFromString<ErrorResponse>(responseBody).error
+                } catch (e: Exception) { "注册失败" }
+                Log.e(TAG, "Register failed: $error")
+                return@withContext AuthResult.Error(error)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Auth error", e)
-            return@withContext AuthResult.NetworkError("网络连接失败: ${e.message}")
+            Log.e(TAG, "Register error", e)
+            return@withContext AuthResult.Error("网络连接失败")
         }
+    }
+    
+    /**
+     * 用户登录
+     */
+    suspend fun login(username: String, password: String): AuthResult = withContext(Dispatchers.IO) {
+        try {
+            val body = json.encodeToString(
+                LoginRequest(username = username, password = password)
+            )
+            
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/user-auth/login")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "{}"
+            
+            if (response.isSuccessful) {
+                val result = json.decodeFromString<AuthResponse>(responseBody)
+                authToken = result.token
+                userId = result.user.id
+                Log.d(TAG, "Login success: ${result.user.username}")
+                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
+            } else {
+                val error = try {
+                    json.decodeFromString<ErrorResponse>(responseBody).error
+                } catch (e: Exception) { "登录失败" }
+                Log.e(TAG, "Login failed: $error")
+                return@withContext AuthResult.Error(error)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Login error", e)
+            return@withContext AuthResult.Error("网络连接失败")
+        }
+    }
+    
+    /**
+     * 验证 Token 是否有效
+     */
+    suspend fun verifyToken(): AuthResult = withContext(Dispatchers.IO) {
+        val token = authToken ?: return@withContext AuthResult.Error("未登录")
+        
+        try {
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/user-auth/me")
+                .header("Authorization", "Bearer $token")
+                .get()
+                .build()
+            
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "{}"
+            
+            if (response.isSuccessful) {
+                val user = json.decodeFromString<UserInfo>(responseBody)
+                userId = user.id
+                Log.d(TAG, "Token valid: ${user.username}")
+                return@withContext AuthResult.Success(token, user.id, user.username)
+            } else {
+                val error = try {
+                    json.decodeFromString<ErrorResponse>(responseBody).error
+                } catch (e: Exception) { "验证失败" }
+                Log.e(TAG, "Token invalid: $error")
+                // 清除无效 Token
+                authToken = null
+                userId = null
+                return@withContext AuthResult.Error(error)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Verify token error", e)
+            return@withContext AuthResult.Error("网络连接失败")
+        }
+    }
+    
+    /**
+     * 登出
+     */
+    fun logout() {
+        authToken = null
+        userId = null
     }
     
     /**
      * 同步服务商配置
      */
     suspend fun syncProviders(providers: List<ProviderSyncData>): Boolean = withContext(Dispatchers.IO) {
-        if (adminBaseUrl.isBlank() || userId == null) return@withContext false
+        val token = authToken ?: return@withContext false
+        val uid = userId ?: return@withContext false
         
         try {
             val body = json.encodeToString(
-                ProvidersSyncRequest(userId = userId!!, providers = providers)
+                ProvidersSyncRequest(userId = uid, providers = providers)
             )
             
             val request = Request.Builder()
-                .url("$adminBaseUrl/api/providers/sync")
+                .url("$ADMIN_BASE_URL/api/providers/sync")
+                .header("Authorization", "Bearer $token")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .build()
             
@@ -131,15 +192,17 @@ class AdminSyncService(private val context: Context) {
      * 同步对话记录
      */
     suspend fun syncConversations(conversations: List<ConversationSyncData>): Boolean = withContext(Dispatchers.IO) {
-        if (adminBaseUrl.isBlank() || userId == null) return@withContext false
+        val token = authToken ?: return@withContext false
+        val uid = userId ?: return@withContext false
         
         try {
             val body = json.encodeToString(
-                ConversationsSyncRequest(userId = userId!!, conversations = conversations)
+                ConversationsSyncRequest(userId = uid, conversations = conversations)
             )
             
             val request = Request.Builder()
-                .url("$adminBaseUrl/api/conversations/sync")
+                .url("$ADMIN_BASE_URL/api/conversations/sync")
+                .header("Authorization", "Bearer $token")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .build()
             
@@ -156,14 +219,29 @@ class AdminSyncService(private val context: Context) {
 // ========== 数据类 ==========
 
 @Serializable
-data class UserSyncRequest(
-    val deviceId: String,
-    val appVersion: String
+data class RegisterRequest(
+    val username: String,
+    val email: String,
+    val password: String
 )
 
 @Serializable
-data class UserSyncResponse(
-    val userId: String,
+data class LoginRequest(
+    val username: String,
+    val password: String
+)
+
+@Serializable
+data class AuthResponse(
+    val token: String,
+    val user: UserInfo
+)
+
+@Serializable
+data class UserInfo(
+    val id: String,
+    val username: String,
+    val email: String = "",
     val isDisabled: Boolean = false
 )
 
