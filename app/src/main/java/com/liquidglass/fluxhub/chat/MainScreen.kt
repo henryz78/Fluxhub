@@ -81,6 +81,83 @@ fun MainScreen(
     
     val backdrop = rememberLayerBackdrop()
     
+    // 认证状态检查 - 在应用入口级别
+    val authState = viewModel.authState
+    
+    when (authState) {
+        is AuthState.Checking -> {
+            // 显示加载中
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.material3.CircularProgressIndicator(color = Color.White)
+                    Spacer(Modifier.height(16.dp))
+                    androidx.compose.material3.Text("正在验证...", color = Color.White)
+                }
+            }
+            return
+        }
+        is AuthState.NotLoggedIn, is AuthState.Error -> {
+            // 显示登录界面
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 背景图片
+                if (backgroundBitmap != null) {
+                    Image(
+                        bitmap = backgroundBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .layerBackdrop(backdrop)
+                            .fillMaxSize()
+                    )
+                }
+                AuthScreen(
+                    backdrop = backdrop,
+                    authState = authState,
+                    onLogin = { username, password ->
+                        viewModel.login(username, password)
+                    },
+                    onRegister = { username, email, password ->
+                        viewModel.register(username, email, password)
+                    }
+                )
+            }
+            return
+        }
+        is AuthState.Blocked -> {
+            // 显示被封禁界面
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    androidx.compose.material3.Text("⛔", fontSize = 64.sp)
+                    Spacer(Modifier.height(16.dp))
+                    androidx.compose.material3.Text(
+                        authState.message,
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    androidx.compose.material3.TextButton(
+                        onClick = { viewModel.logout() }
+                    ) {
+                        androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30))
+                    }
+                }
+            }
+            return
+        }
+        is AuthState.Authenticated -> {
+            // 已认证，继续正常流程
+        }
+    }
+    
     // 监听键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
