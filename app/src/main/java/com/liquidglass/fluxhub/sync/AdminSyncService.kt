@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 private const val TAG = "AdminSyncService"
 
 // 后端地址（硬编码）
-private const val ADMIN_BASE_URL = "https://fluxhub.zeabur.app"
+private const val ADMIN_BASE_URL = "https://fluxhubadmin-production.up.railway.app"
 
 /**
  * 登录/注册结果
