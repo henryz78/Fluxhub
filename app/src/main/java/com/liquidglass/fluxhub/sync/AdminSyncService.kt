@@ -77,7 +77,7 @@ class AdminSyncService(private val context: Context) {
                 val result = json.decodeFromString<AuthResponse>(responseBody)
                 authToken = result.token
                 userId = result.user.id
-                username = result.user.username
+                this@AdminSyncService.username = result.user.username
                 Log.d(TAG, "Register success: ${result.user.username}")
                 return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
             } else {
