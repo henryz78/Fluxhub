@@ -98,27 +98,19 @@ fun MarkdownBlock(
         mutableStateOf(preprocessed to astTree, policy = referentialEqualityPolicy())
     }
 
-    // 监听内容变化，在后台线程重新解析AST树
+    // 监听内容变化，在后台线程重新解析AST树 (参考 RikkaHub)
     val updatedContent by rememberUpdatedState(content)
     LaunchedEffect(Unit) {
         snapshotFlow { updatedContent }
             .distinctUntilChanged()
             .mapLatest { text ->
-                // 大幅降低延迟，保证流式输出的实时性
-                // 短内容立即解析，长内容稍微等待以避免过于频繁
-                val delayMs = when {
-                    text.length < 200 -> 0L      // 短内容：无延迟
-                    text.length < 1000 -> 50L   // 中等内容：50ms
-                    else -> 100L                 // 长内容：100ms（之前是 300-600ms）
-                }
-                if (delayMs > 0) kotlinx.coroutines.delay(delayMs)
-                
+                // 参考 RikkaHub：无延迟，直接后台解析
                 val preprocessed = preProcess(text)
                 val astTree = parser.buildMarkdownTreeFromString(preprocessed)
                 preprocessed to astTree
             }
             .catch { it.printStackTrace() }
-            .flowOn(Dispatchers.Default)
+            .flowOn(Dispatchers.Default) // 在后台线程解析AST树
             .collect { data = it }
     }
 

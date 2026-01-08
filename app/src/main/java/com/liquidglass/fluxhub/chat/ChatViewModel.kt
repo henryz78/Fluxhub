@@ -188,6 +188,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
+    // 生成任务 Job (参考 RikkaHub ChatService)
+    private var generationJob: Job? = null
+    
     // Flow 采集任务
     private var messagesJob: Job? = null
     private var conversationsJob: Job? = null
@@ -493,22 +496,68 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun regenerate(messageId: String) {
+    /**
+     * 重新生成消息 (参考 RikkaHub regenerateAtMessage)
+     * 
+     * @param messageId 消息 ID
+     * @param regenerateFromUser 如果为 true，从该用户消息开始重新生成；否则只重新生成 AI 回复
+     */
+    fun regenerate(messageId: String, regenerateFromUser: Boolean = false) {
         val message = messages.find { it.id == messageId } ?: return
-        if (message.role != "assistant") return
-        
         val conversationId = currentConversationId ?: return
         
-        viewModelScope.launch {
-            // 删除当前 AI 消息
-            messageDao.deleteMessage(messageId)
-            // 手动从 UI 列表移除
-            messages.removeAll { it.id == messageId }
-            
-            // 重新请求 AI 回复 (复用现有上下文)
-            initiateAiResponse(conversationId)
+        // 取消当前生成任务
+        cancelGeneration()
+        
+        generationJob = viewModelScope.launch {
+            try {
+                if (message.role == "user" || regenerateFromUser) {
+                    // 从用户消息开始重新生成：删除该消息之后的所有消息
+                    val messageIndex = messages.indexOfFirst { it.id == messageId }
+                    if (messageIndex >= 0) {
+                        val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+                        idsToDelete.forEach { id ->
+                            messageDao.deleteMessage(id)
+                        }
+                        // 从 UI 列表移除
+                        messages.removeAll { idsToDelete.contains(it.id) }
+                    }
+                    // 重新触发 AI 回复
+                    initiateAiResponse(conversationId)
+                } else {
+                    // 只重新生成 AI 消息
+                    messageDao.deleteMessage(messageId)
+                    messages.removeAll { it.id == messageId }
+                    // 重新请求 AI 回复
+                    initiateAiResponse(conversationId)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "regenerate failed", e)
+                showErrorMessage("重试失败: ${e.message}")
+            }
         }
     }
+    
+    /**
+     * 取消当前生成任务 (参考 RikkaHub)
+     */
+    fun cancelGeneration() {
+        currentEventSource?.cancel()
+        currentEventSource = null
+        generationJob?.cancel()
+        generationJob = null
+        isLoading = false
+        
+        // 标记最后一条消息为非流式
+        val lastMessage = messages.lastOrNull()
+        if (lastMessage?.isStreaming == true) {
+            val index = messages.indexOfLast { it.isStreaming }
+            if (index >= 0) {
+                messages[index] = messages[index].copy(isStreaming = false)
+            }
+        }
+    }
+
 
 
     private fun startConversationsCollection() {
@@ -899,21 +948,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun stopStreaming() {
-        if (currentEventSource != null) {
-            currentEventSource?.cancel()
-        }
-        // 如果是非流式请求，cancel client call? (暂未保留 call 引用，简单处理即可)
-        
-        isLoading = false
-        
-        // 标记最后一条消息为非流式
-        val lastMessage = messages.lastOrNull()
-        if (lastMessage?.isStreaming == true) {
-            val index = messages.indexOfLast { it.isStreaming }
-            if (index >= 0) {
-                messages[index] = messages[index].copy(isStreaming = false)
-            }
-        }
+        cancelGeneration()
     }
     
     private fun callNonStreamingApi(aiMessageId: String, conversationId: String) {
