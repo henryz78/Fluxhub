@@ -234,9 +234,15 @@ fun ChatScreen(
     // 发送消息的处理函数
     val onSendMessage: () -> Unit = {
         if (inputText.isNotBlank()) {
-            viewModel.sendMessage(inputText)
-            inputText = ""
-            keyboardController?.hide()
+            val textToSend = inputText
+            inputText = "" // 立即清空输入框，避免视觉延迟
+            
+            scope.launch {
+                viewModel.sendMessage(textToSend)
+                // 发送后稍等让消息进入列表
+                kotlinx.coroutines.delay(50)
+                scrollToBottom(animate = false) // 立即滚动，不做动画以减少卡顿
+            }
         }
     }
     
@@ -1090,8 +1096,8 @@ private fun LiquidGlassChatBubble(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .animateContentSize(), // 添加尺寸变化动画，让气泡生长更顺滑
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+            // 移除 animateContentSize() 以优化滚动性能 - 多层嵌套动画会导致卡顿
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         // 角色标识（简化版，不显示头像）
