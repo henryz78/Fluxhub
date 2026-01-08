@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
@@ -144,88 +145,35 @@ fun ChatScreen(
     val isStreaming = viewModel.messages.any { it.isStreaming }
     val density = androidx.compose.ui.platform.LocalDensity.current
 
-    // 智能触底判定扩展逻辑
-    fun LazyListState.isAtBottom(): Boolean {
-        val layoutInfo = layoutInfo
-        val totalItems = layoutInfo.totalItemsCount
-        if (totalItems == 0) return true
-        
-        val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
-        
-        // 允许的偏差值：最后两个 Item (消息 + Spacer)
-        val isLastItemVisible = lastVisibleItem.index >= totalItems - 2
-        
-        // 如果最后 Item 可见，并且其底部没有超出视口太多，则认为在底部
-        val viewportEnd = layoutInfo.viewportEndOffset
-        val tolerance = with(density) { 100.dp.toPx() } // 100dp 容差
-        
-        return isLastItemVisible && (lastVisibleItem.offset + lastVisibleItem.size <= viewportEnd + tolerance)
-    }
-
-    // 辅助函数：滚动到底部
-    suspend fun scrollToBottom(animate: Boolean = true) {
-        val totalItems = listState.layoutInfo.totalItemsCount
-        if (totalItems > 0) {
-            val targetIndex = totalItems - 1
-            if (animate) {
-                listState.animateScrollToItem(targetIndex)
-            } else {
-                listState.scrollToItem(targetIndex)
-            }
+    // 底部标记 key (参考 RikkaHub)
+    val ScrollBottomKey = "scroll_bottom_spacer"
+    
+    // 判断是否在底部 (参考 RikkaHub ChatListNormal.isAtBottom)
+    fun List<LazyListItemInfo>.isAtBottom(): Boolean {
+        val lastItem = lastOrNull() ?: return true
+        // 如果最后一个可见的是 spacer，认为在底部
+        if (lastItem.key == ScrollBottomKey) {
+            return true
         }
+        // 如果最后一条消息可见且底部接近视口底部
+        val viewportEnd = listState.layoutInfo.viewportEndOffset
+        return lastItem.offset + lastItem.size <= viewportEnd + lastItem.size * 0.15 + 32
     }
 
-    // 自动跟随键盘滚动
+    // 自动跟随键盘滚动 (参考 RikkaHub)
     ImeLazyListAutoScroller(lazyListState = listState)
     
-    // 1. 新消息出现 (ID 变化) -> 强制滚动到底部
-    val lastMessageId = viewModel.messages.lastOrNull()?.id
-    LaunchedEffect(lastMessageId) {
-        if (lastMessageId != null) {
-            // 给一点延迟让 Item 进入布局
-            kotlinx.coroutines.delay(100) 
-            scrollToBottom(animate = true)
-        }
-    }
-
-    // 2. 键盘状态变化 -> 调整滚动位置
-    LaunchedEffect(isKeyboardVisible) {
-        if (isKeyboardVisible) {
-            // 键盘弹出，强制滚到底以露出输入框上方的内容
-            kotlinx.coroutines.delay(100)
-            scrollToBottom(animate = true)
-        } else {
-            // 键盘收起
-            // 如果正在加载(用户刚发完消息) 或者 本来就在底部，保持底部位置，适应新视口
-            if (isStreaming || viewModel.isLoading || listState.isAtBottom()) {
-                kotlinx.coroutines.delay(100)
-                scrollToBottom(animate = true)
-            }
-        }
-    }
-
-    // 3. AI 正在说话或思考时的全时吸附滚动
+    // 自动滚动到底部 (参考 RikkaHub 的 snapshotFlow 实现)
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    // 监听最后一条消息的内容长度，触发高频滚动
-    val lastMessage = viewModel.messages.lastOrNull()
-    val lastContentKey = lastMessage?.let { it.id + it.content.length + (it.thinkingContent?.length ?: 0) } ?: ""
+    val messagesCount by rememberUpdatedState(viewModel.messages.size)
     
-    LaunchedEffect(lastContentKey, loadingState) {
-        if (loadingState) {
-            kotlinx.coroutines.delay(32)  // 更短的防抖时间，提升响应性
-            
-            // 仅当用户在底部时跟随滚动 (吸附效果)
-            if (listState.isAtBottom()) {
-                // 使用增量滚动，比 scrollToItem 更平滑
-                val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                if (lastItem != null) {
-                    val viewportEnd = listState.layoutInfo.viewportEndOffset
-                    val itemBottom = lastItem.offset + lastItem.size
-                    val overflowPx = itemBottom - viewportEnd
-                    if (overflowPx > 0) {
-                        // 平滑地滚动刚好露出内容
-                        listState.scrollBy(overflowPx.toFloat() + 16f) // 额外 16px 留白
-                    }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
+            // 只在正在加载且用户没有手动滚动时自动跟随
+            if (!listState.isScrollInProgress && loadingState) {
+                if (visibleItemsInfo.isAtBottom()) {
+                    // 使用 requestScrollToItem 而非 scrollToItem，性能更好
+                    listState.requestScrollToItem(messagesCount + 10) // +10 确保滚动到 spacer
                 }
             }
         }
@@ -236,12 +184,11 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
-            
+            viewModel.sendMessage(textToSend)
+            // 发送后立即滚动到底部
             scope.launch {
-                viewModel.sendMessage(textToSend)
-                // 发送后稍等让消息进入列表
-                kotlinx.coroutines.delay(50)
-                scrollToBottom(animate = false) // 立即滚动，不做动画以减少卡顿
+                kotlinx.coroutines.delay(100)
+                listState.requestScrollToItem(viewModel.messages.size + 10)
             }
         }
     }
