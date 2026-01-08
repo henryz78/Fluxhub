@@ -1,7 +1,12 @@
 package com.liquidglass.fluxhub.chat.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -17,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -59,61 +65,66 @@ fun DynamicIsland(
     onStopGeneration: () -> Unit = {},
     onDismiss: () -> Unit = {} // Added for manual dismiss if needed
 ) {
-    // 状态转换动画
+    // 是否显示（用于 AnimatedVisibility）
+    val isVisible = data.state != DynamicIslandState.Hidden
+    
+    // 内部状态转换动画（用于 Collapsed/Expanded/LongPressMenu 之间切换）
     val transition = updateTransition(targetState = data.state, label = "DynamicIslandTransition")
     
-    // 宽度动画
+    // 宽度动画 - 更慢的弹簧
     val width by transition.animateDp(
         transitionSpec = {
-            if (DynamicIslandState.Collapsed isTransitioningTo DynamicIslandState.Expanded) {
-                spring(stiffness = Spring.StiffnessMediumLow)
-            } else {
-                spring(stiffness = Spring.StiffnessMedium)
-            }
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
         },
         label = "width"
     ) { state ->
         when (state) {
-            DynamicIslandState.Hidden -> 0.dp
-            DynamicIslandState.Collapsed -> 180.dp // 药丸宽度
-            DynamicIslandState.Expanded -> 340.dp  // 展开宽度
+            DynamicIslandState.Hidden -> 180.dp // 保持初始大小，让 AnimatedVisibility 处理缩放
+            DynamicIslandState.Collapsed -> 180.dp
+            DynamicIslandState.Expanded -> 340.dp
             DynamicIslandState.LongPressMenu -> 280.dp
         }
     }
 
-    // 高度动画
+    // 高度动画 - 更慢的弹簧
     val height by transition.animateDp(
         transitionSpec = {
-            if (DynamicIslandState.Collapsed isTransitioningTo DynamicIslandState.Expanded) {
-                spring(stiffness = Spring.StiffnessMediumLow)
-            } else {
-                spring(stiffness = Spring.StiffnessMedium)
-            }
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
         },
         label = "height"
     ) { state ->
         when (state) {
-            DynamicIslandState.Hidden -> 0.dp
+            DynamicIslandState.Hidden -> 36.dp
             DynamicIslandState.Collapsed -> 36.dp
             DynamicIslandState.Expanded -> 140.dp
             DynamicIslandState.LongPressMenu -> 160.dp
         }
     }
-    
-    // 透明度动画
-    val alpha by transition.animateFloat(
-        transitionSpec = { tween(300) },
-        label = "alpha"
-    ) { state ->
-        if (state == DynamicIslandState.Hidden) 0f else 1f
-    }
 
-    if (data.state != DynamicIslandState.Hidden) {
+    // 使用 AnimatedVisibility 处理进入/退出动画
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = scaleIn(
+            initialScale = 0.5f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            ),
+            transformOrigin = TransformOrigin(0.5f, 0f) // 从顶部中心缩放
+        ) + fadeIn(animationSpec = tween(400)),
+        exit = scaleOut(
+            targetScale = 0.5f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessLow
+            ),
+            transformOrigin = TransformOrigin(0.5f, 0f)
+        ) + fadeOut(animationSpec = tween(400))
+    ) {
         Box(
             modifier = modifier
                 .padding(top = 8.dp) // 距离顶部的间距
                 .size(width, height)
-                .graphicsLayer { this.alpha = alpha }
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { RoundedCornerShape(40.dp) },
