@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 
 /**
  * 自动跟随键盘滚动的 Hook
- * 参考 RikkaHub 实现
+ * 参考 RikkaHub 实现，修复键盘收起时往上滑的问题
  */
 @Composable
 fun ImeLazyListAutoScroller(
@@ -29,17 +29,13 @@ fun ImeLazyListAutoScroller(
         snapshotFlow {
             ime.getBottom(localDensity)
         }.collect { keyboardHeight ->
-            if (keyboardHeight > 0) {
-                // 键盘高度变化时，精确补偿滚动距离
-                val delta = keyboardHeight - imeHeight
-                if (delta != 0) {
-                    lazyListState.scrollBy(delta.toFloat())
-                }
-                imeHeight = keyboardHeight
-            } else if (imeHeight > 0) {
-                // 键盘收起时重置
-                imeHeight = 0
+            val delta = keyboardHeight - imeHeight
+            if (delta != 0) {
+                // 无论键盘弹出还是收起，都进行滚动补偿
+                lazyListState.scrollBy(delta.toFloat())
             }
+            imeHeight = keyboardHeight
         }
     }
 }
+

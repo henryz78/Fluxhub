@@ -538,7 +538,7 @@ private fun CodeBlock(
             .padding(vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .animateContentSize() // 代码块展开收起需要动画
+            // 移除 animateContentSize() 以消除展开/收起卡顿
     ) {
         // 顶部操作栏：语言标签 + 复制按钮 + 展开/收起
         Row(
