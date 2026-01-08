@@ -51,7 +51,10 @@ data class DynamicIslandData(
     val title: String = "正在思考...",
     val modelName: String? = null,
     val assistantAvatar: String? = null,
-    val state: DynamicIslandState = DynamicIslandState.Hidden
+    val state: DynamicIslandState = DynamicIslandState.Hidden,
+    val tokenCount: Int = 0,          // 已生成 token 数量
+    val elapsedSeconds: Int = 0,      // 已耗时秒数
+    val isCompleted: Boolean = false  // 是否已完成（用于显示完成动画）
 )
 
 @Composable
@@ -188,37 +191,152 @@ private fun CollapsedContent(data: DynamicIslandData) {
         horizontalArrangement = Arrangement.Center,
         modifier = Modifier.fillMaxSize()
     ) {
-        // 旋转的加载图标
-        val infiniteTransition = rememberInfiniteTransition(label = "loading")
-        val angle by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(2000, easing = LinearEasing)
-            ),
-            label = "rotation"
+        if (data.isCompleted) {
+            // 完成状态：显示动画勾
+            AnimatedCheckmark(modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "完成",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = Color(0xFF34C759), // 绿色
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        } else {
+            // 加载状态：显示旋转图标 + token数 + 耗时
+            val infiniteTransition = rememberInfiniteTransition(label = "loading")
+            val angle by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = LinearEasing)
+                ),
+                label = "rotation"
+            )
+            
+            Icon(
+                imageVector = Lucide.Loader,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier
+                    .size(14.dp)
+                    .graphicsLayer { rotationZ = angle }
+            )
+            
+            Spacer(modifier = Modifier.width(6.dp))
+            
+            // Token 计数
+            if (data.tokenCount > 0) {
+                Text(
+                    text = "${data.tokenCount}",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF007AFF), // 蓝色
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "tokens",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            
+            // 耗时
+            Text(
+                text = "${data.elapsedSeconds}s",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+    }
+}
+
+/**
+ * 动画勾 - 先画绿色圆圈，再画勾
+ */
+@Composable
+private fun AnimatedCheckmark(modifier: Modifier = Modifier) {
+    // 圆圈绘制进度 (0 -> 1)
+    val circleProgress = remember { Animatable(0f) }
+    // 勾绘制进度 (0 -> 1)
+    val checkProgress = remember { Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        // 先画圆圈 (500ms)
+        circleProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(500, easing = FastOutSlowInEasing)
         )
-        
-        Icon(
-            imageVector = Lucide.Loader, // 已修复: Loader2 -> Loader
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.8f),
-            modifier = Modifier
-                .size(16.dp)
-                .graphicsLayer { rotationZ = angle }
+        // 再画勾 (400ms)
+        checkProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(400, easing = FastOutSlowInEasing)
         )
+    }
+    
+    val greenColor = Color(0xFF34C759)
+    
+    Canvas(modifier = modifier) {
+        val strokeWidth = 2.dp.toPx()
+        val radius = (size.minDimension / 2) - strokeWidth
+        val center = center
         
-        Spacer(modifier = Modifier.width(8.dp))
+        // 绘制圆圈 - 从顶部顺时针画
+        if (circleProgress.value > 0f) {
+            drawArc(
+                color = greenColor,
+                startAngle = -90f,
+                sweepAngle = 360f * circleProgress.value,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+        }
         
-        Text(
-            text = data.title,
-            style = MaterialTheme.typography.labelLarge.copy(
-                color = Color.White,
-                fontWeight = FontWeight.Medium
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        // 绘制勾 - 两笔画出
+        if (checkProgress.value > 0f) {
+            val checkPath = Path().apply {
+                // 勾的起点 (左中)
+                val startX = center.x - radius * 0.4f
+                val startY = center.y + radius * 0.1f
+                // 勾的转折点 (中下)
+                val midX = center.x - radius * 0.1f
+                val midY = center.y + radius * 0.4f
+                // 勾的终点 (右上)
+                val endX = center.x + radius * 0.5f
+                val endY = center.y - radius * 0.35f
+                
+                moveTo(startX, startY)
+                
+                // 第一笔 (0 - 0.4 进度)
+                val firstStrokeProgress = (checkProgress.value / 0.4f).coerceIn(0f, 1f)
+                if (firstStrokeProgress > 0f) {
+                    lineTo(
+                        startX + (midX - startX) * firstStrokeProgress,
+                        startY + (midY - startY) * firstStrokeProgress
+                    )
+                }
+                
+                // 第二笔 (0.4 - 1.0 进度)
+                if (checkProgress.value > 0.4f) {
+                    val secondStrokeProgress = ((checkProgress.value - 0.4f) / 0.6f).coerceIn(0f, 1f)
+                    lineTo(
+                        midX + (endX - midX) * secondStrokeProgress,
+                        midY + (endY - midY) * secondStrokeProgress
+                    )
+                }
+            }
+            
+            drawPath(
+                path = checkPath,
+                color = greenColor,
+                style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+        }
     }
 }
 

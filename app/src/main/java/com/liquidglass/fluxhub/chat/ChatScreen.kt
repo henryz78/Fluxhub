@@ -376,18 +376,30 @@ private fun LiquidGlassChatContent(
 
     // Dynamic Island State Sync
     var dynamicIslandState by remember { mutableStateOf(DynamicIslandState.Hidden) }
+    var elapsedSeconds by remember { mutableIntStateOf(0) }
+    var isCompleted by remember { mutableStateOf(false) }
     
-    // 监听 isLoading 状态变化，带延迟隐藏
+    // 计时器 - 加载时每秒增加
     LaunchedEffect(viewModel.isLoading) {
         if (viewModel.isLoading) {
-            // 开始加载时，平滑显示（动画由 DynamicIsland 组件处理）
+            elapsedSeconds = 0
+            isCompleted = false
+            // 显示灵动岛
             if (dynamicIslandState == DynamicIslandState.Hidden) {
                 dynamicIslandState = DynamicIslandState.Collapsed
             }
-        } else {
-            // 加载完成后，等待 2 秒再隐藏
-            kotlinx.coroutines.delay(2000)
+            // 开始计时
+            while (viewModel.isLoading) {
+                kotlinx.coroutines.delay(1000)
+                elapsedSeconds++
+            }
+        } else if (dynamicIslandState != DynamicIslandState.Hidden) {
+            // 加载完成后，显示完成状态
+            isCompleted = true
+            // 等待 2.5 秒让用户看到完成动画
+            kotlinx.coroutines.delay(2500)
             dynamicIslandState = DynamicIslandState.Hidden
+            isCompleted = false
         }
     }
 
@@ -1102,7 +1114,10 @@ private fun LiquidGlassChatContent(
             title = if (viewModel.isLoading) "AI 正在思考..." else "AI 就绪",
             modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
             assistantAvatar = viewModel.currentAssistant?.avatar ?: "🤖",
-            state = dynamicIslandState
+            state = dynamicIslandState,
+            tokenCount = viewModel.streamingTokenCount,
+            elapsedSeconds = elapsedSeconds,
+            isCompleted = isCompleted
         ),
         backdrop = backdrop,
         modifier = Modifier
