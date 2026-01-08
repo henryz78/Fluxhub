@@ -38,11 +38,23 @@ class AdminSyncService(private val context: Context) {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
     
-    // 用户 Token（登录后设置）
-    var authToken: String? = null
+    // SharedPreferences 用于持久化登录状态
+    private val prefs = context.getSharedPreferences("fluxhub_auth", Context.MODE_PRIVATE)
     
-    // 当前用户 ID
-    var userId: String? = null
+    // 用户 Token（登录后设置，持久化）
+    var authToken: String?
+        get() = prefs.getString("auth_token", null)
+        set(value) = prefs.edit().putString("auth_token", value).apply()
+    
+    // 当前用户 ID（持久化）
+    var userId: String?
+        get() = prefs.getString("user_id", null)
+        set(value) = prefs.edit().putString("user_id", value).apply()
+    
+    // 当前用户名（持久化）
+    var username: String?
+        get() = prefs.getString("username", null)
+        set(value) = prefs.edit().putString("username", value).apply()
     
     /**
      * 用户注册
@@ -65,6 +77,7 @@ class AdminSyncService(private val context: Context) {
                 val result = json.decodeFromString<AuthResponse>(responseBody)
                 authToken = result.token
                 userId = result.user.id
+                username = result.user.username
                 Log.d(TAG, "Register success: ${result.user.username}")
                 return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
             } else {
@@ -101,6 +114,7 @@ class AdminSyncService(private val context: Context) {
                 val result = json.decodeFromString<AuthResponse>(responseBody)
                 authToken = result.token
                 userId = result.user.id
+                this@AdminSyncService.username = result.user.username
                 Log.d(TAG, "Login success: ${result.user.username}")
                 return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
             } else {
@@ -159,6 +173,7 @@ class AdminSyncService(private val context: Context) {
     fun logout() {
         authToken = null
         userId = null
+        username = null
     }
     
     /**
