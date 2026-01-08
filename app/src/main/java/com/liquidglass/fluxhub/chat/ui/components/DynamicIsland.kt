@@ -104,6 +104,7 @@ fun DynamicIsland(
     // 使用 AnimatedVisibility 处理进入/退出动画
     AnimatedVisibility(
         visible = isVisible,
+        modifier = modifier, // 对齐 modifier 放在这里
         enter = scaleIn(
             initialScale = 0.5f,
             animationSpec = spring(
@@ -122,7 +123,7 @@ fun DynamicIsland(
         ) + fadeOut(animationSpec = tween(400))
     ) {
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .padding(top = 8.dp) // 距离顶部的间距
                 .size(width, height)
                 .drawBackdrop(
