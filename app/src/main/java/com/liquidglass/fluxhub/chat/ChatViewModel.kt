@@ -78,7 +78,7 @@ data class Delta(
     val reasoning_content: String? = null
 )
 
-// 用于 UI 显示的消息
+// 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
 data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
@@ -86,7 +86,11 @@ data class UiMessage(
     var thinkingContent: String? = null,
     val isStreaming: Boolean = false,
     val model: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    // 消息分支支持
+    val parentId: String? = null,  // 关联的父消息 ID（用于分支追踪）
+    val versionIndex: Int = 0,     // 当前版本索引
+    val totalVersions: Int = 1     // 总版本数
 )
 
 @Serializable
@@ -497,12 +501,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 重新生成消息 (参考 RikkaHub regenerateAtMessage)
+     * 重新生成消息 (参考 RikkaHub - 支持消息分支)
      * 
      * @param messageId 消息 ID
-     * @param regenerateFromUser 如果为 true，从该用户消息开始重新生成；否则只重新生成 AI 回复
+     * @param createBranch 如果为 true，创建新版本而不是替换（消息分支）
      */
-    fun regenerate(messageId: String, regenerateFromUser: Boolean = false) {
+    fun regenerate(messageId: String, createBranch: Boolean = true) {
         val message = messages.find { it.id == messageId } ?: return
         val conversationId = currentConversationId ?: return
         
@@ -511,30 +515,105 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         generationJob = viewModelScope.launch {
             try {
-                if (message.role == "user" || regenerateFromUser) {
-                    // 从用户消息开始重新生成：删除该消息之后的所有消息
+                if (message.role == "user") {
+                    // 从用户消息重新生成 AI 回复
                     val messageIndex = messages.indexOfFirst { it.id == messageId }
                     if (messageIndex >= 0) {
+                        // 删除该用户消息之后的所有消息
                         val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
                         idsToDelete.forEach { id ->
                             messageDao.deleteMessage(id)
                         }
-                        // 从 UI 列表移除
                         messages.removeAll { idsToDelete.contains(it.id) }
                     }
-                    // 重新触发 AI 回复
                     initiateAiResponse(conversationId)
                 } else {
-                    // 只重新生成 AI 消息
-                    messageDao.deleteMessage(messageId)
-                    messages.removeAll { it.id == messageId }
-                    // 重新请求 AI 回复
-                    initiateAiResponse(conversationId)
+                    // AI 消息：创建新版本
+                    if (createBranch) {
+                        // 分支模式：保留原消息，标记为旧版本
+                        val messageIndex = messages.indexOfFirst { it.id == messageId }
+                        if (messageIndex >= 0) {
+                            val originalMessage = messages[messageIndex]
+                            val newVersionIndex = originalMessage.versionIndex + 1
+                            
+                            // 更新原消息的 totalVersions
+                            messages[messageIndex] = originalMessage.copy(
+                                totalVersions = newVersionIndex + 1
+                            )
+                            
+                            // 在数据库中也更新
+                            messageDao.insertMessage(MessageEntity(
+                                id = originalMessage.id,
+                                conversationId = conversationId,
+                                role = originalMessage.role,
+                                content = originalMessage.content,
+                                thinkingContent = originalMessage.thinkingContent,
+                                model = originalMessage.model,
+                                timestamp = originalMessage.timestamp
+                            ))
+                        }
+                        
+                        // 生成新版本的 AI 回复
+                        initiateAiResponseWithParent(conversationId, messageId)
+                    } else {
+                        // 替换模式：删除原消息
+                        messageDao.deleteMessage(messageId)
+                        messages.removeAll { it.id == messageId }
+                        initiateAiResponse(conversationId)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "regenerate failed", e)
                 showErrorMessage("重试失败: ${e.message}")
             }
+        }
+    }
+    
+    /**
+     * 生成 AI 回复（带父消息 ID，用于消息分支）
+     */
+    private fun initiateAiResponseWithParent(conversationId: String, parentId: String) {
+        val parentMessage = messages.find { it.id == parentId }
+        val newVersionIndex = (parentMessage?.versionIndex ?: 0) + 1
+        
+        // 添加 AI 消息占位符
+        val aiMessageId = UUID.randomUUID().toString()
+        messages.add(UiMessage(
+            id = aiMessageId,
+            role = "assistant",
+            content = "",
+            thinkingContent = "",
+            isStreaming = streamEnabled,
+            model = model,
+            parentId = parentId,
+            versionIndex = newVersionIndex,
+            totalVersions = newVersionIndex + 1
+        ))
+        
+        isLoading = true
+        clearError()
+        
+        if (streamEnabled) {
+            callStreamingApiWithEventSource(aiMessageId, conversationId)
+        } else {
+            callNonStreamingApi(aiMessageId, conversationId)
+        }
+    }
+    
+    /**
+     * 切换消息版本 (用于消息分支)
+     */
+    fun switchMessageVersion(messageId: String, direction: Int) {
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex < 0) return
+        
+        val currentMessage = messages[messageIndex]
+        val newVersionIndex = (currentMessage.versionIndex + direction).coerceIn(0, currentMessage.totalVersions - 1)
+        
+        if (newVersionIndex != currentMessage.versionIndex) {
+            // TODO: 从数据库加载对应版本的消息内容
+            // 目前简化处理：只更新版本索引
+            messages[messageIndex] = currentMessage.copy(versionIndex = newVersionIndex)
         }
     }
     
