@@ -346,13 +346,16 @@ private fun LiquidGlassChatContent(
     // Dynamic Island State Sync
     var dynamicIslandState by remember { mutableStateOf(DynamicIslandState.Hidden) }
     
-    // 监听 isLoading 状态变化
+    // 监听 isLoading 状态变化，带延迟隐藏
     LaunchedEffect(viewModel.isLoading) {
         if (viewModel.isLoading) {
+            // 开始加载时，平滑显示（动画由 DynamicIsland 组件处理）
             if (dynamicIslandState == DynamicIslandState.Hidden) {
                 dynamicIslandState = DynamicIslandState.Collapsed
             }
         } else {
+            // 加载完成后，等待 2 秒再隐藏
+            kotlinx.coroutines.delay(2000)
             dynamicIslandState = DynamicIslandState.Hidden
         }
     }
