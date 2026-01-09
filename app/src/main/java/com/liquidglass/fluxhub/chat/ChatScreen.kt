@@ -1207,9 +1207,10 @@ private fun LiquidGlassChatBubble(
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
+                        }
+                    }
                 }
             }
-        }
         
         // AI 消息显示操作按钮 (非流式时)
         if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
