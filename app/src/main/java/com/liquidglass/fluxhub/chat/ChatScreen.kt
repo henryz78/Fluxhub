@@ -347,12 +347,14 @@ private fun LiquidGlassChatContent(
     var dynamicIslandState by remember { mutableStateOf(DynamicIslandState.Hidden) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
     var isCompleted by remember { mutableStateOf(false) }
+    var isFailed by remember { mutableStateOf(false) }
     
     // 计时器 - 加载时每秒增加
     LaunchedEffect(viewModel.isLoading) {
         if (viewModel.isLoading) {
             elapsedSeconds = 0
             isCompleted = false
+            isFailed = false
             // 显示灵动岛
             if (dynamicIslandState == DynamicIslandState.Hidden) {
                 dynamicIslandState = DynamicIslandState.Collapsed
@@ -363,12 +365,19 @@ private fun LiquidGlassChatContent(
                 elapsedSeconds++
             }
         } else if (dynamicIslandState != DynamicIslandState.Hidden) {
-            // 加载完成后，显示完成状态
-            isCompleted = true
-            // 等待 2.5 秒让用户看到完成动画
+            // 检测是否失败（通过 viewModel.showError 判断）
+            if (viewModel.showError) {
+                isFailed = true
+                isCompleted = false
+            } else {
+                isCompleted = true
+                isFailed = false
+            }
+            // 等待 2.5 秒让用户看到完成/失败动画
             kotlinx.coroutines.delay(2500)
             dynamicIslandState = DynamicIslandState.Hidden
             isCompleted = false
+            isFailed = false
         }
     }
 
@@ -1086,7 +1095,8 @@ private fun LiquidGlassChatContent(
             state = dynamicIslandState,
             tokenCount = viewModel.streamingTokenCount,
             elapsedSeconds = elapsedSeconds,
-            isCompleted = isCompleted
+            isCompleted = isCompleted,
+            isFailed = isFailed
         ),
         backdrop = backdrop,
         modifier = Modifier

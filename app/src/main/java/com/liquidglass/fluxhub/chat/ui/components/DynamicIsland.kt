@@ -54,7 +54,8 @@ data class DynamicIslandData(
     val state: DynamicIslandState = DynamicIslandState.Hidden,
     val tokenCount: Int = 0,          // 已生成 token 数量
     val elapsedSeconds: Int = 0,      // 已耗时秒数
-    val isCompleted: Boolean = false  // 是否已完成（用于显示完成动画）
+    val isCompleted: Boolean = false, // 是否已完成（用于显示完成动画）
+    val isFailed: Boolean = false     // 是否失败（用于显示错误动画）
 )
 
 @Composable
@@ -191,7 +192,18 @@ private fun CollapsedContent(data: DynamicIslandData) {
         horizontalArrangement = Arrangement.Center,
         modifier = Modifier.fillMaxSize()
     ) {
-        if (data.isCompleted) {
+        if (data.isFailed) {
+            // 失败状态：显示动画叉叉
+            AnimatedXMark(modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "失败",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = Color(0xFFFF3B30), // 红色
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        } else if (data.isCompleted) {
             // 完成状态：显示动画勾
             AnimatedCheckmark(modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -336,6 +348,98 @@ private fun AnimatedCheckmark(modifier: Modifier = Modifier) {
                 color = greenColor,
                 style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
             )
+        }
+    }
+}
+
+/**
+ * 动画叉叉 - 先画红色圆圈，再画X
+ */
+@Composable
+private fun AnimatedXMark(modifier: Modifier = Modifier) {
+    // 圆圈绘制进度 (0 -> 1)
+    val circleProgress = remember { Animatable(0f) }
+    // X 绘制进度 (0 -> 1)
+    val xProgress = remember { Animatable(0f) }
+    
+    LaunchedEffect(Unit) {
+        // 先画圆圈 (500ms)
+        circleProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(500, easing = FastOutSlowInEasing)
+        )
+        // 再画 X (400ms)
+        xProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(400, easing = FastOutSlowInEasing)
+        )
+    }
+    
+    val redColor = Color(0xFFFF3B30)
+    
+    Canvas(modifier = modifier) {
+        val strokeWidth = 2.dp.toPx()
+        val radius = (size.minDimension / 2) - strokeWidth
+        val center = center
+        
+        // 绘制圆圈 - 从顶部顺时针画
+        if (circleProgress.value > 0f) {
+            drawArc(
+                color = redColor,
+                startAngle = -90f,
+                sweepAngle = 360f * circleProgress.value,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            )
+        }
+        
+        // 绘制 X - 两笔画出
+        if (xProgress.value > 0f) {
+            val offset = radius * 0.4f
+            
+            // 第一笔: 左上 -> 右下 (0 - 0.5 进度)
+            val firstStrokeProgress = (xProgress.value / 0.5f).coerceIn(0f, 1f)
+            if (firstStrokeProgress > 0f) {
+                val startX1 = center.x - offset
+                val startY1 = center.y - offset
+                val endX1 = center.x + offset
+                val endY1 = center.y + offset
+                
+                val path1 = Path().apply {
+                    moveTo(startX1, startY1)
+                    lineTo(
+                        startX1 + (endX1 - startX1) * firstStrokeProgress,
+                        startY1 + (endY1 - startY1) * firstStrokeProgress
+                    )
+                }
+                drawPath(
+                    path = path1,
+                    color = redColor,
+                    style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+            }
+            
+            // 第二笔: 右上 -> 左下 (0.5 - 1.0 进度)
+            if (xProgress.value > 0.5f) {
+                val secondStrokeProgress = ((xProgress.value - 0.5f) / 0.5f).coerceIn(0f, 1f)
+                val startX2 = center.x + offset
+                val startY2 = center.y - offset
+                val endX2 = center.x - offset
+                val endY2 = center.y + offset
+                
+                val path2 = Path().apply {
+                    moveTo(startX2, startY2)
+                    lineTo(
+                        startX2 + (endX2 - startX2) * secondStrokeProgress,
+                        startY2 + (endY2 - startY2) * secondStrokeProgress
+                    )
+                }
+                drawPath(
+                    path = path2,
+                    color = redColor,
+                    style = Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+            }
         }
     }
 }
