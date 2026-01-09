@@ -166,7 +166,7 @@ fun DynamicIslandSettingsScreen(
                     valueRange = 1f..10f,
                     visibilityThreshold = 0.5f,
                     backdrop = backdrop,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(30.dp)
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
