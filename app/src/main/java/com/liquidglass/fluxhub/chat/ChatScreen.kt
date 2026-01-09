@@ -355,8 +355,8 @@ private fun LiquidGlassChatContent(
             elapsedSeconds = 0
             isCompleted = false
             isFailed = false
-            // 显示灵动岛
-            if (dynamicIslandState == DynamicIslandState.Hidden) {
+            // 显示灵动岛（仅当启用时）
+            if (viewModel.dynamicIslandEnabled && dynamicIslandState == DynamicIslandState.Hidden) {
                 dynamicIslandState = DynamicIslandState.Collapsed
             }
             // 开始计时
@@ -384,10 +384,20 @@ private fun LiquidGlassChatContent(
     // 成功消息（可自定义）
     var successMessage by remember { mutableStateOf("完成") }
     
-    // 启动时显示登录成功提示（仅首次）
+    // 启动时显示登录成功提示
     var hasShownLoginSuccess by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        if (!hasShownLoginSuccess) {
+        // 检查是否启用灵动岛
+        if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
+        
+        // 检查通知模式
+        val shouldShow = when (viewModel.loginNotificationMode) {
+            "every" -> true // 每次都显示
+            "first" -> !hasShownLoginSuccess // 仅首次显示
+            else -> !hasShownLoginSuccess
+        }
+        
+        if (shouldShow) {
             hasShownLoginSuccess = true
             // 短暂延迟让界面先加载
             kotlinx.coroutines.delay(500)
@@ -395,8 +405,8 @@ private fun LiquidGlassChatContent(
             successMessage = "登录成功"
             isCompleted = true
             dynamicIslandState = DynamicIslandState.Collapsed
-            // 2.5 秒后隐藏
-            kotlinx.coroutines.delay(2500)
+            // 使用配置的显示时长
+            kotlinx.coroutines.delay(viewModel.dynamicIslandDuration * 1000L)
             dynamicIslandState = DynamicIslandState.Hidden
             isCompleted = false
             successMessage = "完成" // 恢复默认
