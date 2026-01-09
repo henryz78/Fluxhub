@@ -196,6 +196,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
+    // ========== 灵动岛配置项 ==========
+    var dynamicIslandEnabled by mutableStateOf(true)
+        private set
+    var loginNotificationMode by mutableStateOf("first") // "first" or "every"
+        private set
+    var dynamicIslandDuration by mutableStateOf(3) // 秒
+        private set
+    var showTokenCount by mutableStateOf(true)
+        private set
+    var showElapsedTime by mutableStateOf(true)
+        private set
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -264,6 +275,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.contextSize.collect { contextSize = it }
+        }
+        // 加载灵动岛配置项
+        viewModelScope.launch {
+            settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.loginNotificationMode.collect { loginNotificationMode = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.dynamicIslandDuration.collect { dynamicIslandDuration = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.showTokenCount.collect { showTokenCount = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.showElapsedTime.collect { showElapsedTime = it }
         }
     }
     
@@ -929,6 +956,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         contextSize = value
         viewModelScope.launch {
             settingsRepository.setContextSize(value)
+        }
+    }
+    
+    // ========== 灵动岛配置项更新方法 ==========
+    
+    fun updateDynamicIslandEnabled(value: Boolean) {
+        dynamicIslandEnabled = value
+        viewModelScope.launch {
+            settingsRepository.setDynamicIslandEnabled(value)
+        }
+    }
+    
+    fun updateLoginNotificationMode(value: String) {
+        loginNotificationMode = value
+        viewModelScope.launch {
+            settingsRepository.setLoginNotificationMode(value)
+        }
+    }
+    
+    fun updateDynamicIslandDuration(value: Int) {
+        dynamicIslandDuration = value
+        viewModelScope.launch {
+            settingsRepository.setDynamicIslandDuration(value)
+        }
+    }
+    
+    fun updateShowTokenCount(value: Boolean) {
+        showTokenCount = value
+        viewModelScope.launch {
+            settingsRepository.setShowTokenCount(value)
+        }
+    }
+    
+    fun updateShowElapsedTime(value: Boolean) {
+        showElapsedTime = value
+        viewModelScope.launch {
+            settingsRepository.setShowElapsedTime(value)
         }
     }
     
