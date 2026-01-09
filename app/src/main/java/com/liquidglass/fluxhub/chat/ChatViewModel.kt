@@ -1206,6 +1206,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
                 Log.d(TAG, "SSE onOpen: ${response.code}")
+                streamingTokenCount = 0 // 重置 token 计数
             }
             
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
@@ -1267,6 +1268,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
+                            
+                            // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
+                            streamingTokenCount += (deltaContent.length / 4).coerceAtLeast(1)
                             
                             // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
