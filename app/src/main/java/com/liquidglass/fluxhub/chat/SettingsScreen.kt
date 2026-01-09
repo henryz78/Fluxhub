@@ -41,7 +41,8 @@ fun SettingsScreen(
     bottomPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToAssistants: () -> Unit = {},
     onNavigateToProviders: () -> Unit = {},
-    onNavigateToDisplay: () -> Unit = {}
+    onNavigateToDisplay: () -> Unit = {},
+    onNavigateToDynamicIsland: () -> Unit = {}
 ) {
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
@@ -221,6 +222,19 @@ fun SettingsScreen(
                     glassOpacity = glassOpacity,
                     glassBlur = glassBlur,
                     onClick = onNavigateToDisplay
+                )
+            }
+            
+            // 灵动岛设置
+            item {
+                SettingsCategoryCard(
+                    icon = { Icon(Lucide.Smartphone, null, tint = Color(0xFF5856D6), modifier = Modifier.size(24.dp)) },
+                    title = "灵动岛设置",
+                    subtitle = "状态通知与动画效果",
+                    backdrop = backdrop,
+                    glassOpacity = glassOpacity,
+                    glassBlur = glassBlur,
+                    onClick = onNavigateToDynamicIsland
                 )
             }
             

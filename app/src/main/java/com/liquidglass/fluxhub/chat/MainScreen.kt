@@ -218,6 +218,12 @@ fun MainScreen(
                                     backdrop = backdrop,
                                     bottomPadding = PaddingValues(bottom = bottomPadding)
                                 )
+                                "dynamic_island_settings" -> DynamicIslandSettingsScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
                                 else -> SettingsScreen(
                                     onBack = { selectedTab = 1 },
                                     viewModel = viewModel,
@@ -226,7 +232,8 @@ fun MainScreen(
                                     bottomPadding = PaddingValues(bottom = bottomPadding),
                                     onNavigateToAssistants = { settingsSubPage = "assistants" },
                                     onNavigateToProviders = { settingsSubPage = "providers" },
-                                    onNavigateToDisplay = { settingsSubPage = "display_settings" }
+                                    onNavigateToDisplay = { settingsSubPage = "display_settings" },
+                                    onNavigateToDynamicIsland = { settingsSubPage = "dynamic_island_settings" }
                                 )
                             }
                         }
