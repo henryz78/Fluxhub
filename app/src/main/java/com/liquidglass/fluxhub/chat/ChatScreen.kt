@@ -148,14 +148,14 @@ fun ChatScreen(
     // 底部标记 key (参考 RikkaHub)
     val ScrollBottomKey = "scroll_bottom_spacer"
     
-    // 判断是否在底部 (参考 RikkaHub ChatListNormal.isAtBottom)
+    // 判断是否在底部 (完全对齐 RikkaHub ChatListNormal.isAtBottom)
     fun List<LazyListItemInfo>.isAtBottom(): Boolean {
         val lastItem = lastOrNull() ?: return true
         // 如果最后一个可见的是 spacer，认为在底部
         if (lastItem.key == ScrollBottomKey) {
             return true
         }
-        // 如果最后一条消息可见且底部接近视口底部
+        // 如果最后一个可见消息接近视口底部
         val viewportEnd = listState.layoutInfo.viewportEndOffset
         return lastItem.offset + lastItem.size <= viewportEnd + lastItem.size * 0.15 + 32
     }
@@ -163,17 +163,32 @@ fun ChatScreen(
     // 自动跟随键盘滚动 (参考 RikkaHub)
     ImeLazyListAutoScroller(lazyListState = listState)
     
-    // 自动滚动到底部 (参考 RikkaHub 的 snapshotFlow 实现)
+    // 获取最新状态用于自动滚动 (参考 RikkaHub)
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    val messagesCount by rememberUpdatedState(viewModel.messages.size)
+    val messagesSnapshot by rememberUpdatedState(viewModel.messages.toList())
     
+    // 自动滚动到底部 (完全对齐 RikkaHub 的 snapshotFlow 实现)
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
-            // 只在正在加载且用户没有手动滚动时自动跟随
+            // 只在加载中且不在用户手动滚动时自动跟随
             if (!listState.isScrollInProgress && loadingState) {
                 if (visibleItemsInfo.isAtBottom()) {
-                    // 使用 requestScrollToItem 而非 scrollToItem，性能更好
-                    listState.requestScrollToItem(messagesCount + 10) // +10 确保滚动到 spacer
+                    // 滚动到消息列表末尾 + 偏移量确保到达 spacer
+                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+                }
+            }
+        }
+    }
+    
+    // 消息内容变化时滚动到底部 (流式输出时)
+    LaunchedEffect(Unit) {
+        snapshotFlow { 
+            messagesSnapshot.lastOrNull()?.content?.length ?: 0 
+        }.collect { contentLength ->
+            if (loadingState && contentLength > 0) {
+                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                if (visibleItems.isAtBottom()) {
+                    listState.requestScrollToItem(messagesSnapshot.size + 10)
                 }
             }
         }
@@ -185,10 +200,10 @@ fun ChatScreen(
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
             viewModel.sendMessage(textToSend)
-            // 发送后立即滚动到底部
+            // 发送后平滑滚动到底部
             scope.launch {
-                kotlinx.coroutines.delay(100)
-                listState.requestScrollToItem(viewModel.messages.size + 10)
+                kotlinx.coroutines.delay(50)
+                listState.animateScrollToItem(viewModel.messages.size + 10)
             }
         }
     }
@@ -2015,7 +2030,7 @@ private fun ReasoningLevelCard(
             .fillMaxWidth()
             .height(64.dp),
         isInteractive = true,
-        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)
+        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f) // 提高可见度
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

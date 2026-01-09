@@ -199,6 +199,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var messagesJob: Job? = null
     private var conversationsJob: Job? = null
     
+    // 模型列表获取任务（防抖）
+    private var fetchModelsJob: Job? = null
+    
     init {
         loadSettings()
         startConversationsCollection()
@@ -266,7 +269,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchModels() {
         if (apiKey.isBlank() || baseUrl.isBlank()) return
         
-        viewModelScope.launch {
+        // 取消之前的获取任务（防抖）
+        fetchModelsJob?.cancel()
+        
+        fetchModelsJob = viewModelScope.launch {
+            // 延迟 200ms 防抖，避免 apiKey 和 baseUrl 同时变化时多次调用
+            kotlinx.coroutines.delay(200)
+            
             try {
                 val url = "$baseUrl/models"
                 Log.d(TAG, "Fetching models from: $url")
@@ -501,12 +510,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * 重新生成消息 (参考 RikkaHub - 支持消息分支)
+     * 重新生成消息
      * 
      * @param messageId 消息 ID
-     * @param createBranch 如果为 true，创建新版本而不是替换（消息分支）
+     * 
+     * 行为：
+     * - 用户消息：删除该消息之后的所有消息，从该用户消息重新生成 AI 回复
+     * - AI 消息：删除该 AI 消息及其后续所有消息，从上一条用户消息重新生成
      */
-    fun regenerate(messageId: String, createBranch: Boolean = true) {
+    fun regenerate(messageId: String) {
         val message = messages.find { it.id == messageId } ?: return
         val conversationId = currentConversationId ?: return
         
@@ -515,52 +527,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         generationJob = viewModelScope.launch {
             try {
+                val messageIndex = messages.indexOfFirst { it.id == messageId }
+                if (messageIndex < 0) return@launch
+                
                 if (message.role == "user") {
-                    // 从用户消息重新生成 AI 回复
-                    val messageIndex = messages.indexOfFirst { it.id == messageId }
-                    if (messageIndex >= 0) {
-                        // 删除该用户消息之后的所有消息
-                        val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
-                        idsToDelete.forEach { id ->
-                            messageDao.deleteMessage(id)
-                        }
-                        messages.removeAll { idsToDelete.contains(it.id) }
+                    // 用户消息：删除该消息之后的所有消息，保留用户消息
+                    val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+                    idsToDelete.forEach { id ->
+                        messageDao.deleteMessage(id)
                     }
+                    messages.removeAll { idsToDelete.contains(it.id) }
+                    // 从该用户消息重新生成 AI 回复
                     initiateAiResponse(conversationId)
                 } else {
-                    // AI 消息：创建新版本
-                    if (createBranch) {
-                        // 分支模式：保留原消息，标记为旧版本
-                        val messageIndex = messages.indexOfFirst { it.id == messageId }
-                        if (messageIndex >= 0) {
-                            val originalMessage = messages[messageIndex]
-                            val newVersionIndex = originalMessage.versionIndex + 1
-                            
-                            // 更新原消息的 totalVersions
-                            messages[messageIndex] = originalMessage.copy(
-                                totalVersions = newVersionIndex + 1
-                            )
-                            
-                            // 在数据库中也更新
-                            messageDao.insertMessage(MessageEntity(
-                                id = originalMessage.id,
-                                conversationId = conversationId,
-                                role = originalMessage.role,
-                                content = originalMessage.content,
-                                thinkingContent = originalMessage.thinkingContent,
-                                model = originalMessage.model,
-                                timestamp = originalMessage.timestamp
-                            ))
-                        }
-                        
-                        // 生成新版本的 AI 回复
-                        initiateAiResponseWithParent(conversationId, messageId)
-                    } else {
-                        // 替换模式：删除原消息
-                        messageDao.deleteMessage(messageId)
-                        messages.removeAll { it.id == messageId }
-                        initiateAiResponse(conversationId)
+                    // AI 消息：删除该 AI 消息及其后续所有消息
+                    val idsToDelete = messages.drop(messageIndex).map { it.id }
+                    idsToDelete.forEach { id ->
+                        messageDao.deleteMessage(id)
                     }
+                    messages.removeAll { idsToDelete.contains(it.id) }
+                    // 从上一条用户消息重新生成 AI 回复
+                    initiateAiResponse(conversationId)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "regenerate failed", e)
