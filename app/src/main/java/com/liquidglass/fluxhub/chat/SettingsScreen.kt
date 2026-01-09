@@ -228,7 +228,7 @@ fun SettingsScreen(
             // 灵动岛设置
             item {
                 SettingsCategoryCard(
-                    icon = { Icon(Lucide.Smartphone, null, tint = Color(0xFF5856D6), modifier = Modifier.size(24.dp)) },
+                    icon = { Icon(Lucide.Settings, null, tint = Color(0xFF5856D6), modifier = Modifier.size(24.dp)) },
                     title = "灵动岛设置",
                     subtitle = "状态通知与动画效果",
                     backdrop = backdrop,

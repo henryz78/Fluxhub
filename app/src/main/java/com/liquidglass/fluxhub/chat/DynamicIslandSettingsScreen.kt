@@ -161,10 +161,10 @@ fun DynamicIslandSettingsScreen(
                 }
                 Spacer(Modifier.height(12.dp))
                 LiquidSlider(
-                    value = dynamicIslandDuration.toFloat(),
+                    value = { dynamicIslandDuration.toFloat() },
                     onValueChange = { viewModel.updateDynamicIslandDuration(it.toInt()) },
                     valueRange = 1f..10f,
-                    steps = 8,
+                    visibilityThreshold = 0.5f,
                     backdrop = backdrop,
                     modifier = Modifier.fillMaxWidth()
                 )
