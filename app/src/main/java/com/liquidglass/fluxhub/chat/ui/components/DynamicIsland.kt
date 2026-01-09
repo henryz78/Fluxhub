@@ -55,7 +55,8 @@ data class DynamicIslandData(
     val tokenCount: Int = 0,          // 已生成 token 数量
     val elapsedSeconds: Int = 0,      // 已耗时秒数
     val isCompleted: Boolean = false, // 是否已完成（用于显示完成动画）
-    val isFailed: Boolean = false     // 是否失败（用于显示错误动画）
+    val isFailed: Boolean = false,    // 是否失败（用于显示错误动画）
+    val successMessage: String = "完成" // 成功时显示的文字
 )
 
 @Composable
@@ -208,7 +209,7 @@ private fun CollapsedContent(data: DynamicIslandData) {
             AnimatedCheckmark(modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "完成",
+                text = data.successMessage, // 使用自定义成功消息
                 style = MaterialTheme.typography.labelLarge.copy(
                     color = Color(0xFF34C759), // 绿色
                     fontWeight = FontWeight.Bold

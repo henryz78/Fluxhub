@@ -380,6 +380,28 @@ private fun LiquidGlassChatContent(
             isFailed = false
         }
     }
+    
+    // 成功消息（可自定义）
+    var successMessage by remember { mutableStateOf("完成") }
+    
+    // 启动时显示登录成功提示（仅首次）
+    var hasShownLoginSuccess by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!hasShownLoginSuccess) {
+            hasShownLoginSuccess = true
+            // 短暂延迟让界面先加载
+            kotlinx.coroutines.delay(500)
+            // 显示登录成功
+            successMessage = "登录成功"
+            isCompleted = true
+            dynamicIslandState = DynamicIslandState.Collapsed
+            // 2.5 秒后隐藏
+            kotlinx.coroutines.delay(2500)
+            dynamicIslandState = DynamicIslandState.Hidden
+            isCompleted = false
+            successMessage = "完成" // 恢复默认
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -1096,7 +1118,8 @@ private fun LiquidGlassChatContent(
             tokenCount = viewModel.streamingTokenCount,
             elapsedSeconds = elapsedSeconds,
             isCompleted = isCompleted,
-            isFailed = isFailed
+            isFailed = isFailed,
+            successMessage = successMessage
         ),
         backdrop = backdrop,
         modifier = Modifier
