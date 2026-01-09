@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
@@ -1123,19 +1124,21 @@ private fun LiquidGlassChatBubble(
                     onLongClick = onLongClick
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
-            CompositionLocalProvider(
-                LocalContentColor provides Color.White,
-                LocalTextStyle provides TextStyle(
-                    fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
-                    color = Color.White,
-                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
-                )
             ) {
-                Column {
+                // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
+                CompositionLocalProvider(
+                    LocalContentColor provides Color.White,
+                    LocalTextStyle provides TextStyle(
+                        fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        color = Color.White,
+                        fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
+                    )
+                ) {
+                    // 使用 SelectionContainer 支持文本选择复制
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Column {
                     // 1. 如果有思考内容，则显示
                     if (!message.thinkingContent.isNullOrBlank()) {
                         ThinkingComponent(
@@ -1213,26 +1216,80 @@ private fun LiquidGlassChatBubble(
             var showDeleteDialog by remember { mutableStateOf(false) }
             
             if (showDeleteDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("删除消息") },
-                    text = { Text("确定要删除这条消息吗？") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                viewModel.deleteMessage(message.id)
-                                showDeleteDialog = false
+                // 液态玻璃样式的删除确认对话框
+                Dialog(onDismissRequest = { showDeleteDialog = false }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousRoundedRectangle(24.dp) },
+                                effects = {
+                                    vibrancy()
+                                    blur(6f.dp.toPx())
+                                    lens(12f.dp.toPx(), 24f.dp.toPx())
+                                },
+                                highlight = { Highlight.Plain },
+                                onDrawSurface = {
+                                    drawRect(Color.White.copy(alpha = 0.25f))
+                                }
+                            )
+                            .drawBehind {
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
+                                )
                             }
+                            .padding(24.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text("删除", color = Color.Red)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteDialog = false }) {
-                            Text("取消")
+                            Icon(
+                                imageVector = Lucide.Trash2,
+                                contentDescription = null,
+                                tint = Color(0xFFFF453A),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "删除消息",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "确定要删除这条消息吗？",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                LiquidButton(
+                                    onClick = { showDeleteDialog = false },
+                                    backdrop = backdrop,
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    tint = Color.White.copy(alpha = 0.2f)
+                                ) {
+                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
+                                }
+                                LiquidButton(
+                                    onClick = {
+                                        viewModel.deleteMessage(message.id)
+                                        showDeleteDialog = false
+                                    },
+                                    backdrop = backdrop,
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    tint = Color(0xFFFF453A).copy(alpha = 0.6f)
+                                ) {
+                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
-                )
+                }
             }
             
             MessageActionButtons(
