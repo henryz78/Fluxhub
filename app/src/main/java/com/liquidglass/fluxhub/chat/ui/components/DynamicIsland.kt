@@ -56,7 +56,9 @@ data class DynamicIslandData(
     val elapsedSeconds: Int = 0,      // 已耗时秒数
     val isCompleted: Boolean = false, // 是否已完成（用于显示完成动画）
     val isFailed: Boolean = false,    // 是否失败（用于显示错误动画）
-    val successMessage: String = "完成" // 成功时显示的文字
+    val successMessage: String = "完成", // 成功时显示的文字
+    val showTokenCount: Boolean = true, // 是否显示 Token 计数
+    val showElapsedTime: Boolean = true // 是否显示耗时
 )
 
 @Composable
@@ -238,8 +240,8 @@ private fun CollapsedContent(data: DynamicIslandData) {
             
             Spacer(modifier = Modifier.width(6.dp))
             
-            // Token 计数
-            if (data.tokenCount > 0) {
+            // Token 计数（仅当启用且有数据时显示）
+            if (data.showTokenCount && data.tokenCount > 0) {
                 Text(
                     text = "${data.tokenCount}",
                     style = MaterialTheme.typography.labelMedium.copy(
@@ -257,14 +259,16 @@ private fun CollapsedContent(data: DynamicIslandData) {
                 Spacer(modifier = Modifier.width(8.dp))
             }
             
-            // 耗时
-            Text(
-                text = "${data.elapsedSeconds}s",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontWeight = FontWeight.Medium
+            // 耗时（仅当启用时显示）
+            if (data.showElapsedTime) {
+                Text(
+                    text = "${data.elapsedSeconds}s",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Medium
+                    )
                 )
-            )
+            }
         }
     }
 }

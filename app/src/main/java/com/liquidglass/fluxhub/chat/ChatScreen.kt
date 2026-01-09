@@ -1129,7 +1129,9 @@ private fun LiquidGlassChatContent(
             elapsedSeconds = elapsedSeconds,
             isCompleted = isCompleted,
             isFailed = isFailed,
-            successMessage = successMessage
+            successMessage = successMessage,
+            showTokenCount = viewModel.showTokenCount,
+            showElapsedTime = viewModel.showElapsedTime
         ),
         backdrop = backdrop,
         modifier = Modifier
