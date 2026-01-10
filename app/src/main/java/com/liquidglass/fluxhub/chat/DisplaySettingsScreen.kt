@@ -35,7 +35,6 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
-
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
@@ -51,23 +50,6 @@ fun DisplaySettingsScreen(
     val wallpaperUri = viewModel.wallpaperUri
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
-    
-    // ... (rest of function until LiquidToggle)
-
-                com.liquidglass.fluxhub.components.LiquidToggle(
-                    selected = { viewModel.hapticFeedbackEnabled },
-                    onSelect = { 
-                        viewModel.updateHapticFeedbackEnabled(it)
-                        if (it) {
-                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        }
-                    },
-                    backdrop = backdrop
-                )
-            }
-        }
-    }
-}
     
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
