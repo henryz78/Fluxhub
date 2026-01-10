@@ -1069,7 +1069,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 // 构建消息列表（共用逻辑）
-                val requestMessages = buildApiMessages(messages)
+                val requestMessages = buildApiMessages(messages, aiMessageId)
                 
                 // 根据 thinkingBudget 计算 reasoning_effort 级别
                 val reasoningEffort = when (thinkingBudget) {
@@ -1190,12 +1190,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private fun buildApiMessages(history: List<UiMessage>): List<ChatMessage> {
-        Log.d(TAG, "Building API messages from history of size ${history.size}")
+    private fun buildApiMessages(history: List<UiMessage>, aiMessageId: String? = null): List<ChatMessage> {
+        Log.d(TAG, "Building API messages from history of size ${history.size}, excluding: $aiMessageId")
         val baseMessages = history
-            // 关键：必须排除当前正在生成的(isStreaming)或者还没内容的助手消息
+            // 关键：必须排除当前正在生成的(isStreaming)或者占位符消息
             // 否则 API 会因为 history 以 assistant 消息结尾而返回 400 错误
-            .filter { it.role == "user" || (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank()) }
+            .filter { 
+                it.role == "user" || 
+                (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank() && it.id != aiMessageId && it.content != "正在思考...")
+            }
             .takeLast(contextSize) // 直接限制上下文数量
 
         val processedMsgs = baseMessages.map { message ->
@@ -1261,7 +1264,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
                 
-                val messagesWithSystem = buildApiMessages(messages)
+                val messagesWithSystem = buildApiMessages(messages, aiMessageId)
                 
                 // 根据 thinkingBudget 计算 reasoning_effort 级别
                 val reasoningEffort = when (thinkingBudget) {
