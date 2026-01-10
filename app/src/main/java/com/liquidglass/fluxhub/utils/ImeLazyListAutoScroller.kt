@@ -24,20 +24,20 @@ fun ImeLazyListAutoScroller(
 ) {
     val ime = WindowInsets.ime
     val localDensity = LocalDensity.current
-    var imeHeight by remember { mutableIntStateOf(0) }
+    var imeHeigh by remember { mutableIntStateOf(0) }
     
     LaunchedEffect(Unit) {
         snapshotFlow {
             ime.getBottom(localDensity)
-        }
-        .distinctUntilChanged() // 避免相同高度重复触发
-        .collect { keyboardHeight ->
-            val delta = keyboardHeight - imeHeight
-            if (delta != 0) {
-                // 使用 animateScrollBy 使滚动更平滑
-                lazyListState.animateScrollBy(delta.toFloat())
+        }.collect { keyboardHeight ->
+            if (keyboardHeight > 0) {
+                if (imeHeigh < keyboardHeight) {
+                    lazyListState.scrollBy((keyboardHeight - imeHeigh).toFloat())
+                } else {
+                    lazyListState.scrollBy((keyboardHeight - imeHeigh).toFloat())
+                }
+                imeHeigh = keyboardHeight
             }
-            imeHeight = keyboardHeight
         }
     }
 }

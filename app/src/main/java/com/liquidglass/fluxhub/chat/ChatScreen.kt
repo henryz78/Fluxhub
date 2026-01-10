@@ -161,35 +161,42 @@ fun ChatScreen(
         return lastItem.offset + lastItem.size <= viewportEnd + lastItem.size * 0.15 + 32
     }
 
-    // 自动跟随键盘滚动 (参考 RikkaHub)
-    ImeLazyListAutoScroller(lazyListState = listState)
+    // 官方设计：发送消息时自动滑动，AI 生成时跟随
+    var isRecentScroll by remember { mutableStateOf(false) }
     
-    // 获取最新状态用于自动滚动 (参考 RikkaHub)
+    // 追踪用户手动滚动，暂时暂停自动跟随
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            isRecentScroll = true
+            kotlinx.coroutines.delay(2000)
+            isRecentScroll = false
+        }
+    }
+    
+    // 获取最新状态用于自动滚动 (过滤系统消息以对齐列表索引)
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    val messagesSnapshot by rememberUpdatedState(viewModel.messages.toList())
+    val messagesSnapshot by rememberUpdatedState(viewModel.messages.filter { it.role != "system" })
     
-    // 自动滚动到底部 (完全对齐 RikkaHub 的 snapshotFlow 实现)
+    // 自动滚动到底部 (精简版官方逻辑)
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
-            // 只在加载中且不在用户手动滚动时自动跟随
-            if (!listState.isScrollInProgress && loadingState) {
+            // 只在加载中且用户最近没有手动大幅度滚动时自动跟随
+            if (!listState.isScrollInProgress && !isRecentScroll && loadingState) {
                 if (visibleItemsInfo.isAtBottom()) {
-                    // 滚动到消息列表末尾 + 偏移量确保到达 spacer
-                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+                    listState.requestScrollToItem(messagesSnapshot.size)
                 }
             }
         }
     }
     
-    // 消息内容变化时滚动到底部 (流式输出时)
-    LaunchedEffect(Unit) {
-        snapshotFlow { 
-            messagesSnapshot.lastOrNull()?.content?.length ?: 0 
-        }.collect { contentLength ->
-            if (loadingState && contentLength > 0) {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                if (visibleItems.isAtBottom()) {
-                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+
+    // 强制跟随流式内容长度变化
+    LaunchedEffect(loadingState) {
+        if (loadingState) {
+            snapshotFlow { messagesSnapshot.lastOrNull()?.content?.length ?: 0 }.collect {
+                // 增加小延迟确保内容渲染后滚动
+                if (!listState.isScrollInProgress && !isRecentScroll && listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
+                    listState.requestScrollToItem(messagesSnapshot.size)
                 }
             }
         }
@@ -201,10 +208,9 @@ fun ChatScreen(
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
             viewModel.sendMessage(textToSend)
-            // 发送后平滑滚动到底部
+            // 发送后立即滚动到底部 (官方通常是立即到达底部)
             scope.launch {
-                kotlinx.coroutines.delay(50)
-                listState.animateScrollToItem(viewModel.messages.size + 10)
+                listState.scrollToItem(messagesSnapshot.size)
             }
         }
     }
@@ -514,7 +520,7 @@ private fun LiquidGlassChatContent(
                 Spacer(
                     Modifier
                         .fillMaxWidth()
-                        .height(16.dp)
+                        .height(32.dp) // 保持适中距离
                 )
             }
         }
