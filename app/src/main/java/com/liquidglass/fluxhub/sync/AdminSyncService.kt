@@ -189,29 +189,34 @@ class AdminSyncService(private val context: Context) {
     /**
      * 使用激活码续期
      */
-    suspend fun renew(inviteCode: String): AuthResult = withContext(Dispatchers.IO) {
-        val token = authToken ?: return@withContext AuthResult.Error("未登录")
+    suspend fun renew(inviteCode: String, username: String? = null): AuthResult = withContext(Dispatchers.IO) {
+        val token = authToken
         
         try {
-            val body = json.encodeToString(RenewRequest(inviteCode = inviteCode))
+            val body = json.encodeToString(RenewRequest(inviteCode = inviteCode, username = username))
             
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url("$ADMIN_BASE_URL/api/user-auth/renew")
-                .header("Authorization", "Bearer $token")
                 .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
+            
+            if (!token.isNullOrBlank()) {
+                requestBuilder.header("Authorization", "Bearer $token")
+            }
+                
+            val request = requestBuilder.build()
             
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: "{}"
             
             if (response.isSuccessful) {
                 // 续期成功，重新验证获取用户信息
-                val user = verifyTokenInternal(token)
+                val user = if (!token.isNullOrBlank()) verifyTokenInternal(token) else null
                 if (user != null) {
                     Log.d(TAG, "Renew success: ${user.username}")
                     return@withContext AuthResult.Success(token, user.id, user.username)
                 }
-                return@withContext AuthResult.Success(token, userId ?: "", "")
+                // 即使没有 Token 验证用户，也视为成功，但可能没有完整 ID
+                return@withContext AuthResult.Success(token ?: "", userId ?: "", username ?: "")
             } else {
                 val error = try {
                     json.decodeFromString<ErrorResponse>(responseBody).error
@@ -316,7 +321,8 @@ data class LoginRequest(
 
 @Serializable
 data class RenewRequest(
-    val inviteCode: String
+    val inviteCode: String,
+    val username: String? = null
 )
 
 @Serializable

@@ -53,7 +53,7 @@ sealed class AuthState {
     object Checking : AuthState()
     object NotLoggedIn : AuthState() // 未登录
     data class Authenticated(val userId: String, val username: String) : AuthState()
-    data class Expired(val message: String) : AuthState() // 账户已过期，需要续期
+    data class Expired(val message: String, val username: String) : AuthState() // 账户已过期，需要续期
     data class Blocked(val message: String) : AuthState() // 被禁用
     data class Error(val message: String) : AuthState() // 网络错误
 }
@@ -261,7 +261,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 is AuthResult.Error -> {
                     when {
                         result.message.contains("过期") -> {
-                            authState = AuthState.Expired(result.message)
+                            // 尝试获取本地保存的用户名
+                            val savedUsername = settingsRepository.username.first() ?: ""
+                            authState = AuthState.Expired(result.message, savedUsername)
                         }
                         result.message.contains("禁用") -> {
                             authState = AuthState.Blocked(result.message)
@@ -293,7 +295,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 is AuthResult.Error -> {
                     when {
                         result.message.contains("过期") -> {
-                            authState = AuthState.Expired(result.message)
+                            authState = AuthState.Expired(result.message, username)
                         }
                         result.message.contains("禁用") -> {
                             authState = AuthState.Blocked(result.message)
@@ -343,17 +345,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 使用激活码续期
      */
-    fun renewAccount(inviteCode: String) {
+    fun renewAccount(inviteCode: String, username: String) {
         viewModelScope.launch {
             isCheckingAuth = true
             
-            when (val result = adminSyncService.renew(inviteCode)) {
+            when (val result = adminSyncService.renew(inviteCode, username)) {
                 is AuthResult.Success -> {
                     authState = AuthState.Authenticated(result.userId, result.username)
                 }
                 is AuthResult.Error -> {
                     // 续期失败，保持过期状态
-                    authState = AuthState.Expired(result.message)
+                    authState = AuthState.Expired(result.message, username)
                 }
             }
             isCheckingAuth = false

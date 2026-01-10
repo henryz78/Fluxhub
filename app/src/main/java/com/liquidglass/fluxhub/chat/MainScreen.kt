@@ -180,7 +180,7 @@ fun MainScreen(
                         backdrop = backdrop,
                         message = targetState.message,
                         isCheckingAuth = viewModel.isCheckingAuth,
-                        onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
+                        onRenew = { inviteCode -> viewModel.renewAccount(inviteCode, targetState.username) },
                         onLogout = { viewModel.logout() }
                     )
                 }
