@@ -43,8 +43,11 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.capsule.ContinuousCapsule
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.DpOffset
+import com.kyant.backdrop.effects.vibrancy
 
-@Composable
 @Composable
 fun LiquidToggle(
     selected: () -> Boolean,
@@ -88,7 +91,7 @@ fun LiquidToggle(
                     drawRect(trackColor)
                 }
             )
-            .androidx.compose.foundation.clickable(
+            .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null
             ) { onSelect(!isSelected) },
@@ -115,7 +118,7 @@ fun LiquidToggle(
                          Shadow(
                             radius = 4f.dp,
                             color = Color.Black.copy(alpha = 0.15f),
-                            offset = androidx.compose.ui.geometry.Offset(0f, 2f)
+                            offset = DpOffset(0.dp, 2.dp)
                         )
                     },
                     onDrawSurface = {

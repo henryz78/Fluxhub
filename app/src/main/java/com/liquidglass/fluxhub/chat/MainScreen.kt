@@ -96,6 +96,10 @@ fun MainScreen(
     // 快捷提示词状态
     var pendingPrompt by remember { mutableStateOf<String?>(null) }
     
+    // 保持各页面的子页面状态 (Moved to top scope for access in Bottom Bar)
+    var chatSubPage by remember { mutableStateOf<String?>(null) }
+    var settingsSubPage by remember { mutableStateOf<String?>(null) }
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -127,9 +131,7 @@ fun MainScreen(
             // 使用 key 保持状态，但只显示当前选中的页面
             // 这样避免了 z-index 和触摸事件冲突
             
-            // 保持各页面的子页面状态
-            var chatSubPage by remember { mutableStateOf<String?>(null) }
-            var settingsSubPage by remember { mutableStateOf<String?>(null) }
+            // 保持各页面的子页面状态 (Hoisted)
             
             // BackHandler 处理
             BackHandler(enabled = chatSubPage != null && selectedTab == 1) {
