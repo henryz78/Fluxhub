@@ -51,7 +51,7 @@ data class ChatMessage(
 data class ChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
-    val stream: Boolean = false,
+    val stream: Boolean,
     val temperature: Float? = null,
     @kotlinx.serialization.SerialName("top_p")
     val topP: Float? = null,
@@ -105,7 +105,11 @@ data class Model(
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = true // 确保传过去的 stream: false 等默认值生效
+    }
     
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -1031,11 +1035,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 构建消息列表（共用逻辑）
                 val requestMessages = buildApiMessages()
                 
-                // 处理思考预算 (如果 > 0)
-                //目前 API 协议中标准字段是 max_tokens，思考预算可能是 max_completion_tokens 或其他。
-                // 假设 thinkingBudget 是 max_tokens 的一部分或专用参数。
-                // 鉴于 ChatRequest 定义，这里暂时先不传非标准参数，除非添加相应字段。
-                // 但 contextSize 必须生效。
+                // 根据 thinkingBudget 计算 reasoning_effort 级别
+                val reasoningEffort = when (thinkingBudget) {
+                    0 -> null // 关闭时不传此参数
+                    in 1..4096 -> "low"
+                    in 4097..16000 -> "medium"
+                    else -> "high"
+                }
                 
                 val requestData = ChatRequest(
                     model = model,
@@ -1043,7 +1049,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     stream = false,
                     temperature = temperature,
                     topP = topP,
-                    maxTokens = if (thinkingBudget > 0) thinkingBudget else maxTokens
+                    maxTokens = maxTokens, // 与流式保持一致，不强制传 budget 给基础 max_tokens
+                    reasoningEffort = reasoningEffort
                 )
                 
                 val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
@@ -1055,7 +1062,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val request = Request.Builder()
                     .url("$effectiveBaseUrl/chat/completions")
                     .addHeader("Authorization", "Bearer $effectiveApiKey")
-                    .addHeader("Content-Type", "application/json")
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
                 
