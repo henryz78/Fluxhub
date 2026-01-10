@@ -545,6 +545,7 @@ private fun LiquidGlassChatContent(
                         onInputTextChange(message.content)
                         viewModel.deleteMessageAndFollowing(message.id)
                     },
+                    onSaveImage = { url -> viewModel.saveImageToGallery(url) },
                     hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
                 )
             }
@@ -1077,6 +1078,7 @@ private fun LiquidGlassChatBubble(
     onRegenerate: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
+    onSaveImage: (String) -> Unit,
     hapticFeedbackEnabled: Boolean
 ) {
     val isUser = message.role == "user"
@@ -1269,7 +1271,7 @@ private fun LiquidGlassChatBubble(
                                      
                                      // 下载按钮
                                      LiquidButton(
-                                         onClick = { viewModel.saveImageToGallery(imageUrl) },
+                                         onClick = { onSaveImage(imageUrl) },
                                          backdrop = backdrop,
                                          modifier = Modifier
                                              .align(Alignment.BottomCenter)
@@ -1538,7 +1540,7 @@ private fun LiquidGlassChatInputBar(
                         modifier = Modifier
                             .width(3.dp)
                             .fillMaxHeight()
-                            .padding(vertical = 8.dp, end = 4.dp)
+                            .padding(top = 8.dp, bottom = 8.dp, end = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(Color.White.copy(alpha = 0.3f))
                     )
