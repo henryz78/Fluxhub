@@ -467,10 +467,21 @@ private fun ExpandedContent(data: DynamicIslandData) {
                 modifier = Modifier.padding(end = 12.dp)
             )
             Column {
+                // 根据状态显示不同标题
+                val title = when {
+                    data.isFailed -> "发生错误"
+                    data.isCompleted -> data.successMessage
+                    else -> "AI 正在回复"
+                }
+                val titleColor = when {
+                    data.isFailed -> Color(0xFFFF3B30) // 红色
+                    data.isCompleted -> Color(0xFF34C759) // 绿色
+                    else -> Color.White
+                }
                 Text(
-                    text = "AI 正在回复",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color.White,
+                        color = titleColor,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -483,8 +494,10 @@ private fun ExpandedContent(data: DynamicIslandData) {
             }
         }
         
-        // 可视化波形条 (模拟音频/思维活动)
-        ThinkingWaveform()
+        // 可视化波形条 (仅加载状态显示)
+        if (!data.isCompleted && !data.isFailed) {
+            ThinkingWaveform()
+        }
     }
 }
 

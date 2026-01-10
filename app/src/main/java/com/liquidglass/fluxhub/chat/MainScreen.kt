@@ -430,17 +430,20 @@ fun MainScreen(
             onDismiss = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.hide() }
         )
         
-        // 登录成功通知（仅在首页显示）
+        // 登录成功通知（仅在首页显示，且用户已同意协议后）
         var hasShownLoginSuccess by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
         // 跟踪是否已经在本次应用启动中显示过（用于 "every" 模式，每次启动只显示一次）
         var hasShownThisSession by remember { mutableStateOf(false) }
         
-        LaunchedEffect(selectedTab) {
+        LaunchedEffect(selectedTab, viewModel.agreementAccepted) {
+            // 必须先同意用户协议
+            if (!viewModel.agreementAccepted) return@LaunchedEffect
+            
             // 仅在首页（Tab 0）显示
             if (selectedTab != 0) return@LaunchedEffect
             
-            // 等待 1 秒让 DataStore 设置加载完成
-            kotlinx.coroutines.delay(1000)
+            // 等待 500ms 让协议弹窗消失
+            kotlinx.coroutines.delay(500)
             
             // 直接从 viewModel 读取设置（确保是最新值）
             // 检查是否启用灵动岛
