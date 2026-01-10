@@ -1009,19 +1009,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         initiateAiResponse(conversationId)
     }
 
-    private fun initiateAiResponse(conversationId: String) {
-        // 添加 AI 消息占位符
+    fun initiateAiResponse(conversationId: String) {
+        if (isLoading) return
+        
+        if (model.isBlank()) {
+            showErrorMessage("请先选择模型")
+            return
+        }
+        
+        val streamEnabled = settingsRepository.streamOutput.value
+        isLoading = true
+        
+        // 添加 AI 消息占位符 (优先在主线程添加)
         val aiMessageId = UUID.randomUUID().toString()
         messages.add(UiMessage(
             id = aiMessageId,
             role = "assistant",
-            content = "正在思考...", // 初始占位符，确保气泡可见
+            content = "正在思考...", 
             thinkingContent = "",
             isStreaming = streamEnabled,
             model = model
         ))
         
-        isLoading = true
+        Log.d(TAG, "Initiating AI response: model=$model, stream=$streamEnabled")
+        
         clearError()
         
         if (streamEnabled) {
@@ -1039,7 +1050,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 // 构建消息列表（共用逻辑）
-                val requestMessages = buildApiMessages()
+                val requestMessages = buildApiMessages(messages)
                 
                 // 根据 thinkingBudget 计算 reasoning_effort 级别
                 val reasoningEffort = when (thinkingBudget) {
@@ -1155,8 +1166,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    private fun buildApiMessages(): List<ChatMessage> {
-        val baseMessages = messages
+    private fun buildApiMessages(history: List<UiMessage>): List<ChatMessage> {
+        val baseMessages = history
             .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
             // 排除当前正在生成的空占位符消息，但保留用户消息
             .filter { it.role == "user" || it.content.isNotBlank() }
@@ -1168,7 +1179,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
              baseMessages
         }
 
-        return contextMessages.map { message ->
+        val processedMsgs = contextMessages.map { message ->
             // 解析 Vision 图片 (Markdown: ![image](uri))
             val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
             val contentElement = if (imageMatch != null) {
@@ -1199,21 +1210,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     JsonPrimitive(message.content)
                 }
             } else {
-                JsonPrimitive(message.content)
+                // 如果 content 已经是 JSON 字符串，尝试解析，否则包装成 JsonPrimitive
+                try {
+                    if (message.content.trim().startsWith("[")) {
+                        json.parseToJsonElement(message.content)
+                    } else {
+                        JsonPrimitive(message.content)
+                    }
+                } catch (e: Exception) {
+                    JsonPrimitive(message.content)
+                }
             }
             
             ChatMessage(message.role, contentElement)
-        }.let { apiMsgs ->
-            // 过滤掉 content 为 null 的消息 (不应发生)
-            val finalMsgs = apiMsgs.filter { it.content != null }
+        }
             
-            // 如果有当前助手的系统提示词，添加到消息开头
-            val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
-            if (systemPrompt != null) {
-                listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + finalMsgs
-            } else {
-                finalMsgs
-            }
+        // 过滤无效消息
+        val finalMsgs = processedMsgs.filter { it.content != null }
+        
+        // 注入系统提示词
+        val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
+        if (systemPrompt != null) {
+            return listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + finalMsgs
+        } else {
+            return finalMsgs
         }
     }
 
@@ -1222,7 +1242,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
                 
-                val messagesWithSystem = buildApiMessages()
+                val messagesWithSystem = buildApiMessages(messages)
                 
                 // 根据 thinkingBudget 计算 reasoning_effort 级别
                 val reasoningEffort = when (thinkingBudget) {
