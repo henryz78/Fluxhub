@@ -34,8 +34,8 @@ class AdminSyncService(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)  // Railway 冷启动可能需要 30 秒+
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
     
     // SharedPreferences 用于持久化登录状态

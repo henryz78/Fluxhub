@@ -88,7 +88,7 @@ fun MainScreen(
         is AuthState.Checking -> {
             // 显示加载中
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -101,7 +101,7 @@ fun MainScreen(
         }
         is AuthState.NotLoggedIn, is AuthState.Error -> {
             // 显示登录界面
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                 // 背景图片
                 if (backgroundBitmap != null) {
                     Image(
@@ -156,13 +156,26 @@ fun MainScreen(
         }
         is AuthState.Expired -> {
             // 显示过期续期界面
-            ExpiredScreen(
-                backdrop = backdrop,
-                message = authState.message,
-                isCheckingAuth = viewModel.isCheckingAuth,
-                onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
-                onLogout = { viewModel.logout() }
-            )
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                // 背景图片
+                if (backgroundBitmap != null) {
+                    Image(
+                        bitmap = backgroundBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .layerBackdrop(backdrop)
+                            .fillMaxSize()
+                    )
+                }
+                ExpiredScreen(
+                    backdrop = backdrop,
+                    message = authState.message,
+                    isCheckingAuth = viewModel.isCheckingAuth,
+                    onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
+                    onLogout = { viewModel.logout() }
+                )
+            }
             return
         }
         is AuthState.Authenticated -> {

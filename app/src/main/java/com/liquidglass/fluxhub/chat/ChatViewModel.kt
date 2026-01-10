@@ -226,38 +226,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startProvidersCollection()
         loadOrCreateConversation()
         checkAuth()
-        startPeriodicAuthCheck()
-    }
-    
-    /**
-     * 定时检查认证状态（每5分钟）
-     */
-    private fun startPeriodicAuthCheck() {
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(5 * 60 * 1000L) // 5分钟
-                if (authState is AuthState.Authenticated) {
-                    // 静默检查认证状态
-                    when (val result = adminSyncService.verifyToken()) {
-                        is AuthResult.Success -> { /* 保持登录 */ }
-                        is AuthResult.Error -> {
-                            when {
-                                result.message.contains("过期") -> {
-                                    authState = AuthState.Expired(result.message)
-                                }
-                                result.message.contains("禁用") -> {
-                                    authState = AuthState.Blocked(result.message)
-                                }
-                                else -> {
-                                    settingsRepository.clearAuth()
-                                    authState = AuthState.NotLoggedIn
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
     
     /**
@@ -313,10 +281,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     authState = AuthState.Authenticated(result.userId, result.username)
                 }
                 is AuthResult.Error -> {
-                    if (result.message.contains("禁用")) {
-                        authState = AuthState.Blocked(result.message)
-                    } else {
-                        authState = AuthState.Error(result.message)
+                    when {
+                        result.message.contains("过期") -> {
+                            authState = AuthState.Expired(result.message)
+                        }
+                        result.message.contains("禁用") -> {
+                            authState = AuthState.Blocked(result.message)
+                        }
+                        else -> {
+                            authState = AuthState.Error(result.message)
+                        }
                     }
                 }
             }
@@ -1239,6 +1213,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     } else {
+                        if (response.code == 401 || response.code == 403) {
+                            checkAuth()
+                        }
                         throw Exception("HTTP ${response.code}: ${response.message}")
                     }
                 }
@@ -1488,6 +1465,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 Log.e(TAG, "SSE onFailure: ${t?.message}, response: ${response?.code}")
+
+                if (response?.code == 401 || response?.code == 403) {
+                    checkAuth()
+                }
                 
                 // 在 IO 线程/回调线程读取 response body，避免 NetworkOnMainThreadException
                 val errorBody = try {
