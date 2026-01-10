@@ -31,6 +31,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -385,9 +386,13 @@ private fun LiquidGlassChatContent(
     var successMessage by remember { mutableStateOf("完成") }
     
     // 启动时显示登录成功提示
-    var hasShownLoginSuccess by remember { mutableStateOf(false) }
+    // 使用 rememberSaveable 持久化，避免重复显示
+    var hasShownLoginSuccess by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        // 检查是否启用灵动岛
+        // 等待 1 秒让 DataStore 设置加载完成
+        kotlinx.coroutines.delay(1000)
+        
+        // 再次检查是否启用灵动岛（此时设置应该已加载）
         if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
         
         // 检查通知模式
@@ -399,14 +404,12 @@ private fun LiquidGlassChatContent(
         
         if (shouldShow) {
             hasShownLoginSuccess = true
-            // 短暂延迟让界面先加载
-            kotlinx.coroutines.delay(500)
             // 显示登录成功
             successMessage = "登录成功"
             isCompleted = true
             dynamicIslandState = DynamicIslandState.Collapsed
-            // 使用配置的显示时长
-            kotlinx.coroutines.delay(viewModel.dynamicIslandDuration * 1000L)
+            // 2.5 秒后隐藏
+            kotlinx.coroutines.delay(2500)
             dynamicIslandState = DynamicIslandState.Hidden
             isCompleted = false
             successMessage = "完成" // 恢复默认

@@ -1,7 +1,9 @@
 package com.liquidglass.fluxhub.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -13,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
@@ -25,7 +28,6 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
-import com.liquidglass.fluxhub.components.LiquidSlider
 
 @Composable
 fun DynamicIslandSettingsScreen(
@@ -34,12 +36,6 @@ fun DynamicIslandSettingsScreen(
     backdrop: Backdrop,
     bottomPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    // 从 ViewModel 获取设置
-    val dynamicIslandEnabled = viewModel.dynamicIslandEnabled
-    val loginNotificationMode = viewModel.loginNotificationMode
-    val dynamicIslandDuration = viewModel.dynamicIslandDuration
-    val showTokenCount = viewModel.showTokenCount
-    val showElapsedTime = viewModel.showElapsedTime
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
 
@@ -81,13 +77,13 @@ fun DynamicIslandSettingsScreen(
         Spacer(Modifier.height(32.dp))
         
         // 启用灵动岛
-        SettingsCard(backdrop, glassOpacity, glassBlur) {
+        SettingsCardSimple(backdrop, glassOpacity, glassBlur) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("启用灵动岛", color = Color.White, fontWeight = FontWeight.Bold)
                     Text(
                         "在聊天时显示灵动岛状态指示器",
@@ -96,7 +92,7 @@ fun DynamicIslandSettingsScreen(
                     )
                 }
                 Switch(
-                    checked = dynamicIslandEnabled,
+                    checked = viewModel.dynamicIslandEnabled,
                     onCheckedChange = { viewModel.updateDynamicIslandEnabled(it) },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
@@ -111,85 +107,58 @@ fun DynamicIslandSettingsScreen(
         Spacer(Modifier.height(16.dp))
         
         // 登录成功通知模式
-        SettingsCard(backdrop, glassOpacity, glassBlur) {
+        SettingsCardSimple(backdrop, glassOpacity, glassBlur) {
             Column {
                 Text(
                     "登录成功通知",
-                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "选择何时显示登录成功提示",
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.6f)
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
                 
+                // 选项行
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // 首次触发
-                    SelectableOption(
-                        selected = loginNotificationMode == "first",
+                    // 仅首次
+                    ModeOption(
+                        selected = viewModel.loginNotificationMode == "first",
                         onClick = { viewModel.updateLoginNotificationMode("first") },
                         label = "仅首次",
-                        description = "只在首次进入时显示",
-                        backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                     
-                    // 每次触发
-                    SelectableOption(
-                        selected = loginNotificationMode == "every",
+                    // 每次启动
+                    ModeOption(
+                        selected = viewModel.loginNotificationMode == "every",
                         onClick = { viewModel.updateLoginNotificationMode("every") },
                         label = "每次启动",
-                        description = "每次打开应用都显示",
-                        backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
-        }
-        
-        Spacer(Modifier.height(16.dp))
-        
-        // 显示时长
-        SettingsCard(backdrop, glassOpacity, glassBlur) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("显示时长", color = Color.White, fontWeight = FontWeight.Bold)
-                    Text("${dynamicIslandDuration}秒", color = Color(0xFF007AFF), fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(12.dp))
-                LiquidSlider(
-                    value = { dynamicIslandDuration.toFloat() },
-                    onValueChange = { viewModel.updateDynamicIslandDuration(it.toInt()) },
-                    valueRange = 1f..10f,
-                    visibilityThreshold = 0.5f,
-                    backdrop = backdrop,
-                    modifier = Modifier.fillMaxWidth().height(30.dp)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "完成/失败动画显示的时长",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.5f)
-                )
             }
         }
         
         Spacer(Modifier.height(16.dp))
         
         // 显示选项
-        SettingsCard(backdrop, glassOpacity, glassBlur) {
+        SettingsCardSimple(backdrop, glassOpacity, glassBlur) {
             Column {
                 Text(
                     "显示内容",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
                 
-                // Token 计数
+                // Token 计数开关
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -197,7 +166,7 @@ fun DynamicIslandSettingsScreen(
                 ) {
                     Text("显示 Token 计数", color = Color.White)
                     Switch(
-                        checked = showTokenCount,
+                        checked = viewModel.showTokenCount,
                         onCheckedChange = { viewModel.updateShowTokenCount(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
@@ -208,9 +177,9 @@ fun DynamicIslandSettingsScreen(
                     )
                 }
                 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 
-                // 耗时
+                // 耗时开关
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,7 +187,7 @@ fun DynamicIslandSettingsScreen(
                 ) {
                     Text("显示耗时", color = Color.White)
                     Switch(
-                        checked = showElapsedTime,
+                        checked = viewModel.showElapsedTime,
                         onCheckedChange = { viewModel.updateShowElapsedTime(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
@@ -234,7 +203,7 @@ fun DynamicIslandSettingsScreen(
 }
 
 @Composable
-private fun SettingsCard(
+private fun SettingsCardSimple(
     backdrop: Backdrop,
     glassOpacity: Float,
     glassBlur: Float,
@@ -256,44 +225,40 @@ private fun SettingsCard(
 }
 
 @Composable
-private fun SelectableOption(
+private fun ModeOption(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
-    description: String,
-    backdrop: Backdrop,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle(12.dp) },
-                effects = { vibrancy(); blur(8f.dp.toPx()) },
-                onDrawSurface = {
-                    drawRect(
-                        if (selected) Color(0xFF34C759).copy(alpha = 0.3f)
-                        else Color.White.copy(alpha = 0.1f)
-                    )
-                }
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) Color(0xFF34C759).copy(alpha = 0.3f)
+                else Color.White.copy(alpha = 0.1f)
             )
             .clickable { onClick() }
-            .padding(12.dp)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(
-                    description,
-                    style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f))
-                )
-            }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                label,
+                color = if (selected) Color(0xFF34C759) else Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
             if (selected) {
+                Spacer(Modifier.width(8.dp))
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
                     tint = Color(0xFF34C759),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
