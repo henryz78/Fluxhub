@@ -54,6 +54,7 @@ import org.intellij.markdown.parser.MarkdownParser
 import com.liquidglass.fluxhub.ui.components.table.DataTable
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.input.pointer.pointerInput
@@ -733,19 +734,19 @@ private fun appendMarkdownChildren(node: ASTNode, content: String, builder: Anno
         MarkdownTokenTypes.WHITE_SPACE -> builder.append(" ")
         MarkdownTokenTypes.EOL -> builder.append(" ")
         MarkdownElementTypes.STRONG -> {
-            builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
-            }
+            builder.pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+            node.children.forEach { child -> appendMarkdownChildren(child, content, builder) }
+            builder.pop()
         }
         MarkdownElementTypes.EMPH -> {
-            builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
-            }
+            builder.pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
+            node.children.forEach { child -> appendMarkdownChildren(child, content, builder) }
+            builder.pop()
         }
         GFMElementTypes.STRIKETHROUGH -> {
-            builder.withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
-                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
-            }
+            builder.pushStyle(SpanStyle(textDecoration = TextDecoration.LineThrough))
+            node.children.forEach { child -> appendMarkdownChildren(child, content, builder) }
+            builder.pop()
         }
         MarkdownElementTypes.INLINE_LINK -> {
             val linkTextNode = node.findChildOfTypeRecursive(MarkdownElementTypes.LINK_TEXT)
@@ -756,24 +757,24 @@ private fun appendMarkdownChildren(node: ASTNode, content: String, builder: Anno
             val linkDest = linkDestNode?.getTextInNode(content) ?: ""
             
             builder.pushStringAnnotation(tag = "URL", annotation = linkDest)
-            builder.withStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline)) {
-                append(linkText)
-            }
+            builder.pushStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline))
+            builder.append(linkText)
+            builder.pop()
             builder.pop()
         }
         GFMTokenTypes.GFM_AUTOLINK -> {
             val link = node.getTextInNode(content)
             builder.pushStringAnnotation(tag = "URL", annotation = link)
-            builder.withStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline)) {
-                append(link)
-            }
+            builder.pushStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline))
+            builder.append(link)
+            builder.pop()
             builder.pop()
         }
         MarkdownElementTypes.CODE_SPAN -> {
             val code = node.getTextInNode(content).trim('`')
-            builder.withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0x30888888), fontSize = 14.sp)) {
-                append("\u00A0$code\u00A0") 
-            }
+            builder.pushStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0x30888888), fontSize = 14.sp))
+            builder.append("\u00A0$code\u00A0")
+            builder.pop()
         }
         else -> {
             node.children.forEach { child -> appendMarkdownChildren(child, content, builder) }
