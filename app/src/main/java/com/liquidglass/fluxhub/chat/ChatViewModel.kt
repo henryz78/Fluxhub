@@ -192,6 +192,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
+    var hapticFeedbackEnabled by mutableStateOf(true)
+        private set
+    
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -265,6 +268,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.contextSize.collect { contextSize = it }
+        }
+        viewModelScope.launch {
+            settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+        }
+    }
+    
+    fun updateHapticFeedbackEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setHapticFeedbackEnabled(enabled)
         }
     }
     
