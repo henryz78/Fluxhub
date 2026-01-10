@@ -504,15 +504,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun deleteMessageAndFollowing(messageId: String) {
         val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex == -1) return
+        if (messageIndex == -1) {
+            Log.w(TAG, "deleteMessageAndFollowing: message not found: $messageId")
+            return
+        }
         
         // 获取要删除的消息 ID 列表（从该消息开始到最后）
         val idsToDelete = messages.drop(messageIndex).map { it.id }
         
+        Log.d(TAG, "deleteMessageAndFollowing: deleting ${idsToDelete.size} messages starting from index $messageIndex")
+        
+        // 立即更新 UI 列表（移除从该索引开始的所有消息）
+        val messagesToKeep = messages.take(messageIndex)
+        messages.clear()
+        messages.addAll(messagesToKeep)
+        
+        // 异步删除数据库记录
         viewModelScope.launch {
             idsToDelete.forEach { id ->
                 messageDao.deleteMessage(id)
             }
+            Log.d(TAG, "deleteMessageAndFollowing: database deletion complete")
         }
     }
     
