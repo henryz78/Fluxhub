@@ -116,7 +116,7 @@ fun DynamicIslandSettingsScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "选择何时显示登录成功提示",
+                    "控制首页登录成功提示的显示时机",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.6f)
                 )
@@ -127,19 +127,19 @@ fun DynamicIslandSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // 仅首次
+                    // 仅登录成功后
                     ModeOption(
                         selected = viewModel.loginNotificationMode == "first",
                         onClick = { viewModel.updateLoginNotificationMode("first") },
-                        label = "仅首次",
+                        label = "仅登录成功后",
                         modifier = Modifier.weight(1f)
                     )
                     
-                    // 每次启动
+                    // 每次进入软件
                     ModeOption(
                         selected = viewModel.loginNotificationMode == "every",
                         onClick = { viewModel.updateLoginNotificationMode("every") },
-                        label = "每次启动",
+                        label = "每次进入软件",
                         modifier = Modifier.weight(1f)
                     )
                 }

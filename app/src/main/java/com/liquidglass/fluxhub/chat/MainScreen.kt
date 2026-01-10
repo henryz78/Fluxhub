@@ -381,10 +381,17 @@ fun MainScreen(
             onDismiss = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.hide() }
         )
         
-        // 登录成功通知（全局处理）
+        // 登录成功通知（仅在首页显示）
         var hasShownLoginSuccess by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-        LaunchedEffect(Unit) {
+        // 跟踪是否已经在本次应用启动中显示过（用于 "every" 模式，每次启动只显示一次）
+        var hasShownThisSession by remember { mutableStateOf(false) }
+        
+        LaunchedEffect(selectedTab) {
+            // 仅在首页（Tab 0）显示
+            if (selectedTab != 0) return@LaunchedEffect
+            
             val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
+            
             // 等待 1 秒让 DataStore 设置加载完成
             kotlinx.coroutines.delay(1000)
             
@@ -393,13 +400,14 @@ fun MainScreen(
             
             // 检查通知模式
             val shouldShow = when (controller.loginNotificationMode) {
-                "every" -> true // 每次都显示
-                "first" -> !hasShownLoginSuccess // 仅首次显示
+                "every" -> !hasShownThisSession // 每次进入软件显示一次
+                "first" -> !hasShownLoginSuccess // 仅登录成功后显示（跨 session 持久化）
                 else -> !hasShownLoginSuccess
             }
             
             if (shouldShow) {
                 hasShownLoginSuccess = true
+                hasShownThisSession = true
                 controller.showSuccess("登录成功")
             }
         }
