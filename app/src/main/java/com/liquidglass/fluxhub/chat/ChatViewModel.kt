@@ -1010,35 +1010,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun initiateAiResponse(conversationId: String) {
-        if (isLoading) return
-        
-        if (model.isBlank()) {
-            showErrorMessage("请先选择模型")
-            return
-        }
-        
-        val streamEnabled = settingsRepository.streamOutput.value
-        isLoading = true
-        
-        // 添加 AI 消息占位符 (优先在主线程添加)
-        val aiMessageId = UUID.randomUUID().toString()
-        messages.add(UiMessage(
-            id = aiMessageId,
-            role = "assistant",
-            content = "正在思考...", 
-            thinkingContent = "",
-            isStreaming = streamEnabled,
-            model = model
-        ))
-        
-        Log.d(TAG, "Initiating AI response: model=$model, stream=$streamEnabled")
-        
-        clearError()
-        
-        if (streamEnabled) {
-            callStreamingApiWithEventSource(aiMessageId, conversationId)
-        } else {
-            callNonStreamingApi(aiMessageId, conversationId)
+        // 强制在主线程执行 UI 更新，并确保状态不被之前的请求锁死
+        viewModelScope.launch(Dispatchers.Main) {
+            if (model.isBlank()) {
+                showErrorMessage("请先选择模型")
+                isLoading = false
+                return@launch
+            }
+
+            // 关键：即使 isLoading 为 true，我们也强制重置并添加新气泡
+            // 防止因为之前的请求挂起导致 UI 彻底没反应
+            if (isLoading) {
+                Log.w(TAG, "isLoading was true, forcing reset for new request")
+                isLoading = false
+            }
+            
+            val streamEnabled = settingsRepository.streamOutput.value
+            isLoading = true
+            
+            val aiMessageId = UUID.randomUUID().toString()
+            val initialMessage = UiMessage(
+                id = aiMessageId,
+                role = "assistant",
+                content = "正在思考...", 
+                thinkingContent = "",
+                isStreaming = streamEnabled,
+                model = model
+            )
+            
+            messages.add(initialMessage)
+            Log.d(TAG, "Added AI bubble: $aiMessageId, model=$model")
+            
+            clearError()
+            
+            // 发起真正的 API 调用
+            if (streamEnabled) {
+                callStreamingApiWithEventSource(aiMessageId, conversationId)
+            } else {
+                callNonStreamingApi(aiMessageId, conversationId)
+            }
+            
+            // 安全兜底：如果 30 秒还没反应，强制重置 loading 状态
+            launch {
+                delay(30000)
+                if (isLoading) {
+                    Log.w(TAG, "Request timeout, forcing isLoading = false")
+                    isLoading = false
+                }
+            }
         }
     }
     
