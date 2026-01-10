@@ -213,14 +213,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadSettings() {
         viewModelScope.launch {
             settingsRepository.apiKey.collect { 
-                apiKey = it 
-                if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
+                if (currentProvider == null) {
+                    apiKey = it 
+                    if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                }
             }
         }
         viewModelScope.launch {
             settingsRepository.baseUrl.collect { 
-                baseUrl = it
-                if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                if (currentProvider == null) {
+                    baseUrl = it
+                    if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                }
             }
         }
         viewModelScope.launch {
@@ -288,56 +293,46 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 
                 withContext(Dispatchers.IO) {
                     try {
-                        val response = client.newCall(request).execute()
-                        if (response.isSuccessful) {
-                            val body = response.body?.string() ?: "{}"
-                            try {
-                                val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
-                                val modelIds = modelsResponse.data.map { it.id }.sorted()
-                                
-                                withContext(Dispatchers.Main) {
-                                    availableModels.clear()
-                                    availableModels.addAll(modelIds)
-                                    Log.d(TAG, "Fetched ${modelIds.size} models")
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                val body = response.body?.string() ?: "{}"
+                                try {
+                                    val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
+                                    val modelIds = modelsResponse.data.map { it.id }.sorted()
                                     
-                                    // 校验当前选中的模型是否有效
-                                    if (model.isNotBlank() && !modelIds.contains(model)) {
-                                        Log.w(TAG, "Current model $model not available, resetting")
-                                        saveModel("")
-                                        showErrorMessage("当前模型已失效，请重新选择")
-                                    } else if (model.isBlank() && modelIds.isNotEmpty()) {
-                                        // 可选：如果没选模型，自动选第一个？或者让用户自己选
-                                        // 用户要求：没有的话就直接空白让重新选
-                                        // 所以这里不需要自动选
+                                    withContext(Dispatchers.Main) {
+                                        Log.d(TAG, "Fetched ${modelIds.size} models from $baseUrl")
+                                        availableModels.clear()
+                                        availableModels.addAll(modelIds)
+                                        
+                                        // 校验当前选中的模型是否有效
+                                        if (model.isNotBlank() && !modelIds.contains(model)) {
+                                            Log.w(TAG, "Current model $model not available in $baseUrl")
+                                            // 注意：不要在这里清空 saveModel("")，用户可能只是暂时连不上，或者 Provider 没更新
+                                            // 我们保持现状，但在 UI 上可以给个提示
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to parse models from $baseUrl", e)
+                                    withContext(Dispatchers.Main) {
+                                        if (availableModels.isEmpty()) {
+                                            showErrorMessage("模型列表解析失败")
+                                        }
                                     }
                                 }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to parse models", e)
+                            } else {
+                                Log.e(TAG, "Failed to fetch models: ${response.code} for $baseUrl")
                                 withContext(Dispatchers.Main) {
-                                    availableModels.clear()
-                                    if (model.isNotBlank()) {
-                                        saveModel("") // 解析失败也重置
-                                        showErrorMessage("模型列表解析失败，请检查 API 配置")
+                                    if (availableModels.isEmpty()) {
+                                        showErrorMessage("获取模型列表失败: ${response.code}")
                                     }
-                                }
-                            }
-                        } else {
-                            Log.e(TAG, "Failed to fetch models: ${response.code}")
-                             withContext(Dispatchers.Main) {
-                                availableModels.clear()
-                                if (model.isNotBlank()) {
-                                    saveModel("") // 获取失败重置
-                                    showErrorMessage("获取模型列表失败: ${response.code}")
                                 }
                             }
                         }
-                        response.close()
                     } catch (e: Exception) {
-                        Log.e(TAG, "Network error fetching models", e)
-                         withContext(Dispatchers.Main) {
-                            availableModels.clear()
-                            if (model.isNotBlank()) {
-                                saveModel("") 
+                        Log.e(TAG, "Network error fetching models from $baseUrl", e)
+                        withContext(Dispatchers.Main) {
+                            if (availableModels.isEmpty()) {
                                 showErrorMessage("网络错误，无法获取模型列表")
                             }
                         }
@@ -765,11 +760,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             providerDao.getAllProviders().collect { list ->
                 providers.clear()
                 providers.addAll(list)
-                
+
+                // 同步当前 Provider 的配置变更 (解决用户在其他页面修改配置后此处不更新的问题)
+                currentProvider?.let { current ->
+                    list.find { it.id == current.id }?.let { updated ->
+                        if (updated.apiKey != current.apiKey || updated.baseUrl != current.baseUrl) {
+                            Log.d(TAG, "Active provider config updated from DB")
+                            currentProvider = updated
+                            applyProviderSettings(updated)
+                            fetchModels()
+                        }
+                    }
+                }
+
                 // 如果没有当前 Provider，尝试加载激活的 Provider
                 if (currentProvider == null && list.isNotEmpty()) {
                     currentProvider = list.find { it.isActive } ?: list.first()
                     applyProviderSettings(currentProvider!!)
+                    fetchModels() // 初始加载完成后抓取模型
                 }
             }
         }
