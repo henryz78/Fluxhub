@@ -1136,30 +1136,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             val firstChoice = choices?.getOrNull(0)?.jsonObject
                             val messageObj = firstChoice?.get("message")?.jsonObject ?: firstChoice?.get("delta")?.jsonObject
                             
-                            val contentStr = messageObj?.get("content")?.jsonPrimitive?.contentOrNull 
-                                ?: firstChoice?.get("text")?.jsonPrimitive?.contentOrNull // 兜底支持旧格式
-                                ?: ""
+                            // 深度提取内容 (参考 Rikkahub)
+                            val contentElement = messageObj?.get("content") ?: firstChoice?.get("text")
+                            val contentStr = when (contentElement) {
+                                is JsonPrimitive -> contentElement.contentOrNull ?: ""
+                                is JsonArray -> contentElement.mapNotNull { 
+                                    it.jsonObject["text"]?.jsonPrimitive?.contentOrNull 
+                                }.joinToString("")
+                                else -> ""
+                            }
                             
-                            val reasoningStr = messageObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull 
-                                ?: messageObj?.get("reasoning")?.jsonPrimitive?.contentOrNull ?: ""
+                            val reasoningElement = messageObj?.get("reasoning_content") ?: messageObj?.get("reasoning")
+                            val reasoningStr = when (reasoningElement) {
+                                is JsonPrimitive -> reasoningElement.contentOrNull ?: ""
+                                else -> ""
+                            }
                             
-                            Log.d(TAG, "Parsed result - choice present: ${firstChoice != null}, content length: ${contentStr.length}")
+                            Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
                             
                             withContext(Dispatchers.Main) {
                                 isLoading = false
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
-                                    // ensure thread safety
-                                    val safeContent = contentStr.ifEmpty { "Received empty content from API" } 
+                                    val safeContent = if (contentStr.isEmpty() && reasoningStr.isEmpty()) "⚠️ API 未返回任何内容" else contentStr
                                     messages[index] = messages[index].copy(
                                         content = safeContent,
+                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
                                         isStreaming = false
                                     )
+                                    
+                                    // 保存到数据库
                                     messageDao.insertMessage(MessageEntity(
                                         id = aiMessageId,
                                         conversationId = conversationId,
                                         role = "assistant",
                                         content = safeContent,
+                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
                                         model = model
                                     ))
                                 }
