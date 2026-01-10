@@ -1049,17 +1049,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     else -> "high"
                 }
                 
-                val requestData = ChatRequest(
-                    model = model,
-                    messages = requestMessages,
-                    stream = false,
-                    temperature = temperature,
-                    topP = topP,
-                    maxTokens = maxTokens, // 与流式保持一致，不强制传 budget 给基础 max_tokens
-                    reasoningEffort = reasoningEffort
-                )
+                val requestJson = buildJsonObject {
+                    put("model", model)
+                    put("messages", buildJsonArray {
+                        requestMessages.forEach { msg ->
+                            add(buildJsonObject {
+                                put("role", msg.role)
+                                put("content", msg.content ?: JsonPrimitive(""))
+                            })
+                        }
+                    })
+                    put("stream", false)
+                    temperature.let { put("temperature", it) }
+                    topP.let { put("top_p", it) }
+                    maxTokens?.let { put("max_tokens", it) }
+                    reasoningEffort?.let { put("reasoning_effort", it) }
+                }
                 
-                val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
+                val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Request body (Non-Streaming): $requestBody")
                 
                 val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
@@ -1078,25 +1085,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     if (response.isSuccessful) {
                         try {
-                            // 动态解析 Non-streaming 响应
                             val responseJson = json.parseToJsonElement(body).jsonObject
                             
-                            // 检查 API 错误
+                            // 检查 API 错误 (更全面的检测)
                             responseJson["error"]?.let { 
-                                val errorMsg = it.jsonObject["message"]?.jsonPrimitive?.contentOrNull ?: "API Error"
-                                Log.e(TAG, "API returned error: $errorMsg")
+                                val errorObj = it.jsonObject
+                                val errorMsg = errorObj["message"]?.jsonPrimitive?.contentOrNull 
+                                    ?: errorObj["code"]?.jsonPrimitive?.contentOrNull 
+                                    ?: "Unknown API Error"
                                 throw Exception(errorMsg)
                             }
                             
                             val choices = responseJson["choices"]?.jsonArray
                             val firstChoice = choices?.getOrNull(0)?.jsonObject
-                            val messageObj = firstChoice?.get("message")?.jsonObject
+                            val messageObj = firstChoice?.get("message")?.jsonObject ?: firstChoice?.get("delta")?.jsonObject
                             
-                            val contentStr = messageObj?.get("content")?.jsonPrimitive?.contentOrNull ?: ""
+                            val contentStr = messageObj?.get("content")?.jsonPrimitive?.contentOrNull 
+                                ?: firstChoice?.get("text")?.jsonPrimitive?.contentOrNull // 兜底支持旧格式
+                                ?: ""
+                            
                             val reasoningStr = messageObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull 
                                 ?: messageObj?.get("reasoning")?.jsonPrimitive?.contentOrNull ?: ""
                             
-                            Log.d(TAG, "Final Parsed content string: '$contentStr', reasoning: '$reasoningStr'")
+                            Log.d(TAG, "Parsed result - choice present: ${firstChoice != null}, content length: ${contentStr.length}")
                             
                             withContext(Dispatchers.Main) {
                                 isLoading = false
@@ -1183,56 +1194,75 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             
             ChatMessage(message.role, contentElement)
         }.let { apiMsgs ->
+            // 过滤掉 content 为 null 的消息 (不应发生)
+            val finalMsgs = apiMsgs.filter { it.content != null }
+            
             // 如果有当前助手的系统提示词，添加到消息开头
             val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
             if (systemPrompt != null) {
-                listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + apiMsgs
+                listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + finalMsgs
             } else {
-                apiMsgs
+                finalMsgs
             }
         }
     }
 
     private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
-        Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
-        
-        val messagesWithSystem = buildApiMessages()
-        
-        // 根据 thinkingBudget 计算 reasoning_effort 级别
-        val reasoningEffort = when (thinkingBudget) {
-            0 -> null // 关闭时不传此参数
-            in 1..4096 -> "low"
-            in 4097..16000 -> "medium"
-            else -> "high"
-        }
-        
-        val requestData = ChatRequest(
-            model = model,
-            messages = messagesWithSystem,
-            stream = true,
-            temperature = temperature,
-            topP = topP,
-            maxTokens = maxTokens,
-            reasoningEffort = reasoningEffort
-        )
-        
-        val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
-        Log.d(TAG, "Request body: $requestBody")
-        
-        // 优先从 currentProvider 获取配置
-        val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
-        val effectiveApiKey = currentProvider?.apiKey ?: apiKey
-        
-        val request = Request.Builder()
-            .url("$effectiveBaseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $effectiveApiKey")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Accept", "text/event-stream")
-            .post(requestBody.toRequestBody("application/json".toMediaType()))
-            .build()
-        
-        var fullContent = ""
-        var fullThinkingContent = ""
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
+                
+                val messagesWithSystem = buildApiMessages()
+                
+                // 根据 thinkingBudget 计算 reasoning_effort 级别
+                val reasoningEffort = when (thinkingBudget) {
+                    0 -> null // 关闭时不传此参数
+                    in 1..4096 -> "low"
+                    in 4097..16000 -> "medium"
+                    else -> "high"
+                }
+                
+                // 动态构建流式请求体
+                val requestJson = buildJsonObject {
+                    put("model", model)
+                    put("messages", buildJsonArray {
+                        messagesWithSystem.forEach { msg ->
+                            add(buildJsonObject {
+                                put("role", msg.role)
+                                put("content", msg.content ?: JsonPrimitive(""))
+                            })
+                        }
+                    })
+                    put("stream", true)
+                    // 增加 stream_options 以获得更好的 API 兼容性 (OpenAI 标准)
+                    put("stream_options", buildJsonObject {
+                        put("include_usage", true)
+                    })
+                    temperature.let { put("temperature", it) }
+                    topP.let { put("top_p", it) }
+                    maxTokens?.let { put("max_tokens", it) }
+                    reasoningEffort?.let { put("reasoning_effort", it) }
+                }
+                
+                val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
+                Log.d(TAG, "Request body (Streaming): $requestBody")
+                
+                // 优先从 currentProvider 获取配置
+                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                
+                val request = Request.Builder()
+                    .url("$effectiveBaseUrl/chat/completions")
+                    .addHeader("Authorization", "Bearer $effectiveApiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Accept", "text/event-stream")
+                    .post(requestBody.toRequestBody("application/json".toMediaType()))
+                    .build()
+                
+                var fullContent = ""
+                var fullThinkingContent = ""
+                
+                // ... (EventSourceListener setup continues)
         
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
@@ -1400,8 +1430,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         
-        // 使用 EventSources 创建 SSE 连接
-        currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+                // 使用 EventSources 创建 SSE 连接
+                currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+            } catch (e: Exception) {
+                Log.e(TAG, "Streaming request setup failed", e)
+                isLoading = false
+                showErrorMessage("请求失败: ${e.message}")
+                messages.removeAll { it.id == aiMessageId }
+            }
+        }
     }
     
     private fun showErrorMessage(message: String) {
