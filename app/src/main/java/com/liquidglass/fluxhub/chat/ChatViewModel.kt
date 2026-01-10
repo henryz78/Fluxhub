@@ -375,9 +375,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
             messageDao.getMessagesForConversation(conversationId).collect { entities ->
-                // 获取当前正在流式输出的消息（如果有）
-                val currentStreamingMessage = messages.find { it.isStreaming }
-                
                 val dbMessages = entities.map { entity ->
                     UiMessage(
                         id = entity.id,
@@ -389,27 +386,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         timestamp = entity.timestamp
                     )
                 }
-                
-                // 组合消息：如果流式消息不在数据库中，则手动加入
-                val finalMessages = if (currentStreamingMessage != null && dbMessages.none { it.id == currentStreamingMessage.id }) {
-                    (dbMessages + currentStreamingMessage).sortedBy { it.timestamp }
-                } else {
-                    dbMessages
+
+                // 获取当前 UI 中存在但数据库中尚未存储的消息（主要是 AI 占位符）
+                val uiOnlyMessages = messages.filter { uiMsg ->
+                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id }
                 }
                 
-                // 增量更新 messages 列表，避免频繁 clear 导致 UI 闪烁或状态丢失
-                if (messages.size == finalMessages.size) {
+                // 组合消息：保留所有 UI 独有的消息（占位符）
+                val finalMessages = (dbMessages + uiOnlyMessages).sortedBy { it.timestamp }
+                
+                // 智能更新 messages 列表
+                // 1. 处理删除或重排
+                if (messages.size != finalMessages.size) {
+                    messages.clear()
+                    messages.addAll(finalMessages)
+                } else {
+                    // 2. 处理内容更新 (逐个替换)
                     finalMessages.forEachIndexed { index, newMessage ->
                         if (messages[index] != newMessage) {
                             messages[index] = newMessage
                         }
                     }
-                } else {
-                    messages.clear()
-                    messages.addAll(finalMessages)
                 }
                 
-                Log.d(TAG, "Messages updated: ${messages.size} total (Streaming present: ${currentStreamingMessage != null})")
+                Log.d(TAG, "Messages synced: ${dbMessages.size} from DB, ${uiOnlyMessages.size} UI-only. Total: ${messages.size}")
             }
         }
     }
