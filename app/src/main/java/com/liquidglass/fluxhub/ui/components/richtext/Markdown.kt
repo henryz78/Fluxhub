@@ -52,6 +52,12 @@ import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes
 import org.intellij.markdown.parser.MarkdownParser
 import com.liquidglass.fluxhub.ui.components.table.DataTable
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 
 private val flavour by lazy {
     GFMFlavourDescriptor(
@@ -417,35 +423,6 @@ private fun OrderedListNode(
     }
 }
 
-@Composable
-private fun ListItemNode(
-    node: ASTNode,
-    content: String,
-    bulletText: String,
-    onClickCitation: (String) -> Unit = {},
-    level: Int
-) {
-    Column {
-        val (directContent, nestedLists) = separateContentAndLists(node)
-        if (directContent.isNotEmpty()) {
-            Row {
-                Text(text = bulletText, modifier = Modifier.alignByBaseline())
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    directContent.fastForEach { contentChild ->
-                        MarkdownNode(node = contentChild, content = content, onClickCitation = onClickCitation, listLevel = level)
-                    }
-                }
-            }
-        }
-        nestedLists.fastForEach { nestedList ->
-            MarkdownNode(node = nestedList, content = content, onClickCitation = onClickCitation, listLevel = level + 1)
-        }
-    }
-}
-
 private fun separateContentAndLists(listItemNode: ASTNode): Pair<List<ASTNode>, List<ASTNode>> {
     val directContent = mutableListOf<ASTNode>()
     val nestedLists = mutableListOf<ASTNode>()
@@ -721,6 +698,85 @@ private fun CodeBlock(
                     }
                 }
             }
+        }
+    }
+}
+
+// 递归构建 AnnotatedString
+private fun appendMarkdownChildren(node: ASTNode, content: String, builder: AnnotatedString.Builder) {
+    when (node.type) {
+        MarkdownTokenTypes.TEXT,
+        MarkdownTokenTypes.HTML_TAG,
+        MarkdownTokenTypes.HTML_BLOCK_CONTENT,
+        MarkdownTokenTypes.LPAREN, 
+        MarkdownTokenTypes.RPAREN,
+        MarkdownTokenTypes.LBRACKET,
+        MarkdownTokenTypes.RBRACKET,
+        MarkdownTokenTypes.LT,
+        MarkdownTokenTypes.GT,
+        MarkdownTokenTypes.COLON,
+        MarkdownTokenTypes.EXCLAMATION_MARK,
+        MarkdownTokenTypes.HARD_LINE_BREAK,
+        MarkdownTokenTypes.DOUBLE_QUOTE,
+        MarkdownTokenTypes.SINGLE_QUOTE,
+        MarkdownTokenTypes.BACKTICK -> {
+            val rawText = node.getTextInNode(content)
+            val decodedText = rawText
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&")
+                .replace("&quot;", "\"")
+                .replace("&apos;", "'")
+                .replace("&nbsp;", " ")
+            builder.append(decodedText)
+        }
+        MarkdownTokenTypes.WHITE_SPACE -> builder.append(" ")
+        MarkdownTokenTypes.EOL -> builder.append(" ")
+        MarkdownElementTypes.STRONG -> {
+            builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
+            }
+        }
+        MarkdownElementTypes.EMPH -> {
+            builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
+            }
+        }
+        GFMElementTypes.STRIKETHROUGH -> {
+            builder.withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                node.children.forEach { child -> appendMarkdownChildren(child, content, this) }
+            }
+        }
+        MarkdownElementTypes.INLINE_LINK -> {
+            val linkTextNode = node.findChildOfTypeRecursive(MarkdownElementTypes.LINK_TEXT)
+            val linkDestNode = node.findChildOfTypeRecursive(MarkdownElementTypes.LINK_DESTINATION)
+            
+            val linkText = linkTextNode?.findChildOfTypeRecursive(MarkdownTokenTypes.TEXT)?.getTextInNode(content) 
+                ?: linkTextNode?.getTextInNode(content)?.trim('[', ']') ?: "Link"
+            val linkDest = linkDestNode?.getTextInNode(content) ?: ""
+            
+            builder.pushStringAnnotation(tag = "URL", annotation = linkDest)
+            builder.withStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline)) {
+                append(linkText)
+            }
+            builder.pop()
+        }
+        GFMTokenTypes.GFM_AUTOLINK -> {
+            val link = node.getTextInNode(content)
+            builder.pushStringAnnotation(tag = "URL", annotation = link)
+            builder.withStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline)) {
+                append(link)
+            }
+            builder.pop()
+        }
+        MarkdownElementTypes.CODE_SPAN -> {
+            val code = node.getTextInNode(content).trim('`')
+            builder.withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0x30888888), fontSize = 14.sp)) {
+                append("\u00A0$code\u00A0") 
+            }
+        }
+        else -> {
+            node.children.forEach { child -> appendMarkdownChildren(child, content, builder) }
         }
     }
 }
