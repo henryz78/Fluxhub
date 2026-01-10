@@ -459,6 +459,44 @@ private fun separateContentAndLists(listItemNode: ASTNode): Pair<List<ASTNode>, 
 }
 
 @Composable
+private fun MarkdownRichText(
+    children: List<ASTNode>,
+    content: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current
+) {
+    val styledText = buildAnnotatedString {
+        children.forEach { child ->
+             appendMarkdownChildren(child, content, this)
+        }
+    }
+
+    val uriHandler = LocalUriHandler.current
+    var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+    
+    Text(
+        text = styledText,
+        modifier = modifier.pointerInput(Unit) {
+            detectTapGestures { pos ->
+                layoutResult?.let { layout ->
+                    val offset = layout.getOffsetForPosition(pos)
+                    styledText.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                        .firstOrNull()?.let { annotation ->
+                            try {
+                                uriHandler.openUri(annotation.item)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                }
+            }
+        },
+        style = style,
+        onTextLayout = { layoutResult = it }
+    )
+}
+
+@Composable
 private fun Paragraph(
     node: ASTNode,
     content: String,
@@ -466,64 +504,40 @@ private fun Paragraph(
     onClickCitation: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 修复文本粘连问题：不再使用 FlowRow 拆分子节点，而是构建富文本串
-    val styledText = buildAnnotatedString {
-        appendMarkdownChildren(node, content, this)
-    }
-
-    // 链接点击处理
-    val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
-    
-    Text(
-        text = styledText,
+    MarkdownRichText(
+        children = node.children,
+        content = content,
         modifier = modifier.then(
              if (node.nextSibling() != null) Modifier.padding(bottom = 8.dp) else Modifier
-        ).pointerInput(Unit) {
-            detectTapGestures { pos ->
-                // 简单的链接点击检测（需要配合 TextLayoutResult，此处简化处理或后续完善）
-                // 实际上为了更好的链接支持，应该使用 ClickableText 或者组合 MarkdownText 方案
-                // 鉴于 Paragraph 可能是纯文本，这里先保留基础渲染修复格式
-            }
-        },
-        style = LocalTextStyle.current.copy(
-            lineHeight = 24.sp
-        )
+        ),
+        style = LocalTextStyle.current.copy(lineHeight = 24.sp)
     )
 }
 
-// 递归构建 AnnotatedString
-private fun appendMarkdownChildren(parent: ASTNode, content: String, builder: AnnotatedString.Builder) {
-    parent.children.forEach { child ->
-        when (child.type) {
-            MarkdownTokenTypes.TEXT -> builder.append(child.getTextInNode(content))
-            MarkdownTokenTypes.WHITE_SPACE -> builder.append(" ")
-            MarkdownTokenTypes.EOL -> builder.append(" ") // 换行视为空格
-            MarkdownElementTypes.STRONG -> {
-                builder.withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    appendMarkdownChildren(child, content, this)
-                }
+@Composable
+private fun ListItemNode(
+    node: ASTNode,
+    content: String,
+    bulletText: String,
+    onClickCitation: (String) -> Unit = {},
+    level: Int
+) {
+    Column {
+        val (directContent, nestedLists) = separateContentAndLists(node)
+        if (directContent.isNotEmpty()) {
+            Row {
+                Text(text = bulletText, modifier = Modifier.alignByBaseline())
+                // 使用 MarkdownRichText 替代 FlowRow，修复列表文本粘连
+                MarkdownRichText(
+                    children = directContent,
+                    content = content,
+                    modifier = Modifier.alignByBaseline(),
+                    style = LocalTextStyle.current.copy(lineHeight = 24.sp)
+                )
             }
-            MarkdownElementTypes.EMPH -> {
-                builder.withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    appendMarkdownChildren(child, content, this)
-                }
-            }
-            MarkdownElementTypes.INLINE_LINK -> {
-                // 简化处理：只显示文本，标蓝
-                val linkText = child.findChildOfTypeRecursive(MarkdownElementTypes.LINK_TEXT)
-                    ?.findChildOfTypeRecursive(MarkdownTokenTypes.TEXT)?.getTextInNode(content) ?: "Link"
-                 builder.withStyle(SpanStyle(color = Color(0xFF58A6FF), textDecoration = TextDecoration.Underline)) {
-                    append(linkText)
-                }
-            }
-            MarkdownElementTypes.CODE_SPAN -> {
-                val code = child.getTextInNode(content).trim('`')
-                builder.withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0x30888888))) {
-                    append(" $code ")
-                }
-            }
-            else -> appendMarkdownChildren(child, content, builder)
+        }
+        nestedLists.fastForEach { nestedList ->
+            MarkdownNode(node = nestedList, content = content, onClickCitation = onClickCitation, listLevel = level + 1)
         }
     }
 }
