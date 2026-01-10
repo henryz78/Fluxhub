@@ -153,5 +153,55 @@ fun DisplaySettingsScreen(
                 }
             }
         }
+        
+        Spacer(Modifier.height(24.dp))
+        
+        // Interaction Config
+        Text(
+            "交互与反馈",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "震动反馈",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "操作时提供触觉反馈体验",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+                
+                com.liquidglass.fluxhub.components.LiquidToggle(
+                    selected = { viewModel.hapticFeedbackEnabled },
+                    onSelect = { viewModel.updateHapticFeedbackEnabled(it) },
+                    backdrop = backdrop
+                )
+            }
+        }
     }
 }
