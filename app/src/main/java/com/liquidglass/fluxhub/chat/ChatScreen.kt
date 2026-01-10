@@ -31,7 +31,6 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -80,11 +79,6 @@ import com.composables.icons.lucide.ChevronRight
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
 import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
-
-import com.liquidglass.fluxhub.utils.ImeLazyListAutoScroller
-import com.liquidglass.fluxhub.chat.ui.components.DynamicIsland
-import com.liquidglass.fluxhub.chat.ui.components.DynamicIslandState
-import com.liquidglass.fluxhub.chat.ui.components.DynamicIslandData
 
 private const val TAG = "ChatScreen"
 
