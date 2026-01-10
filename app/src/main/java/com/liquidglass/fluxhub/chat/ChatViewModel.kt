@@ -1517,13 +1517,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
-<<<<<<< HEAD
                             
                             // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
                             streamingTokenCount += (deltaContent.length / 4).coerceAtLeast(1)
                             
-                            // 更新 UI (使用 copy 触发重绘)
-=======
                             pendingUiUpdate = true
                         }
                         
@@ -1532,7 +1529,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         if (pendingUiUpdate && (now - lastUiUpdateTime >= uiUpdateThrottleMs)) {
                             pendingUiUpdate = false
                             lastUiUpdateTime = now
->>>>>>> origin/main
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
