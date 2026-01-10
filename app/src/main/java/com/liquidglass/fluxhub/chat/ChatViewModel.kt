@@ -61,28 +61,14 @@ data class ChatRequest(
     val reasoningEffort: String? = null
 )
 
+// 移除硬编码的数据类，改用动态解析
 @Serializable
-data class ResponseMessage(
-    val role: String? = null,
-    val content: String? = null,
-    val reasoning_content: String? = null
-)
+data class APIError(val message: String? = null)
 
 @Serializable
 data class ChatResponse(
-    val choices: List<Choice> = emptyList()
-)
-
-@Serializable
-data class Choice(
-    val message: ResponseMessage? = null,
-    val delta: Delta? = null
-)
-
-@Serializable
-data class Delta(
-    val content: String? = null,
-    val reasoning_content: String? = null
+    val choices: JsonArray? = null,
+    val error: APIError? = null
 )
 
 // 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
@@ -1092,14 +1078,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     if (response.isSuccessful) {
                         try {
-                            val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
-                            Log.d(TAG, "Parsed ChatResponse: $chatResponse")
+                            // 动态解析 Non-streaming 响应
+                            val responseJson = json.parseToJsonElement(body).jsonObject
                             
-                            val choice = chatResponse.choices.firstOrNull()
-                            val responseMessage = choice?.message
+                            // 检查 API 错误
+                            responseJson["error"]?.let { 
+                                val errorMsg = it.jsonObject["message"]?.jsonPrimitive?.contentOrNull ?: "API Error"
+                                Log.e(TAG, "API returned error: $errorMsg")
+                                throw Exception(errorMsg)
+                            }
                             
-                            val contentStr = responseMessage?.content ?: ""
-                            val reasoningStr = responseMessage?.reasoning_content ?: ""
+                            val choices = responseJson["choices"]?.jsonArray
+                            val firstChoice = choices?.getOrNull(0)?.jsonObject
+                            val messageObj = firstChoice?.get("message")?.jsonObject
+                            
+                            val contentStr = messageObj?.get("content")?.jsonPrimitive?.contentOrNull ?: ""
+                            val reasoningStr = messageObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull 
+                                ?: messageObj?.get("reasoning")?.jsonPrimitive?.contentOrNull ?: ""
                             
                             Log.d(TAG, "Final Parsed content string: '$contentStr', reasoning: '$reasoningStr'")
                             
@@ -1142,8 +1137,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun buildApiMessages(): List<ChatMessage> {
         val baseMessages = messages
             .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
-            // 排除当前正在生成的空占位符消息
-            .filter { it.content.isNotBlank() }
+            // 排除当前正在生成的空占位符消息，但保留用户消息
+            .filter { it.role == "user" || it.content.isNotBlank() }
             
         // 应用上下文长度限制 (保留最新的 N 条)
         val contextMessages = if (contextSize > 0) {
@@ -1282,17 +1277,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "SSE onEvent: ${data.take(100)}")
                 
                 try {
-                    // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
-                    data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
-                        val chunk = json.decodeFromString(ChatResponse.serializer(), line)
-                        val delta = chunk.choices.firstOrNull()?.delta
-                        val deltaContent = delta?.content
-                        val deltaReasoning = delta?.reasoning_content
+                    // 动态解析 Streaming 响应
+                    data.trim().split("\n").filter { it.isNotBlank() }.map { it.removePrefix("data: ") }.forEach { line ->
+                        if (line == "[DONE]") return@forEach
+                        
+                        val chunkJson = json.parseToJsonElement(line).jsonObject
+                        
+                        // 检查错误
+                        chunkJson["error"]?.let { 
+                            val errorMsg = it.jsonObject["message"]?.jsonPrimitive?.contentOrNull ?: "Streaming Error"
+                            Log.e(TAG, "Streaming API error: $errorMsg")
+                            return@forEach
+                        }
+                        
+                        val choices = chunkJson["choices"]?.jsonArray
+                        val firstChoice = choices?.getOrNull(0)?.jsonObject
+                        val deltaObj = firstChoice?.get("delta")?.jsonObject ?: firstChoice?.get("message")?.jsonObject
+                        
+                        val deltaContent = deltaObj?.get("content")?.jsonPrimitive?.contentOrNull
+                        val deltaReasoning = deltaObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull
+                            ?: deltaObj?.get("reasoning")?.jsonPrimitive?.contentOrNull
                         
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
-                            
-                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1303,8 +1310,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
-                            
-                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1314,7 +1319,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(100)}", e)
+                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(200)}", e)
                 }
             }
             
