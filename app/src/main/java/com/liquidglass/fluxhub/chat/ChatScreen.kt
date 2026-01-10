@@ -535,7 +535,8 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     defaultModel = defaultModel,
                     onRegenerate = { viewModel.regenerate(message.id) },
-                    onDelete = { viewModel.deleteMessage(message.id) }
+                    onDelete = { viewModel.deleteMessage(message.id) },
+                    hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
                 )
             }
             
@@ -905,12 +906,18 @@ private fun LiquidGlassChatContent(
                     text = inputText,
                     onTextChange = onInputTextChange,
                     onSend = {
-                        if (viewModel.hapticFeedbackEnabled) {
+                        val isSendable = inputText.isNotBlank() || viewModel.selectedImageUri != null
+                        if (isSendable && viewModel.hapticFeedbackEnabled) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         }
                         onSend()
                     },
-                    onStop = { viewModel.stopStreaming() },
+                    onStop = { 
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        viewModel.stopStreaming() 
+                    },
                     isLoading = viewModel.isLoading,
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
@@ -1059,9 +1066,23 @@ private fun LiquidGlassChatBubble(
     backdrop: Backdrop,
     defaultModel: String,
     onRegenerate: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    hapticFeedbackEnabled: Boolean
 ) {
     val isUser = message.role == "user"
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var lastHapticTime by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(message.content) {
+        if (!isUser && message.isStreaming && hapticFeedbackEnabled) {
+            val now = System.currentTimeMillis()
+            if (now - lastHapticTime > 50) { // 20Hz Limit
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                lastHapticTime = now
+            }
+        }
+    }
+
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
     val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
     val keyboardController = LocalSoftwareKeyboardController.current

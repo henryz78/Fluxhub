@@ -267,7 +267,12 @@ fun MainScreen(
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
-                    onTabSelected = { selectedTab = it },
+                    onTabSelected = { 
+                        selectedTab = it
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
                     backdrop = backdrop,
                     tabsCount = 3,
                     modifier = Modifier.fillMaxWidth()
