@@ -1860,7 +1860,7 @@ private fun ToolboxDialog(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
+                .fillMaxWidth(0.9f)
                 .fillMaxHeight(0.7f)
                 .clip(RoundedCornerShape(28.dp))
                 .drawBackdrop(
