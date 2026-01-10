@@ -200,9 +200,10 @@ fun MainScreen(
 @Composable
 private fun AuthenticatedContent(
     viewModel: ChatViewModel,
-    backdrop: com.kyant.backdrop.Backdrop,
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     backgroundBitmap: android.graphics.Bitmap?
 ) {
+    val context = LocalContext.current
     // 默认打开首页 (Tab 0) - 每次进入已认证状态时重置
     var selectedTab by remember { mutableIntStateOf(0) }
     
