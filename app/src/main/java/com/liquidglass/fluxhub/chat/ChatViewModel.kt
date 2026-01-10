@@ -95,7 +95,7 @@ data class Delta(
     val reasoning_content: String? = null
 )
 
-// 用于 UI 显示的消息
+// 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
 data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
@@ -103,7 +103,11 @@ data class UiMessage(
     var thinkingContent: String? = null,
     val isStreaming: Boolean = false,
     val model: String? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    // 消息分支支持
+    val parentId: String? = null,  // 关联的父消息 ID（用于分支追踪）
+    val versionIndex: Int = 0,     // 当前版本索引
+    val totalVersions: Int = 1     // 总版本数
 )
 
 @Serializable
@@ -215,9 +219,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
+    // 生成任务 Job (参考 RikkaHub ChatService)
+    private var generationJob: Job? = null
+    
     // Flow 采集任务
     private var messagesJob: Job? = null
     private var conversationsJob: Job? = null
+    
+    // 模型列表获取任务（防抖）
+    private var fetchModelsJob: Job? = null
     
     init {
         loadSettings()
@@ -466,7 +476,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun fetchModels() {
         if (apiKey.isBlank() || baseUrl.isBlank()) return
         
-        viewModelScope.launch {
+        // 取消之前的获取任务（防抖）
+        fetchModelsJob?.cancel()
+        
+        fetchModelsJob = viewModelScope.launch {
+            // 延迟 200ms 防抖，避免 apiKey 和 baseUrl 同时变化时多次调用
+            kotlinx.coroutines.delay(200)
+            
             try {
                 val url = "$baseUrl/models"
                 Log.d(TAG, "Fetching models from: $url")
@@ -716,22 +732,121 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    /**
+     * 重新生成消息
+     * 
+     * @param messageId 消息 ID
+     * 
+     * 行为：
+     * - 用户消息：删除该消息之后的所有消息，从该用户消息重新生成 AI 回复
+     * - AI 消息：删除该 AI 消息及其后续所有消息，从上一条用户消息重新生成
+     */
     fun regenerate(messageId: String) {
         val message = messages.find { it.id == messageId } ?: return
-        if (message.role != "assistant") return
-        
         val conversationId = currentConversationId ?: return
         
-        viewModelScope.launch {
-            // 删除当前 AI 消息
-            messageDao.deleteMessage(messageId)
-            // 手动从 UI 列表移除
-            messages.removeAll { it.id == messageId }
-            
-            // 重新请求 AI 回复 (复用现有上下文)
-            initiateAiResponse(conversationId)
+        // 取消当前生成任务
+        cancelGeneration()
+        
+        generationJob = viewModelScope.launch {
+            try {
+                val messageIndex = messages.indexOfFirst { it.id == messageId }
+                if (messageIndex < 0) return@launch
+                
+                if (message.role == "user") {
+                    // 用户消息：删除该消息之后的所有消息，保留用户消息
+                    val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+                    idsToDelete.forEach { id ->
+                        messageDao.deleteMessage(id)
+                    }
+                    messages.removeAll { idsToDelete.contains(it.id) }
+                    // 从该用户消息重新生成 AI 回复
+                    initiateAiResponse(conversationId)
+                } else {
+                    // AI 消息：删除该 AI 消息及其后续所有消息
+                    val idsToDelete = messages.drop(messageIndex).map { it.id }
+                    idsToDelete.forEach { id ->
+                        messageDao.deleteMessage(id)
+                    }
+                    messages.removeAll { idsToDelete.contains(it.id) }
+                    // 从上一条用户消息重新生成 AI 回复
+                    initiateAiResponse(conversationId)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "regenerate failed", e)
+                showErrorMessage("重试失败: ${e.message}")
+            }
         }
     }
+    
+    /**
+     * 生成 AI 回复（带父消息 ID，用于消息分支）
+     */
+    private fun initiateAiResponseWithParent(conversationId: String, parentId: String) {
+        val parentMessage = messages.find { it.id == parentId }
+        val newVersionIndex = (parentMessage?.versionIndex ?: 0) + 1
+        
+        // 添加 AI 消息占位符
+        val aiMessageId = UUID.randomUUID().toString()
+        messages.add(UiMessage(
+            id = aiMessageId,
+            role = "assistant",
+            content = "",
+            thinkingContent = "",
+            isStreaming = streamEnabled,
+            model = model,
+            parentId = parentId,
+            versionIndex = newVersionIndex,
+            totalVersions = newVersionIndex + 1
+        ))
+        
+        isLoading = true
+        clearError()
+        
+        if (streamEnabled) {
+            callStreamingApiWithEventSource(aiMessageId, conversationId)
+        } else {
+            callNonStreamingApi(aiMessageId, conversationId)
+        }
+    }
+    
+    /**
+     * 切换消息版本 (用于消息分支)
+     */
+    fun switchMessageVersion(messageId: String, direction: Int) {
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex < 0) return
+        
+        val currentMessage = messages[messageIndex]
+        val newVersionIndex = (currentMessage.versionIndex + direction).coerceIn(0, currentMessage.totalVersions - 1)
+        
+        if (newVersionIndex != currentMessage.versionIndex) {
+            // TODO: 从数据库加载对应版本的消息内容
+            // 目前简化处理：只更新版本索引
+            messages[messageIndex] = currentMessage.copy(versionIndex = newVersionIndex)
+        }
+    }
+    
+    /**
+     * 取消当前生成任务 (参考 RikkaHub)
+     */
+    fun cancelGeneration() {
+        currentEventSource?.cancel()
+        currentEventSource = null
+        generationJob?.cancel()
+        generationJob = null
+        isLoading = false
+        
+        // 标记最后一条消息为非流式
+        val lastMessage = messages.lastOrNull()
+        if (lastMessage?.isStreaming == true) {
+            val index = messages.indexOfLast { it.isStreaming }
+            if (index >= 0) {
+                messages[index] = messages[index].copy(isStreaming = false)
+            }
+        }
+    }
+
 
 
     private fun startConversationsCollection() {
@@ -1128,21 +1243,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun stopStreaming() {
-        if (currentEventSource != null) {
-            currentEventSource?.cancel()
-        }
-        // 如果是非流式请求，cancel client call? (暂未保留 call 引用，简单处理即可)
-        
-        isLoading = false
-        
-        // 标记最后一条消息为非流式
-        val lastMessage = messages.lastOrNull()
-        if (lastMessage?.isStreaming == true) {
-            val index = messages.indexOfLast { it.isStreaming }
-            if (index >= 0) {
-                messages[index] = messages[index].copy(isStreaming = false)
-            }
-        }
+        cancelGeneration()
     }
     
     private fun callNonStreamingApi(aiMessageId: String, conversationId: String) {

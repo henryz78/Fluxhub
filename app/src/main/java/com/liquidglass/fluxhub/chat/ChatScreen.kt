@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
@@ -145,88 +147,50 @@ fun ChatScreen(
     val isStreaming = viewModel.messages.any { it.isStreaming }
     val density = androidx.compose.ui.platform.LocalDensity.current
 
-    // 智能触底判定扩展逻辑
-    fun LazyListState.isAtBottom(): Boolean {
-        val layoutInfo = layoutInfo
-        val totalItems = layoutInfo.totalItemsCount
-        if (totalItems == 0) return true
-        
-        val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
-        
-        // 允许的偏差值：最后两个 Item (消息 + Spacer)
-        val isLastItemVisible = lastVisibleItem.index >= totalItems - 2
-        
-        // 如果最后 Item 可见，并且其底部没有超出视口太多，则认为在底部
-        val viewportEnd = layoutInfo.viewportEndOffset
-        val tolerance = with(density) { 100.dp.toPx() } // 100dp 容差
-        
-        return isLastItemVisible && (lastVisibleItem.offset + lastVisibleItem.size <= viewportEnd + tolerance)
-    }
-
-    // 辅助函数：滚动到底部
-    suspend fun scrollToBottom(animate: Boolean = true) {
-        val totalItems = listState.layoutInfo.totalItemsCount
-        if (totalItems > 0) {
-            val targetIndex = totalItems - 1
-            if (animate) {
-                listState.animateScrollToItem(targetIndex)
-            } else {
-                listState.scrollToItem(targetIndex)
-            }
+    // 底部标记 key (参考 RikkaHub)
+    val ScrollBottomKey = "scroll_bottom_spacer"
+    
+    // 判断是否在底部 (完全对齐 RikkaHub ChatListNormal.isAtBottom)
+    fun List<LazyListItemInfo>.isAtBottom(): Boolean {
+        val lastItem = lastOrNull() ?: return true
+        // 如果最后一个可见的是 spacer，认为在底部
+        if (lastItem.key == ScrollBottomKey) {
+            return true
         }
+        // 如果最后一个可见消息接近视口底部
+        val viewportEnd = listState.layoutInfo.viewportEndOffset
+        return lastItem.offset + lastItem.size <= viewportEnd + lastItem.size * 0.15 + 32
     }
 
-    // 自动跟随键盘滚动
+    // 自动跟随键盘滚动 (参考 RikkaHub)
     ImeLazyListAutoScroller(lazyListState = listState)
     
-    // 1. 新消息出现 (ID 变化) -> 强制滚动到底部
-    val lastMessageId = viewModel.messages.lastOrNull()?.id
-    LaunchedEffect(lastMessageId) {
-        if (lastMessageId != null) {
-            // 给一点延迟让 Item 进入布局
-            kotlinx.coroutines.delay(100) 
-            scrollToBottom(animate = true)
-        }
-    }
-
-    // 2. 键盘状态变化 -> 调整滚动位置
-    LaunchedEffect(isKeyboardVisible) {
-        if (isKeyboardVisible) {
-            // 键盘弹出，强制滚到底以露出输入框上方的内容
-            kotlinx.coroutines.delay(100)
-            scrollToBottom(animate = true)
-        } else {
-            // 键盘收起
-            // 如果正在加载(用户刚发完消息) 或者 本来就在底部，保持底部位置，适应新视口
-            if (isStreaming || viewModel.isLoading || listState.isAtBottom()) {
-                kotlinx.coroutines.delay(100)
-                scrollToBottom(animate = true)
+    // 获取最新状态用于自动滚动 (参考 RikkaHub)
+    val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
+    val messagesSnapshot by rememberUpdatedState(viewModel.messages.toList())
+    
+    // 自动滚动到底部 (完全对齐 RikkaHub 的 snapshotFlow 实现)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
+            // 只在加载中且不在用户手动滚动时自动跟随
+            if (!listState.isScrollInProgress && loadingState) {
+                if (visibleItemsInfo.isAtBottom()) {
+                    // 滚动到消息列表末尾 + 偏移量确保到达 spacer
+                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+                }
             }
         }
     }
-
-    // 3. AI 正在说话或思考时的全时吸附滚动
-    val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    // 监听最后一条消息的内容长度，触发高频滚动
-    val lastMessage = viewModel.messages.lastOrNull()
-    val lastContentKey = lastMessage?.let { it.id + it.content.length + (it.thinkingContent?.length ?: 0) } ?: ""
     
-    LaunchedEffect(lastContentKey, loadingState) {
-        if (loadingState) {
-            kotlinx.coroutines.delay(32)  // 更短的防抖时间，提升响应性
-            
-            // 仅当用户在底部时跟随滚动 (吸附效果)
-            if (listState.isAtBottom()) {
-                // 使用增量滚动，比 scrollToItem 更平滑
-                val lastItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                if (lastItem != null) {
-                    val viewportEnd = listState.layoutInfo.viewportEndOffset
-                    val itemBottom = lastItem.offset + lastItem.size
-                    val overflowPx = itemBottom - viewportEnd
-                    if (overflowPx > 0) {
-                        // 平滑地滚动刚好露出内容
-                        listState.scrollBy(overflowPx.toFloat() + 16f) // 额外 16px 留白
-                    }
+    // 消息内容变化时滚动到底部 (流式输出时)
+    LaunchedEffect(Unit) {
+        snapshotFlow { 
+            messagesSnapshot.lastOrNull()?.content?.length ?: 0 
+        }.collect { contentLength ->
+            if (loadingState && contentLength > 0) {
+                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                if (visibleItems.isAtBottom()) {
+                    listState.requestScrollToItem(messagesSnapshot.size + 10)
                 }
             }
         }
@@ -235,9 +199,14 @@ fun ChatScreen(
     // 发送消息的处理函数
     val onSendMessage: () -> Unit = {
         if (inputText.isNotBlank()) {
-            viewModel.sendMessage(inputText)
-            inputText = ""
-            keyboardController?.hide()
+            val textToSend = inputText
+            inputText = "" // 立即清空输入框，避免视觉延迟
+            viewModel.sendMessage(textToSend)
+            // 发送后平滑滚动到底部
+            scope.launch {
+                kotlinx.coroutines.delay(50)
+                listState.animateScrollToItem(viewModel.messages.size + 10)
+            }
         }
     }
     
@@ -1091,8 +1060,8 @@ private fun LiquidGlassChatBubble(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .animateContentSize(), // 添加尺寸变化动画，让气泡生长更顺滑
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+            // 移除 animateContentSize() 以优化滚动性能 - 多层嵌套动画会导致卡顿
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         // 角色标识（简化版，不显示头像）
@@ -1156,19 +1125,21 @@ private fun LiquidGlassChatBubble(
                     onLongClick = onLongClick
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
-            CompositionLocalProvider(
-                LocalContentColor provides Color.White,
-                LocalTextStyle provides TextStyle(
-                    fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
-                    color = Color.White,
-                    fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
-                )
             ) {
-                Column {
+                // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
+                CompositionLocalProvider(
+                    LocalContentColor provides Color.White,
+                    LocalTextStyle provides TextStyle(
+                        fontFamily = MaterialTheme.typography.bodyLarge.fontFamily,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        color = Color.White,
+                        fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
+                    )
+                ) {
+                    // 使用 SelectionContainer 支持文本选择复制
+                    androidx.compose.foundation.text.selection.SelectionContainer {
+                        Column {
                     // 1. 如果有思考内容，则显示
                     if (!message.thinkingContent.isNullOrBlank()) {
                         ThinkingComponent(
@@ -1237,35 +1208,90 @@ private fun LiquidGlassChatBubble(
                             modifier = Modifier.padding(top = 4.dp)
                         )
                     }
+                        }
+                    }
                 }
             }
-        }
         
         // AI 消息显示操作按钮 (非流式时)
         if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
             var showDeleteDialog by remember { mutableStateOf(false) }
             
             if (showDeleteDialog) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteDialog = false },
-                    title = { Text("删除消息") },
-                    text = { Text("确定要删除这条消息吗？") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                viewModel.deleteMessage(message.id)
-                                showDeleteDialog = false
+                // 液态玻璃样式的删除确认对话框
+                Dialog(onDismissRequest = { showDeleteDialog = false }) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousRoundedRectangle(24.dp) },
+                                effects = {
+                                    vibrancy()
+                                    blur(6f.dp.toPx())
+                                    lens(12f.dp.toPx(), 24f.dp.toPx())
+                                },
+                                highlight = { Highlight.Plain },
+                                onDrawSurface = {
+                                    drawRect(Color.White.copy(alpha = 0.25f))
+                                }
+                            )
+                            .drawBehind {
+                                drawRoundRect(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
+                                )
                             }
+                            .padding(24.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text("删除", color = Color.Red)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteDialog = false }) {
-                            Text("取消")
+                            Icon(
+                                imageVector = Lucide.Trash2,
+                                contentDescription = null,
+                                tint = Color(0xFFFF453A),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "删除消息",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "确定要删除这条消息吗？",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                LiquidButton(
+                                    onClick = { showDeleteDialog = false },
+                                    backdrop = backdrop,
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    tint = Color.White.copy(alpha = 0.2f)
+                                ) {
+                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
+                                }
+                                LiquidButton(
+                                    onClick = {
+                                        viewModel.deleteMessage(message.id)
+                                        showDeleteDialog = false
+                                    },
+                                    backdrop = backdrop,
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    tint = Color(0xFFFF453A).copy(alpha = 0.6f)
+                                ) {
+                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
-                )
+                }
             }
             
             MessageActionButtons(
@@ -2063,7 +2089,7 @@ private fun ReasoningLevelCard(
             .fillMaxWidth()
             .height(64.dp),
         isInteractive = true,
-        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.5f) else Color.White.copy(alpha = 0.15f)
+        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f) // 提高可见度
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
