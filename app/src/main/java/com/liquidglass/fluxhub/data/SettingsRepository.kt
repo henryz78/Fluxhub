@@ -40,6 +40,9 @@ class SettingsRepository(private val context: Context) {
         private val DYNAMIC_ISLAND_DURATION = intPreferencesKey("dynamic_island_duration") // 秒
         private val SHOW_TOKEN_COUNT = booleanPreferencesKey("show_token_count")
         private val SHOW_ELAPSED_TIME = booleanPreferencesKey("show_elapsed_time")
+        
+        // 触感反馈
+        private val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -186,6 +189,16 @@ class SettingsRepository(private val context: Context) {
         }
     }
     
+    val hapticFeedbackEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HAPTIC_FEEDBACK_ENABLED] ?: true // 默认开启震动
+    }
+
+    suspend fun setHapticFeedbackEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HAPTIC_FEEDBACK_ENABLED] = value
+        }
+    }
+
     suspend fun setContextSize(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)

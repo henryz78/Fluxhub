@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
@@ -40,6 +41,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,11 +59,14 @@ import androidx.compose.ui.draw.clip
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun MainScreen(
     viewModel: ChatViewModel = viewModel()
 ) {
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -94,6 +100,10 @@ fun MainScreen(
     // 快捷提示词状态
     var pendingPrompt by remember { mutableStateOf<String?>(null) }
     
+    // 保持各页面的子页面状态 (Moved to top scope for access in Bottom Bar)
+    var chatSubPage by remember { mutableStateOf<String?>(null) }
+    var settingsSubPage by remember { mutableStateOf<String?>(null) }
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -121,7 +131,20 @@ fun MainScreen(
             val imeHeightDp = with(density) { imeHeight.toDp() }
             val bottomPadding = (100.dp - imeHeightDp).coerceAtLeast(0.dp) // 增加到100dp避免重叠
             
-            // 恢复使用 AnimatedContent 动画
+            // 预加载所有页面：消除首次切换的编译卡顿
+            // 使用 key 保持状态，但只显示当前选中的页面
+            // 这样避免了 z-index 和触摸事件冲突
+            
+            // 保持各页面的子页面状态 (Hoisted)
+            
+            // BackHandler 处理
+            BackHandler(enabled = chatSubPage != null && selectedTab == 1) {
+                chatSubPage = null
+            }
+            BackHandler(enabled = settingsSubPage != null && selectedTab == 2) {
+                settingsSubPage = null
+            }
+            
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
@@ -143,17 +166,20 @@ fun MainScreen(
                         viewModel = viewModel
                     )
                     1 -> {
-                        var chatSubPage by remember { mutableStateOf<String?>(null) }
-                        BackHandler(enabled = chatSubPage != null) {
-                            chatSubPage = null
-                        }
-                        
                         AnimatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回聊天页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "ChatSubPage"
                         ) { subPage ->
@@ -181,21 +207,22 @@ fun MainScreen(
                         }
                     }
                     2 -> {
-                        // 设置子页面状态
-                        var settingsSubPage by remember { mutableStateOf<String?>(null) }
-                        
-                        // 处理系统返回键
-                        BackHandler(enabled = settingsSubPage != null) {
-                            settingsSubPage = null
-                        }
-                        
-                        // 带动画的子页面切换
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                // 进入子页面：从右滑入，主页面往左滑出
+                                // 返回主页面：从左滑入，子页面往右滑出
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回主设置页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "SettingsSubPage"
                         ) { subPage ->
@@ -265,14 +292,25 @@ fun MainScreen(
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
-                    onTabSelected = { selectedTab = it },
+                    onTabSelected = { 
+                        selectedTab = it
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
                     backdrop = backdrop,
                     tabsCount = 3,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Tab 0: Home
                     LiquidBottomTab(
-                        onClick = { selectedTab = 0 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 0 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -298,7 +336,13 @@ fun MainScreen(
                     
                     // Tab 1: Chat
                     LiquidBottomTab(
-                        onClick = { selectedTab = 1 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 1 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -324,7 +368,12 @@ fun MainScreen(
                     
                     // Tab 2: Settings
                     LiquidBottomTab(
-                        onClick = { selectedTab = 2 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 2 
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,

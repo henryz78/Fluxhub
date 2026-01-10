@@ -45,14 +45,14 @@ private const val TAG = "ChatViewModel"
 @Serializable
 data class ChatMessage(
     val role: String,
-    val content: JsonElement
+    val content: JsonElement? = null
 )
 
 @Serializable
 data class ChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
-    val stream: Boolean = false,
+    val stream: Boolean,
     val temperature: Float? = null,
     @kotlinx.serialization.SerialName("top_p")
     val topP: Float? = null,
@@ -62,29 +62,24 @@ data class ChatRequest(
     val reasoningEffort: String? = null
 )
 
+// 移除硬编码的数据类，改用动态解析
+@Serializable
+data class APIError(val message: String? = null)
+
 @Serializable
 data class ChatResponse(
-    val choices: List<Choice> = emptyList()
-)
-
-@Serializable
-data class Choice(
-    val message: ChatMessage? = null,
-    val delta: Delta? = null
-)
-
-@Serializable
-data class Delta(
-    val content: String? = null,
-    val reasoning_content: String? = null
+    val choices: JsonArray? = null,
+    val error: APIError? = null
 )
 
 // 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
+// @Immutable 帮助 Compose 跳过不必要的重组
+@androidx.compose.runtime.Immutable
 data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
-    var content: String,
-    var thinkingContent: String? = null,
+    val content: String,  // 改为 val 配合 Immutable
+    val thinkingContent: String? = null,  // 改为 val 配合 Immutable
     val isStreaming: Boolean = false,
     val model: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
@@ -106,7 +101,11 @@ data class Model(
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = true // 确保传过去的 stream: false 等默认值生效
+    }
     
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -153,6 +152,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = false
     }
     
+    // 输入框文本（保存在 ViewModel 中，避免导航时丢失）
+    var inputText by mutableStateOf("")
+    
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
     var wallpaperUri by mutableStateOf<String?>(null)
@@ -196,6 +198,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
+<<<<<<< HEAD
     // ========== 灵动岛配置项 ==========
     var dynamicIslandEnabled by mutableStateOf(true)
         private set
@@ -207,6 +210,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var showElapsedTime by mutableStateOf(true)
         private set
+=======
+    var hapticFeedbackEnabled by mutableStateOf(true)
+        private set
+    
+>>>>>>> origin/main
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -232,14 +240,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadSettings() {
         viewModelScope.launch {
             settingsRepository.apiKey.collect { 
-                apiKey = it 
-                if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
+                if (currentProvider == null) {
+                    apiKey = it 
+                    if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                }
             }
         }
         viewModelScope.launch {
             settingsRepository.baseUrl.collect { 
-                baseUrl = it
-                if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                if (currentProvider == null) {
+                    baseUrl = it
+                    if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                }
             }
         }
         viewModelScope.launch {
@@ -276,6 +289,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.contextSize.collect { contextSize = it }
         }
+<<<<<<< HEAD
         // 加载灵动岛配置项
         viewModelScope.launch {
             settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
@@ -291,6 +305,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.showElapsedTime.collect { showElapsedTime = it }
+=======
+        viewModelScope.launch {
+            settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+        }
+    }
+    
+    fun updateHapticFeedbackEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setHapticFeedbackEnabled(enabled)
+>>>>>>> origin/main
         }
     }
     
@@ -323,56 +347,46 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 
                 withContext(Dispatchers.IO) {
                     try {
-                        val response = client.newCall(request).execute()
-                        if (response.isSuccessful) {
-                            val body = response.body?.string() ?: "{}"
-                            try {
-                                val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
-                                val modelIds = modelsResponse.data.map { it.id }.sorted()
-                                
-                                withContext(Dispatchers.Main) {
-                                    availableModels.clear()
-                                    availableModels.addAll(modelIds)
-                                    Log.d(TAG, "Fetched ${modelIds.size} models")
+                        client.newCall(request).execute().use { response ->
+                            if (response.isSuccessful) {
+                                val body = response.body?.string() ?: "{}"
+                                try {
+                                    val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
+                                    val modelIds = modelsResponse.data.map { it.id }.sorted()
                                     
-                                    // 校验当前选中的模型是否有效
-                                    if (model.isNotBlank() && !modelIds.contains(model)) {
-                                        Log.w(TAG, "Current model $model not available, resetting")
-                                        saveModel("")
-                                        showErrorMessage("当前模型已失效，请重新选择")
-                                    } else if (model.isBlank() && modelIds.isNotEmpty()) {
-                                        // 可选：如果没选模型，自动选第一个？或者让用户自己选
-                                        // 用户要求：没有的话就直接空白让重新选
-                                        // 所以这里不需要自动选
+                                    withContext(Dispatchers.Main) {
+                                        Log.d(TAG, "Fetched ${modelIds.size} models from $baseUrl")
+                                        availableModels.clear()
+                                        availableModels.addAll(modelIds)
+                                        
+                                        // 校验当前选中的模型是否有效
+                                        if (model.isNotBlank() && !modelIds.contains(model)) {
+                                            Log.w(TAG, "Current model $model not available in $baseUrl")
+                                            // 注意：不要在这里清空 saveModel("")，用户可能只是暂时连不上，或者 Provider 没更新
+                                            // 我们保持现状，但在 UI 上可以给个提示
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to parse models from $baseUrl", e)
+                                    withContext(Dispatchers.Main) {
+                                        if (availableModels.isEmpty()) {
+                                            showErrorMessage("模型列表解析失败")
+                                        }
                                     }
                                 }
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to parse models", e)
+                            } else {
+                                Log.e(TAG, "Failed to fetch models: ${response.code} for $baseUrl")
                                 withContext(Dispatchers.Main) {
-                                    availableModels.clear()
-                                    if (model.isNotBlank()) {
-                                        saveModel("") // 解析失败也重置
-                                        showErrorMessage("模型列表解析失败，请检查 API 配置")
+                                    if (availableModels.isEmpty()) {
+                                        showErrorMessage("获取模型列表失败: ${response.code}")
                                     }
-                                }
-                            }
-                        } else {
-                            Log.e(TAG, "Failed to fetch models: ${response.code}")
-                             withContext(Dispatchers.Main) {
-                                availableModels.clear()
-                                if (model.isNotBlank()) {
-                                    saveModel("") // 获取失败重置
-                                    showErrorMessage("获取模型列表失败: ${response.code}")
                                 }
                             }
                         }
-                        response.close()
                     } catch (e: Exception) {
-                        Log.e(TAG, "Network error fetching models", e)
-                         withContext(Dispatchers.Main) {
-                            availableModels.clear()
-                            if (model.isNotBlank()) {
-                                saveModel("") 
+                        Log.e(TAG, "Network error fetching models from $baseUrl", e)
+                        withContext(Dispatchers.Main) {
+                            if (availableModels.isEmpty()) {
                                 showErrorMessage("网络错误，无法获取模型列表")
                             }
                         }
@@ -406,9 +420,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
             messageDao.getMessagesForConversation(conversationId).collect { entities ->
-                // 获取当前正在流式输出的消息（如果有）
-                val currentStreamingMessage = messages.find { it.isStreaming }
-                
                 val dbMessages = entities.map { entity ->
                     UiMessage(
                         id = entity.id,
@@ -420,33 +431,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         timestamp = entity.timestamp
                     )
                 }
-                
-                // 组合消息：如果流式消息不在数据库中，则手动加入
-                val finalMessages = if (currentStreamingMessage != null && dbMessages.none { it.id == currentStreamingMessage.id }) {
-                    (dbMessages + currentStreamingMessage).sortedBy { it.timestamp }
-                } else {
-                    dbMessages
+
+                // 获取当前 UI 中存在但数据库中尚未存储的消息（主要是 AI 占位符）
+                val uiOnlyMessages = messages.filter { uiMsg ->
+                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id }
                 }
                 
-                // 增量更新 messages 列表，避免频繁 clear 导致 UI 闪烁或状态丢失
-                if (messages.size == finalMessages.size) {
+                // 组合消息：保留所有 UI 独有的消息（占位符）
+                val finalMessages = (dbMessages + uiOnlyMessages).sortedBy { it.timestamp }
+                
+                // 智能更新 messages 列表
+                // 1. 处理删除或重排
+                if (messages.size != finalMessages.size) {
+                    messages.clear()
+                    messages.addAll(finalMessages)
+                } else {
+                    // 2. 处理内容更新 (逐个替换)
                     finalMessages.forEachIndexed { index, newMessage ->
                         if (messages[index] != newMessage) {
                             messages[index] = newMessage
                         }
                     }
-                } else {
-                    messages.clear()
-                    messages.addAll(finalMessages)
                 }
                 
-                Log.d(TAG, "Messages updated: ${messages.size} total (Streaming present: ${currentStreamingMessage != null})")
+                Log.d(TAG, "Messages synced: ${dbMessages.size} from DB, ${uiOnlyMessages.size} UI-only. Total: ${messages.size}")
             }
         }
     }
     
     fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
+        // Removed empty check to align with Rikkahub logic
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
         currentConversationTitle = title
@@ -479,6 +494,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun switchConversation(conversationId: String) {
         if (conversationId == currentConversationId) return
         
+        val previousConversationId = currentConversationId
+        
         // 同步设置以提升响应速度
         currentConversationId = conversationId
         messages.clear()
@@ -488,6 +505,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = false
         
         viewModelScope.launch {
+            // 清理之前的空对话（参考 Rikkahub：空对话不保存）
+            if (previousConversationId != null) {
+                val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
+                if (previousMessages == 0) {
+                    Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
+                    conversationDao.deleteConversation(previousConversationId)
+                }
+            }
+            
             val conversation = conversationDao.getConversation(conversationId)
             if (conversation != null) {
                 currentConversationTitle = conversation.title
@@ -532,15 +558,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun deleteMessageAndFollowing(messageId: String) {
         val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex == -1) return
+        if (messageIndex == -1) {
+            Log.w(TAG, "deleteMessageAndFollowing: message not found: $messageId")
+            return
+        }
         
         // 获取要删除的消息 ID 列表（从该消息开始到最后）
         val idsToDelete = messages.drop(messageIndex).map { it.id }
         
+        Log.d(TAG, "deleteMessageAndFollowing: deleting ${idsToDelete.size} messages starting from index $messageIndex")
+        
+        // 立即更新 UI 列表（移除从该索引开始的所有消息）
+        val messagesToKeep = messages.take(messageIndex)
+        messages.clear()
+        messages.addAll(messagesToKeep)
+        
+        // 异步删除数据库记录
         viewModelScope.launch {
             idsToDelete.forEach { id ->
                 messageDao.deleteMessage(id)
             }
+            Log.d(TAG, "deleteMessageAndFollowing: database deletion complete")
         }
     }
     
@@ -800,11 +838,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             providerDao.getAllProviders().collect { list ->
                 providers.clear()
                 providers.addAll(list)
-                
+
+                // 同步当前 Provider 的配置变更 (解决用户在其他页面修改配置后此处不更新的问题)
+                currentProvider?.let { current ->
+                    list.find { it.id == current.id }?.let { updated ->
+                        if (updated.apiKey != current.apiKey || updated.baseUrl != current.baseUrl) {
+                            Log.d(TAG, "Active provider config updated from DB")
+                            currentProvider = updated
+                            applyProviderSettings(updated)
+                            fetchModels()
+                        }
+                    }
+                }
+
                 // 如果没有当前 Provider，尝试加载激活的 Provider
                 if (currentProvider == null && list.isNotEmpty()) {
                     currentProvider = list.find { it.isActive } ?: list.first()
                     applyProviderSettings(currentProvider!!)
+                    fetchModels() // 初始加载完成后抓取模型
                 }
             }
         }
@@ -1063,25 +1114,55 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         initiateAiResponse(conversationId)
     }
 
-    private fun initiateAiResponse(conversationId: String) {
-        // 添加 AI 消息占位符
-        val aiMessageId = UUID.randomUUID().toString()
-        messages.add(UiMessage(
-            id = aiMessageId,
-            role = "assistant",
-            content = "",
-            thinkingContent = "",
-            isStreaming = streamEnabled, // 根据设置决定状态
-            model = model
-        ))
-        
-        isLoading = true
-        clearError()
-        
-        if (streamEnabled) {
-            callStreamingApiWithEventSource(aiMessageId, conversationId)
-        } else {
-            callNonStreamingApi(aiMessageId, conversationId)
+    fun initiateAiResponse(conversationId: String) {
+        // 强制在主线程执行 UI 更新，并确保状态不被之前的请求锁死
+        viewModelScope.launch(Dispatchers.Main) {
+            if (model.isBlank()) {
+                showErrorMessage("请先选择模型")
+                isLoading = false
+                return@launch
+            }
+
+            // 关键：即使 isLoading 为 true，我们也强制重置并添加新气泡
+            // 防止因为之前的请求挂起导致 UI 彻底没反应
+            if (isLoading) {
+                Log.w(TAG, "isLoading was true, forcing reset for new request")
+                isLoading = false
+            }
+            
+            val useStream = this@ChatViewModel.streamEnabled
+            isLoading = true
+            
+            val aiMessageId = UUID.randomUUID().toString()
+            val initialMessage = UiMessage(
+                id = aiMessageId,
+                role = "assistant",
+                content = "",
+                thinkingContent = "",
+                isStreaming = useStream,
+                model = model
+            )
+            
+            messages.add(initialMessage)
+            Log.d(TAG, "Added AI bubble: $aiMessageId, model=$model")
+            
+            clearError()
+            
+            // 发起真正的 API 调用
+            if (useStream) {
+                callStreamingApiWithEventSource(aiMessageId, conversationId)
+            } else {
+                callNonStreamingApi(aiMessageId, conversationId)
+            }
+            
+            // 安全兜底：如果 30 秒还没反应，强制重置 loading 状态
+            launch {
+                delay(30000)
+                if (isLoading) {
+                    Log.w(TAG, "Request timeout, forcing isLoading = false")
+                    isLoading = false
+                }
+            }
         }
     }
     
@@ -1093,24 +1174,40 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 // 构建消息列表（共用逻辑）
-                val requestMessages = buildApiMessages()
+                val requestMessages = buildApiMessages(messages, aiMessageId)
                 
-                // 处理思考预算 (如果 > 0)
-                //目前 API 协议中标准字段是 max_tokens，思考预算可能是 max_completion_tokens 或其他。
-                // 假设 thinkingBudget 是 max_tokens 的一部分或专用参数。
-                // 鉴于 ChatRequest 定义，这里暂时先不传非标准参数，除非添加相应字段。
-                // 但 contextSize 必须生效。
+                // 根据 thinkingBudget 计算 reasoning_effort 级别
+                val reasoningEffort = when (thinkingBudget) {
+                    0 -> null // 关闭时不传此参数
+                    in 1..4096 -> "low"
+                    in 4097..16000 -> "medium"
+                    else -> "high"
+                }
                 
-                val requestData = ChatRequest(
-                    model = model,
-                    messages = requestMessages,
-                    stream = false,
-                    temperature = temperature,
-                    topP = topP,
-                    maxTokens = if (thinkingBudget > 0) thinkingBudget else maxTokens
-                )
+                val requestJson = buildJsonObject {
+                    put("model", model)
+                    put("messages", buildJsonArray {
+                        requestMessages.forEach { msg ->
+                            add(buildJsonObject {
+                                put("role", msg.role)
+                                // 安全处理：如果是 JsonElement 则直接 put，否则转为 JsonPrimitive
+                                val content = msg.content
+                                if (content != null) {
+                                    put("content", content)
+                                } else {
+                                    put("content", "")
+                                }
+                            })
+                        }
+                    })
+                    put("stream", false)
+                    temperature.let { put("temperature", it) }
+                    topP.let { put("top_p", it) }
+                    maxTokens?.let { put("max_tokens", it) }
+                    reasoningEffort?.let { put("reasoning_effort", it) }
+                }
                 
-                val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
+                val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Request body (Non-Streaming): $requestBody")
                 
                 val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
@@ -1119,40 +1216,74 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val request = Request.Builder()
                     .url("$effectiveBaseUrl/chat/completions")
                     .addHeader("Authorization", "Bearer $effectiveApiKey")
-                    .addHeader("Content-Type", "application/json")
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
                 
                 withContext(Dispatchers.IO) {
                     val response = client.newCall(request).execute()
+                    val body = response.body?.string() ?: "{}"
+                    Log.d(TAG, "Non-streaming response raw body: $body") // CRITICAL LOG
+                    
                     if (response.isSuccessful) {
-                        val body = response.body?.string() ?: "{}"
-                        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
-                        val choice = chatResponse.choices.firstOrNull()
-                        val content = choice?.message?.content?.toString() ?: "" // JsonElement to String might need care
-                        // 简单处理: 假设 content 是 JsonPrimitive string
-                        val contentStr = if (choice?.message?.content is JsonPrimitive) {
-                            choice.message.content.content
-                        } else {
-                            choice?.message?.content.toString()
-                        }
-                        
-                        withContext(Dispatchers.Main) {
-                            isLoading = false
-                            val index = messages.indexOfFirst { it.id == aiMessageId }
-                            if (index >= 0) {
-                                messages[index] = messages[index].copy(
-                                    content = contentStr,
-                                    isStreaming = false
-                                )
-                                messageDao.insertMessage(MessageEntity(
-                                    id = aiMessageId,
-                                    conversationId = conversationId,
-                                    role = "assistant",
-                                    content = contentStr,
-                                    model = model
-                                ))
+                        try {
+                            val responseJson = json.parseToJsonElement(body).jsonObject
+                            
+                            // 检查 API 错误 (更全面的检测)
+                            responseJson["error"]?.let { 
+                                val errorObj = it.jsonObject
+                                val errorMsg = errorObj["message"]?.jsonPrimitive?.contentOrNull 
+                                    ?: errorObj["code"]?.jsonPrimitive?.contentOrNull 
+                                    ?: "Unknown API Error"
+                                throw Exception(errorMsg)
                             }
+                            
+                            val choices = responseJson["choices"]?.jsonArray
+                            val firstChoice = choices?.getOrNull(0)?.jsonObject
+                            val messageObj = firstChoice?.get("message")?.jsonObject ?: firstChoice?.get("delta")?.jsonObject
+                            
+                            // 深度提取内容 (参考 Rikkahub)
+                            val contentElement = messageObj?.get("content") ?: firstChoice?.get("text")
+                            val contentStr = when (contentElement) {
+                                is JsonPrimitive -> contentElement.contentOrNull ?: ""
+                                is JsonArray -> contentElement.mapNotNull { 
+                                    it.jsonObject["text"]?.jsonPrimitive?.contentOrNull 
+                                }.joinToString("")
+                                else -> ""
+                            }
+                            
+                            val reasoningElement = messageObj?.get("reasoning_content") ?: messageObj?.get("reasoning")
+                            val reasoningStr = when (reasoningElement) {
+                                is JsonPrimitive -> reasoningElement.contentOrNull ?: ""
+                                else -> ""
+                            }
+                            
+                            Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
+                            
+                            withContext(Dispatchers.Main) {
+                                isLoading = false
+                                val index = messages.indexOfFirst { it.id == aiMessageId }
+                                if (index >= 0) {
+                                    val safeContent = if (contentStr.isEmpty() && reasoningStr.isEmpty()) "⚠️ API 未返回任何内容" else contentStr
+                                    messages[index] = messages[index].copy(
+                                        content = safeContent,
+                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
+                                        isStreaming = false
+                                    )
+                                    
+                                    // 保存到数据库
+                                    messageDao.insertMessage(MessageEntity(
+                                        id = aiMessageId,
+                                        conversationId = conversationId,
+                                        role = "assistant",
+                                        content = safeContent,
+                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
+                                        model = model
+                                    ))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Parsing error", e)
+                            throw e 
                         }
                     } else {
                         throw Exception("HTTP ${response.code}: ${response.message}")
@@ -1161,26 +1292,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e(TAG, "Non-streaming request failed", e)
                 isLoading = false
-                showErrorMessage("请求失败: ${e.message}")
-                messages.removeAll { it.id == aiMessageId }
+                val errorMsg = "请求失败: ${e.message}"
+                showErrorMessage(errorMsg)
+                
+                // 绝不移除气泡，而是显示错误
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(
+                        content = "⚠️ $errorMsg",
+                        isStreaming = false
+                    )
+                }
             }
         }
     }
     
-    private fun buildApiMessages(): List<ChatMessage> {
-        val baseMessages = messages
-            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
-            // 排除当前正在生成的空占位符消息
-            .filter { it.content.isNotBlank() }
-            
-        // 应用上下文长度限制 (保留最新的 N 条)
-        val contextMessages = if (contextSize > 0) {
-             baseMessages.takeLast(contextSize)
-        } else {
-             baseMessages
-        }
+    private fun buildApiMessages(history: List<UiMessage>, aiMessageId: String? = null): List<ChatMessage> {
+        Log.d(TAG, "Building API messages from history of size ${history.size}, excluding: $aiMessageId")
+        val baseMessages = history
+            // 关键：必须排除当前正在生成的(isStreaming)或者占位符消息
+            // 否则 API 会因为 history 以 assistant 消息结尾而返回 400 错误
+            .filter { 
+                it.role == "user" || 
+                (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank() && it.id != aiMessageId)
+            }
+            .takeLast(contextSize) // 直接限制上下文数量
 
-        return contextMessages.map { message ->
+        val processedMsgs = baseMessages.map { message ->
             // 解析 Vision 图片 (Markdown: ![image](uri))
             val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
             val contentElement = if (imageMatch != null) {
@@ -1211,61 +1349,98 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     JsonPrimitive(message.content)
                 }
             } else {
-                JsonPrimitive(message.content)
+                // 如果 content 已经是 JSON 字符串，尝试解析，否则包装成 JsonPrimitive
+                try {
+                    if (message.content.trim().startsWith("[")) {
+                        json.parseToJsonElement(message.content)
+                    } else {
+                        JsonPrimitive(message.content)
+                    }
+                } catch (e: Exception) {
+                    JsonPrimitive(message.content)
+                }
             }
             
             ChatMessage(message.role, contentElement)
-        }.let { apiMsgs ->
-            // 如果有当前助手的系统提示词，添加到消息开头
-            val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
-            if (systemPrompt != null) {
-                listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + apiMsgs
-            } else {
-                apiMsgs
-            }
+        }
+            
+        // 过滤无效消息
+        val finalMsgs = processedMsgs.filter { it.content != null }
+        
+        // 注入系统提示词
+        val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
+        if (systemPrompt != null) {
+            return listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + finalMsgs
+        } else {
+            return finalMsgs
         }
     }
 
     private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
-        Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
-        
-        val messagesWithSystem = buildApiMessages()
-        
-        // 根据 thinkingBudget 计算 reasoning_effort 级别
-        val reasoningEffort = when (thinkingBudget) {
-            0 -> null // 关闭时不传此参数
-            in 1..4096 -> "low"
-            in 4097..16000 -> "medium"
-            else -> "high"
-        }
-        
-        val requestData = ChatRequest(
-            model = model,
-            messages = messagesWithSystem,
-            stream = true,
-            temperature = temperature,
-            topP = topP,
-            maxTokens = maxTokens,
-            reasoningEffort = reasoningEffort
-        )
-        
-        val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
-        Log.d(TAG, "Request body: $requestBody")
-        
-        // 优先从 currentProvider 获取配置
-        val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
-        val effectiveApiKey = currentProvider?.apiKey ?: apiKey
-        
-        val request = Request.Builder()
-            .url("$effectiveBaseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $effectiveApiKey")
-            .addHeader("Content-Type", "application/json")
-            .addHeader("Accept", "text/event-stream")
-            .post(requestBody.toRequestBody("application/json".toMediaType()))
-            .build()
-        
-        var fullContent = ""
-        var fullThinkingContent = ""
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
+                
+                val messagesWithSystem = buildApiMessages(messages, aiMessageId)
+                
+                // 根据 thinkingBudget 计算 reasoning_effort 级别
+                val reasoningEffort = when (thinkingBudget) {
+                    0 -> null // 关闭时不传此参数
+                    in 1..4096 -> "low"
+                    in 4097..16000 -> "medium"
+                    else -> "high"
+                }
+                
+                val requestJson = buildJsonObject {
+                    put("model", model)
+                    put("messages", buildJsonArray {
+                        messagesWithSystem.forEach { msg ->
+                            add(buildJsonObject {
+                                put("role", msg.role)
+                                val content = msg.content
+                                if (content != null) {
+                                    put("content", content)
+                                } else {
+                                    put("content", "")
+                                }
+                            })
+                        }
+                    })
+                    put("stream", true)
+                    // 增加 stream_options 以获得更好的 API 兼容性 (OpenAI 标准)
+                    put("stream_options", buildJsonObject {
+                        put("include_usage", true)
+                    })
+                    temperature.let { put("temperature", it) }
+                    topP.let { put("top_p", it) }
+                    maxTokens?.let { put("max_tokens", it) }
+                    reasoningEffort?.let { put("reasoning_effort", it) }
+                }
+                
+                val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
+                Log.d(TAG, "Request body (Streaming): $requestBody")
+                
+                // 优先从 currentProvider 获取配置
+                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                
+                val request = Request.Builder()
+                    .url("$effectiveBaseUrl/chat/completions")
+                    .addHeader("Authorization", "Bearer $effectiveApiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Accept", "text/event-stream")
+                    .post(requestBody.toRequestBody("application/json".toMediaType()))
+                    .build()
+                
+                var fullContent = ""
+                var fullThinkingContent = ""
+                
+                // 性能优化：UI 更新节流（每 50ms 最多更新一次）
+                var lastUiUpdateTime = 0L
+                val uiUpdateThrottleMs = 50L
+                var pendingUiUpdate = false
+                
+                // ... (EventSourceListener setup continues)
         
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
@@ -1283,7 +1458,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         val index = messages.indexOfFirst { it.id == aiMessageId }
                         if (index >= 0) {
-                            messages[index] = messages[index].copy(isStreaming = false)
+                            // 确保最终内容完整更新（节流可能跳过最后几个 chunk）
+                            messages[index] = messages[index].copy(
+                                content = fullContent,
+                                thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                                isStreaming = false
+                            )
                         }
                         
                         // 保存到数据库
@@ -1311,42 +1491,63 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "SSE onEvent: ${data.take(100)}")
                 
                 try {
-                    // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
-                    data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
-                        val chunk = json.decodeFromString(ChatResponse.serializer(), line)
-                        val delta = chunk.choices.firstOrNull()?.delta
-                        val deltaContent = delta?.content
-                        val deltaReasoning = delta?.reasoning_content
+                    // 动态解析 Streaming 响应
+                    data.trim().split("\n").filter { it.isNotBlank() }.map { it.removePrefix("data: ") }.forEach { line ->
+                        if (line == "[DONE]") return@forEach
+                        
+                        val chunkJson = json.parseToJsonElement(line).jsonObject
+                        
+                        // 检查错误
+                        chunkJson["error"]?.let { 
+                            val errorMsg = it.jsonObject["message"]?.jsonPrimitive?.contentOrNull ?: "Streaming Error"
+                            Log.e(TAG, "Streaming API error: $errorMsg")
+                            return@forEach
+                        }
+                        
+                        val choices = chunkJson["choices"]?.jsonArray
+                        val firstChoice = choices?.getOrNull(0)?.jsonObject
+                        val deltaObj = firstChoice?.get("delta")?.jsonObject ?: firstChoice?.get("message")?.jsonObject
+                        
+                        val deltaContent = deltaObj?.get("content")?.jsonPrimitive?.contentOrNull
+                        val deltaReasoning = deltaObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull
+                            ?: deltaObj?.get("reasoning")?.jsonPrimitive?.contentOrNull
                         
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
-                            
-                            // 更新 UI (使用 copy 触发重绘)
-                            viewModelScope.launch {
-                                val index = messages.indexOfFirst { it.id == aiMessageId }
-                                if (index >= 0) {
-                                    messages[index] = messages[index].copy(thinkingContent = fullThinkingContent)
-                                }
-                            }
+                            pendingUiUpdate = true
                         }
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
+<<<<<<< HEAD
                             
                             // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
                             streamingTokenCount += (deltaContent.length / 4).coerceAtLeast(1)
                             
                             // 更新 UI (使用 copy 触发重绘)
+=======
+                            pendingUiUpdate = true
+                        }
+                        
+                        // 节流 UI 更新：最多每 50ms 更新一次
+                        val now = System.currentTimeMillis()
+                        if (pendingUiUpdate && (now - lastUiUpdateTime >= uiUpdateThrottleMs)) {
+                            pendingUiUpdate = false
+                            lastUiUpdateTime = now
+>>>>>>> origin/main
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
-                                    messages[index] = messages[index].copy(content = fullContent)
+                                    messages[index] = messages[index].copy(
+                                        content = fullContent,
+                                        thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() }
+                                    )
                                 }
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(100)}", e)
+                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(200)}", e)
                 }
             }
             
@@ -1358,7 +1559,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
-                        messages[index] = messages[index].copy(isStreaming = false)
+                        // 确保最终内容完整更新
+                        messages[index] = messages[index].copy(
+                            content = fullContent,
+                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                            isStreaming = false
+                        )
                     }
                     
                     // 保存到数据库
@@ -1419,16 +1625,40 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     isLoading = false
                     
-                    showErrorMessage("请求失败: $errorMsg")
+                    val errorDetail = "请求失败: $errorMsg"
+                    showErrorMessage(errorDetail)
                     
-                    // 移除空的 AI 消息
-                    messages.removeAll { it.id == aiMessageId }
+                    // 将错误信息写入气泡，而不是移除
+                    val index = messages.indexOfFirst { it.id == aiMessageId }
+                    if (index >= 0) {
+                        messages[index] = messages[index].copy(
+                            content = "⚠️ $errorDetail",
+                            isStreaming = false
+                        )
+                    }
                 }
             }
         }
         
-        // 使用 EventSources 创建 SSE 连接
-        currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+                // 使用 EventSources 创建 SSE 连接
+                currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Streaming request setup failed", e)
+                isLoading = false
+                val errorMsg = "初始化流式请求失败: ${e.message}"
+                showErrorMessage(errorMsg)
+                
+                // 绝不移除气泡，而是显示错误
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(
+                        content = "⚠️ $errorMsg",
+                        isStreaming = false
+                    )
+                }
+            }
+        }
     }
     
     private fun showErrorMessage(message: String) {
@@ -1456,5 +1686,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         currentEventSource?.cancel()
+    }
+
+    // 保存图片到相册
+    fun saveImageToGallery(imageUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val filename = "Fluxhub_${System.currentTimeMillis()}.jpg"
+                
+                // 1. 下载图片数据
+                val request = Request.Builder().url(imageUrl).build()
+                val response = client.newCall(request).execute()
+                val bytes = response.body?.bytes() ?: throw Exception("Download failed")
+                
+                // 2. 写入 MediaStore
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Fluxhub")
+                    }
+                }
+                
+                val resolver = context.contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { stream ->
+                        stream.write(bytes)
+                    }
+                    
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        contentValues.clear()
+                        contentValues.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                        resolver.update(uri, contentValues, null, null)
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "图片已保存至相册", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(getApplication(), "保存失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 }
