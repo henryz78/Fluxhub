@@ -196,9 +196,10 @@ fun DisplaySettingsScreen(
                     )
                 }
                 
-                androidx.compose.material3.Switch(
-                    checked = viewModel.hapticFeedbackEnabled,
-                    onCheckedChange = { viewModel.updateHapticFeedbackEnabled(it) }
+                com.liquidglass.fluxhub.components.LiquidToggle(
+                    selected = { viewModel.hapticFeedbackEnabled },
+                    onSelect = { viewModel.updateHapticFeedbackEnabled(it) },
+                    backdrop = backdrop
                 )
             }
         }
