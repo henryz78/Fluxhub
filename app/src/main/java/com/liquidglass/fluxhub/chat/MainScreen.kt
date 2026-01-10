@@ -148,9 +148,11 @@ fun MainScreen(
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
-                    (fadeIn() + scaleIn(initialScale = 0.92f)).togetherWith(fadeOut() + scaleOut(targetScale = 1.08f))
+                    (fadeIn(animationSpec = tween(300)) + 
+                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
+                     fadeOut(animationSpec = tween(300)))
                 },
-                label = "MainTabs"
+                label = "TabContent"
             ) { targetTab ->
                 when (targetTab) {
                     0 -> HomeScreen(
@@ -167,7 +169,9 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
-                                (fadeIn() + scaleIn(initialScale = 0.92f)).togetherWith(fadeOut() + scaleOut(targetScale = 1.08f))
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
                             },
                             label = "ChatSubPage"
                         ) { subPage ->
@@ -198,7 +202,9 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                (fadeIn() + scaleIn(initialScale = 0.92f)).togetherWith(fadeOut() + scaleOut(targetScale = 1.08f))
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
                             },
                             label = "SettingsSubPage"
                         ) { subPage ->
