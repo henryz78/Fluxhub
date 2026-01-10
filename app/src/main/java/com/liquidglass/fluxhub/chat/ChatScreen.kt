@@ -663,7 +663,7 @@ private fun LiquidGlassChatContent(
                                         contentDescription = "清除",
                                         tint = Color.White.copy(alpha = 0.5f),
                                         modifier = Modifier
-                                            .size(16.dp)
+                                            .size(20.dp)
                                             .clickable { modelSearchQuery = "" }
                                     )
                                 }
@@ -1520,7 +1520,7 @@ private fun LiquidGlassChatInputBar(
         LiquidButton(
             onClick = onPickImage,
             backdrop = backdrop,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
             tint = Color(0xFF34C759).copy(alpha = 0.8f)
@@ -1529,14 +1529,14 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
         
         LiquidButton(
             onClick = onOpenToolbox,
             backdrop = backdrop,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
             tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
@@ -1545,7 +1545,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Lucide.SlidersHorizontal,
                 contentDescription = "工具箱",
                 tint = Color.White,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -1635,7 +1635,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(26.dp)
             )
         }
     }
@@ -1777,7 +1777,7 @@ private fun ConversationDrawerContent(
                                 contentDescription = "清除",
                                 tint = Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier
-                                    .size(16.dp)
+                                    .size(20.dp)
                                     .clickable { conversationSearchQuery = "" }
                             )
                         }
