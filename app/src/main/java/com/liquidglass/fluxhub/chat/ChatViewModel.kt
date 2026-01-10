@@ -62,13 +62,20 @@ data class ChatRequest(
 )
 
 @Serializable
+data class ResponseMessage(
+    val role: String? = null,
+    val content: String? = null,
+    val reasoning_content: String? = null
+)
+
+@Serializable
 data class ChatResponse(
     val choices: List<Choice> = emptyList()
 )
 
 @Serializable
 data class Choice(
-    val message: ChatMessage? = null,
+    val message: ResponseMessage? = null,
     val delta: Delta? = null
 )
 
@@ -1089,38 +1096,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             Log.d(TAG, "Parsed ChatResponse: $chatResponse")
                             
                             val choice = chatResponse.choices.firstOrNull()
-                            Log.d(TAG, "First Choice: $choice")
+                            val responseMessage = choice?.message
                             
-                            val content = choice?.message?.content
-                            Log.d(TAG, "Content JsonElement: $content (Type: ${content?.javaClass?.simpleName})")
-
-                            // 正确解析 content：可能是字符串或数组（Vision 响应）
-                            val contentStr = when (content) {
-                                is JsonPrimitive -> {
-                                    if (content.isString) {
-                                        content.content
-                                    } else {
-                                        content.content // fallback for numbers/booleans
-                                    }
-                                }
-                                is JsonArray -> {
-                                    // Vision 响应格式: [{type: "text", text: "..."}]
-                                    content.filterIsInstance<JsonObject>()
-                                        .filter { it["type"]?.jsonPrimitive?.content == "text" }
-                                        .mapNotNull { it["text"]?.jsonPrimitive?.content }
-                                        .joinToString("")
-                                }
-                                null -> {
-                                    Log.w(TAG, "Content is NULL")
-                                    "" // Handle explicitly
-                                }
-                                else -> {
-                                    Log.w(TAG, "Unknown content type: ${content::class.simpleName}")
-                                    content.toString()
-                                }
-                            }
+                            val contentStr = responseMessage?.content ?: ""
+                            val reasoningStr = responseMessage?.reasoning_content ?: ""
                             
-                            Log.d(TAG, "Final Parsed content string: '$contentStr'")
+                            Log.d(TAG, "Final Parsed content string: '$contentStr', reasoning: '$reasoningStr'")
                             
                             withContext(Dispatchers.Main) {
                                 isLoading = false
@@ -1230,39 +1211,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             else -> "high"
         }
         
-        // 使用动态 JsonObject 构建请求（参考 Rikkahub buildChatCompletionRequest）
-        val requestJson = buildJsonObject {
-            put("model", model)
-            put("stream", true)
-            
-            // stream_options (Rikkahub对某些API需要这个)
-            put("stream_options", buildJsonObject {
-                put("include_usage", true)
-            })
-            
-            // messages 数组
-            putJsonArray("messages") {
-                messagesWithSystem.forEach { msg ->
-                    add(buildJsonObject {
-                        put("role", msg.role)
-                        when (val content = msg.content) {
-                            is JsonPrimitive -> put("content", content)
-                            is JsonArray -> put("content", content)
-                            else -> put("content", "")
-                        }
-                    })
-                }
-            }
-            
-            // 可选参数
-            temperature.let { put("temperature", it) }
-            topP.let { put("top_p", it) }
-            maxTokens?.let { put("max_tokens", it) }
-            reasoningEffort?.let { put("reasoning_effort", it) }
-        }
+        val requestData = ChatRequest(
+            model = model,
+            messages = messagesWithSystem,
+            stream = true,
+            temperature = temperature,
+            topP = topP,
+            maxTokens = maxTokens,
+            reasoningEffort = reasoningEffort
+        )
         
-        val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
-        Log.d(TAG, "Request body (dynamic): $requestBody")
+        val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
+        Log.d(TAG, "Request body: $requestBody")
         
         // 优先从 currentProvider 获取配置
         val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
@@ -1322,41 +1282,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "SSE onEvent: ${data.take(100)}")
                 
                 try {
-                    // 使用动态 JSON 解析（参考 Rikkahub ChatCompletionsAPI.kt: parseMessage）
+                    // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
                     data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
-                        val chunkJson = json.parseToJsonElement(line).jsonObject
-                        
-                        // Rikkahub 检查 error
-                        chunkJson["error"]?.let { errorElement ->
-                            val errorMsg = errorElement.jsonObject["message"]?.jsonPrimitive?.contentOrNull 
-                                ?: "API Error"
-                            Log.e(TAG, "SSE API error: $errorMsg")
-                            viewModelScope.launch {
-                                showErrorMessage(errorMsg)
-                            }
-                            eventSource.cancel()
-                            return@forEach
-                        }
-                        
-                        val choices = chunkJson["choices"]?.jsonArray
-                        if (choices.isNullOrEmpty()) {
-                            // 可能是 usage data，忽略
-                            return@forEach
-                        }
-                        
-                        val choice = choices[0].jsonObject
-                        // Rikkahub 方式：同时尝试 delta 和 message
-                        val deltaOrMessage = choice["delta"]?.jsonObject 
-                            ?: choice["message"]?.jsonObject
-                            ?: return@forEach
-                        
-                        // Rikkahub parseMessage: 直接读取 jsonPrimitive.contentOrNull
-                        val deltaContent = deltaOrMessage["content"]?.jsonPrimitive?.contentOrNull ?: ""
-                        val deltaReasoning = deltaOrMessage["reasoning_content"]?.jsonPrimitive?.contentOrNull
-                            ?: deltaOrMessage["reasoning"]?.jsonPrimitive?.contentOrNull
+                        val chunk = json.decodeFromString(ChatResponse.serializer(), line)
+                        val delta = chunk.choices.firstOrNull()?.delta
+                        val deltaContent = delta?.content
+                        val deltaReasoning = delta?.reasoning_content
                         
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
+                            
+                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1365,8 +1301,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         
-                        if (deltaContent.isNotEmpty()) {
+                        if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
+                            
+                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1376,7 +1314,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "SSE parse failed: ${data.take(200)}", e)
+                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(100)}", e)
                 }
             }
             
