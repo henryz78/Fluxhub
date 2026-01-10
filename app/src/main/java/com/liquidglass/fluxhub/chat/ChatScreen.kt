@@ -1553,24 +1553,27 @@ private fun ConversationDrawerContent(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(20.dp))
+                                            .fillMaxWidth(0.85f)
+                                            .clip(RoundedCornerShape(24.dp))
                                             .drawBackdrop(
                                                 backdrop = backdrop,
-                                                shape = { RoundedCornerShape(20.dp) },
+                                                shape = { RoundedCornerShape(24.dp) },
                                                 effects = { vibrancy(); blur(16.dp.toPx()) },
                                                 onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.6f)) }
                                             )
-                                            .padding(20.dp)
+                                            .padding(24.dp)
                                     ) {
-                                        Column {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
                                             Text(
                                                 "重命名对话",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 color = Color.White,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
                                             )
-                                            Spacer(Modifier.height(16.dp))
+                                            Spacer(Modifier.height(20.dp))
                                             OutlinedTextField(
                                                 value = renameText,
                                                 onValueChange = { renameText = it },
@@ -1580,25 +1583,105 @@ private fun ConversationDrawerContent(
                                                     focusedBorderColor = Color(0xFF007AFF),
                                                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                                                     focusedTextColor = Color.White,
-                                                    unfocusedTextColor = Color.White
-                                                )
+                                                    unfocusedTextColor = Color.White,
+                                                    cursorColor = Color(0xFF007AFF)
+                                                ),
+                                                shape = RoundedCornerShape(12.dp)
                                             )
-                                            Spacer(Modifier.height(16.dp))
+                                            Spacer(Modifier.height(24.dp))
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
-                                                TextButton(onClick = { showRenameDialog = false }) {
-                                                    Text("取消", color = Color.White.copy(alpha = 0.7f))
+                                                LiquidButton(
+                                                    onClick = { showRenameDialog = false },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color.White.copy(alpha = 0.15f)
+                                                ) {
+                                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
                                                 }
-                                                Spacer(Modifier.width(8.dp))
-                                                TextButton(onClick = {
-                                                    if (renameText.isNotBlank()) {
-                                                        onRenameConversation(conversation.id, renameText)
-                                                    }
-                                                    showRenameDialog = false
-                                                }) {
-                                                    Text("确定", color = Color(0xFF007AFF))
+                                                LiquidButton(
+                                                    onClick = {
+                                                        if (renameText.isNotBlank()) {
+                                                            onRenameConversation(conversation.id, renameText)
+                                                        }
+                                                        showRenameDialog = false
+                                                    },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color(0xFF007AFF).copy(alpha = 0.8f)
+                                                ) {
+                                                    Text("确定", color = Color.White, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // 删除确认对话框
+                            var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+                            if (showDeleteConfirmDialog) {
+                                androidx.compose.ui.window.Dialog(
+                                    onDismissRequest = { showDeleteConfirmDialog = false }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.85f)
+                                            .clip(RoundedCornerShape(24.dp))
+                                            .drawBackdrop(
+                                                backdrop = backdrop,
+                                                shape = { RoundedCornerShape(24.dp) },
+                                                effects = { vibrancy(); blur(16.dp.toPx()) },
+                                                onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.6f)) }
+                                            )
+                                            .padding(24.dp)
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Lucide.Trash2,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFF453A),
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                            Text(
+                                                text = "删除将会话",
+                                                color = Color.White,
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "确定要删除 \"${conversation.title}\" 吗？此操作无法撤销。",
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                fontSize = 14.sp,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                LiquidButton(
+                                                    onClick = { showDeleteConfirmDialog = false },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color.White.copy(alpha = 0.15f)
+                                                ) {
+                                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
+                                                }
+                                                LiquidButton(
+                                                    onClick = {
+                                                        onDeleteConversation(conversation.id)
+                                                        showDeleteConfirmDialog = false
+                                                    },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color(0xFFFF453A).copy(alpha = 0.8f)
+                                                ) {
+                                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -1610,8 +1693,8 @@ private fun ConversationDrawerContent(
                                 confirmValueChange = {
                                     when (it) {
                                         SwipeToDismissBoxValue.EndToStart -> {
-                                            onDeleteConversation(conversation.id)
-                                            true
+                                            showDeleteConfirmDialog = true
+                                            false // Don't dismiss immediately, wait for dialog confirmation
                                         }
                                         SwipeToDismissBoxValue.StartToEnd -> {
                                             renameText = conversation.title

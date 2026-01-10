@@ -44,7 +44,7 @@ private const val TAG = "ChatViewModel"
 @Serializable
 data class ChatMessage(
     val role: String,
-    val content: JsonElement
+    val content: JsonElement? = null
 )
 
 @Serializable
@@ -410,6 +410,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
+        // 如果当前对话为空（只有系统消息或无消息），则不创建新对话，直接复用
+        val isCurrentEmpty = messages.none { it.role != "system" }
+        if (isCurrentEmpty) {
+            return
+        }
+
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
@@ -1068,43 +1074,69 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.IO) {
                     val response = client.newCall(request).execute()
                     val body = response.body?.string() ?: "{}"
-                    Log.d(TAG, "Non-streaming response: $body")
+                    Log.d(TAG, "Non-streaming response raw body: $body") // CRITICAL LOG
                     
                     if (response.isSuccessful) {
-                        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
-                        val choice = chatResponse.choices.firstOrNull()
-                        
-                        // 正确解析 content：可能是字符串或数组（Vision 响应）
-                        val contentStr = when (val content = choice?.message?.content) {
-                            is JsonPrimitive -> content.content // 获取字符串值
-                            is JsonArray -> {
-                                // Vision 响应格式: [{type: "text", text: "..."}]
-                                content.filterIsInstance<JsonObject>()
-                                    .filter { it["type"]?.jsonPrimitive?.content == "text" }
-                                    .mapNotNull { it["text"]?.jsonPrimitive?.content }
-                                    .joinToString("")
+                        try {
+                            val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
+                            Log.d(TAG, "Parsed ChatResponse: $chatResponse")
+                            
+                            val choice = chatResponse.choices.firstOrNull()
+                            Log.d(TAG, "First Choice: $choice")
+                            
+                            val content = choice?.message?.content
+                            Log.d(TAG, "Content JsonElement: $content (Type: ${content?.javaClass?.simpleName})")
+
+                            // 正确解析 content：可能是字符串或数组（Vision 响应）
+                            val contentStr = when (content) {
+                                is JsonPrimitive -> {
+                                    if (content.isString) {
+                                        content.content
+                                    } else {
+                                        content.content // fallback for numbers/booleans
+                                    }
+                                }
+                                is JsonArray -> {
+                                    // Vision 响应格式: [{type: "text", text: "..."}]
+                                    content.filterIsInstance<JsonObject>()
+                                        .filter { it["type"]?.jsonPrimitive?.content == "text" }
+                                        .mapNotNull { it["text"]?.jsonPrimitive?.content }
+                                        .joinToString("")
+                                }
+                                null -> {
+                                    Log.w(TAG, "Content is NULL")
+                                    "" // Handle explicitly
+                                }
+                                else -> {
+                                    Log.w(TAG, "Unknown content type: ${content::class.simpleName}")
+                                    content.toString()
+                                }
                             }
-                            else -> content?.toString() ?: ""
-                        }
-                        
-                        Log.d(TAG, "Parsed content: $contentStr")
-                        
-                        withContext(Dispatchers.Main) {
-                            isLoading = false
-                            val index = messages.indexOfFirst { it.id == aiMessageId }
-                            if (index >= 0) {
-                                messages[index] = messages[index].copy(
-                                    content = contentStr,
-                                    isStreaming = false
-                                )
-                                messageDao.insertMessage(MessageEntity(
-                                    id = aiMessageId,
-                                    conversationId = conversationId,
-                                    role = "assistant",
-                                    content = contentStr,
-                                    model = model
-                                ))
+                            
+                            Log.d(TAG, "Final Parsed content string: '$contentStr'")
+                            
+                            withContext(Dispatchers.Main) {
+                                isLoading = false
+                                val index = messages.indexOfFirst { it.id == aiMessageId }
+                                if (index >= 0) {
+                                    // ensure thread safety
+                                    val safeContent = contentStr.ifEmpty { "Received empty content from API" } 
+                                    messages[index] = messages[index].copy(
+                                        content = safeContent,
+                                        isStreaming = false
+                                    )
+                                    messageDao.insertMessage(MessageEntity(
+                                        id = aiMessageId,
+                                        conversationId = conversationId,
+                                        role = "assistant",
+                                        content = safeContent,
+                                        model = model
+                                    ))
+                                }
                             }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Parsing error", e)
+                            throw e 
                         }
                     } else {
                         throw Exception("HTTP ${response.code}: ${response.message}")

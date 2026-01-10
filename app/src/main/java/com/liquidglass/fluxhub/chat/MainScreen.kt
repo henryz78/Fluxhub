@@ -276,7 +276,10 @@ fun MainScreen(
                 ) {
                     // Tab 0: Home
                     LiquidBottomTab(
-                        onClick = { selectedTab = 0 }
+                        onClick = { 
+                            selectedTab = 0 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -302,7 +305,10 @@ fun MainScreen(
                     
                     // Tab 1: Chat
                     LiquidBottomTab(
-                        onClick = { selectedTab = 1 }
+                        onClick = { 
+                            selectedTab = 1 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
