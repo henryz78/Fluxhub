@@ -124,43 +124,33 @@ fun MainScreen(
             val bottomPadding = (100.dp - imeHeightDp).coerceAtLeast(0.dp) // 增加到100dp避免重叠
             
             // 预加载所有页面：消除首次切换的编译卡顿
-            // 所有页面同时存在于组合树中，用 alpha 控制可见性
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Tab 0: HomeScreen
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { 
-                            alpha = if (selectedTab == 0) 1f else 0f 
-                        }
-                        .then(if (selectedTab == 0) Modifier else Modifier.pointerInput(Unit) {})
-                ) {
-                    HomeScreen(
-                        backdrop = backdrop,
-                        bottomPadding = PaddingValues(bottom = bottomPadding),
-                        onNavigateToChat = { selectedTab = 1 },
-                        onQuickPrompt = { prompt ->
-                            pendingPrompt = prompt
-                            selectedTab = 1
-                        },
-                        viewModel = viewModel
-                    )
-                }
-                
-                // Tab 1: ChatScreen
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { 
-                            alpha = if (selectedTab == 1) 1f else 0f 
-                        }
-                        .then(if (selectedTab == 1) Modifier else Modifier.pointerInput(Unit) {})
-                ) {
-                    var chatSubPage by remember { mutableStateOf<String?>(null) }
-                    BackHandler(enabled = chatSubPage != null && selectedTab == 1) {
-                        chatSubPage = null
-                    }
-                    
+            // 使用 key 保持状态，但只显示当前选中的页面
+            // 这样避免了 z-index 和触摸事件冲突
+            
+            // 保持各页面的子页面状态
+            var chatSubPage by remember { mutableStateOf<String?>(null) }
+            var settingsSubPage by remember { mutableStateOf<String?>(null) }
+            
+            // BackHandler 处理
+            BackHandler(enabled = chatSubPage != null && selectedTab == 1) {
+                chatSubPage = null
+            }
+            BackHandler(enabled = settingsSubPage != null && selectedTab == 2) {
+                settingsSubPage = null
+            }
+            
+            when (selectedTab) {
+                0 -> HomeScreen(
+                    backdrop = backdrop,
+                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                    onNavigateToChat = { selectedTab = 1 },
+                    onQuickPrompt = { prompt ->
+                        pendingPrompt = prompt
+                        selectedTab = 1
+                    },
+                    viewModel = viewModel
+                )
+                1 -> {
                     AnimatedContent(
                         targetState = chatSubPage,
                         transitionSpec = {
@@ -193,22 +183,7 @@ fun MainScreen(
                         }
                     }
                 }
-                
-                // Tab 2: SettingsScreen
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { 
-                            alpha = if (selectedTab == 2) 1f else 0f 
-                        }
-                        .then(if (selectedTab == 2) Modifier else Modifier.pointerInput(Unit) {})
-                ) {
-                    var settingsSubPage by remember { mutableStateOf<String?>(null) }
-                    
-                    BackHandler(enabled = settingsSubPage != null && selectedTab == 2) {
-                        settingsSubPage = null
-                    }
-                    
+                2 -> {
                     AnimatedContent(
                         targetState = settingsSubPage,
                         transitionSpec = {
