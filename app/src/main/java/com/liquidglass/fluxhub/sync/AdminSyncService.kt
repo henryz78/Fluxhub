@@ -213,7 +213,7 @@ class AdminSyncService(private val context: Context) {
                 val user = if (!token.isNullOrBlank()) verifyTokenInternal(token) else null
                 if (user != null) {
                     Log.d(TAG, "Renew success: ${user.username}")
-                    return@withContext AuthResult.Success(token, user.id, user.username)
+                    return@withContext AuthResult.Success(token ?: "", user.id, user.username)
                 }
                 // 即使没有 Token 验证用户，也视为成功，但可能没有完整 ID
                 return@withContext AuthResult.Success(token ?: "", userId ?: "", username ?: "")
