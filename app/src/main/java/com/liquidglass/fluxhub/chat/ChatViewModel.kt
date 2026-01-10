@@ -1065,19 +1065,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
                 
-                withContext(Dispatchers.IO) {
                     val response = client.newCall(request).execute()
+                    val body = response.body?.string() ?: "{}"
+                    Log.d(TAG, "Non-streaming response: $body")
+                    
                     if (response.isSuccessful) {
-                        val body = response.body?.string() ?: "{}"
                         val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
                         val choice = chatResponse.choices.firstOrNull()
-                        val content = choice?.message?.content?.toString() ?: "" // JsonElement to String might need care
-                        // 简单处理: 假设 content 是 JsonPrimitive string
-                        val contentStr = if (choice?.message?.content is JsonPrimitive) {
-                            choice.message.content.content
-                        } else {
-                            choice?.message?.content.toString()
+                        
+                        // 正确解析 content：可能是字符串或数组（Vision 响应）
+                        val contentStr = when (val content = choice?.message?.content) {
+                            is JsonPrimitive -> content.content // 获取字符串值
+                            is JsonArray -> {
+                                // Vision 响应格式: [{type: "text", text: "..."}]
+                                content.filterIsInstance<JsonObject>()
+                                    .filter { it["type"]?.jsonPrimitive?.content == "text" }
+                                    .mapNotNull { it["text"]?.jsonPrimitive?.content }
+                                    .joinToString("")
+                            }
+                            else -> content?.toString() ?: ""
                         }
+                        
+                        Log.d(TAG, "Parsed content: $contentStr")
                         
                         withContext(Dispatchers.Main) {
                             isLoading = false

@@ -62,6 +62,7 @@ import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
@@ -2071,8 +2072,20 @@ private fun ToolboxThinkingBudgetPage(
             )
         }
         
+        // 黄色警告提示
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "⚠️ 部分模型不支持此功能",
+            color = Color(0xFFFFCC00),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
+            )
+        )
+        
         // 说明文字
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             text = "深度思考让 AI 在回复前进行推理。需要模型支持此功能（如 o1、DeepSeek R1 等）。",
             color = Color.White.copy(alpha = 0.6f),
@@ -2281,26 +2294,50 @@ private fun ToolboxContextSizePage(
             modifier = Modifier.padding(vertical = 24.dp)
         )
         
-        // 滑块
+        // 滑块 - 带黄色边框和警告提示
         var sliderValue by remember { mutableFloatStateOf(viewModel.contextSize.toFloat()) }
         LaunchedEffect(viewModel.contextSize) {
             if (sliderValue.toInt() != viewModel.contextSize) {
                 sliderValue = viewModel.contextSize.toFloat()
             }
         }
-        com.liquidglass.fluxhub.components.LiquidSlider(
-            value = { sliderValue },
-            onValueChange = { 
-                sliderValue = it
-                viewModel.updateContextSize(it.toInt()) 
-            },
-            valueRange = 1f..128f,
-            visibilityThreshold = 4f,
-            backdrop = backdrop,
+        
+        // 黄色边框包裹滑块
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp)
-        )
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFFFCC00).copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .padding(12.dp)
+        ) {
+            Column {
+                com.liquidglass.fluxhub.components.LiquidSlider(
+                    value = { sliderValue },
+                    onValueChange = { 
+                        sliderValue = it
+                        viewModel.updateContextSize(it.toInt()) 
+                    },
+                    valueRange = 1f..128f,
+                    visibilityThreshold = 4f,
+                    backdrop = backdrop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "⚠️ 此拖动条有 Bug，拖动可能卡顿，推荐使用下方快捷档位",
+                    color = Color(0xFFFFCC00),
+                    fontSize = 12.sp,
+                    style = TextStyle(
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
+                    )
+                )
+            }
+        }
         
         // 快捷档位按钮
         Spacer(Modifier.height(24.dp))
