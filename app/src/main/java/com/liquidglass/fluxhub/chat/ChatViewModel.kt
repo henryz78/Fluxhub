@@ -1552,4 +1552,53 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         currentEventSource?.cancel()
     }
+
+    // 保存图片到相册
+    fun saveImageToGallery(imageUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>()
+                val filename = "Fluxhub_${System.currentTimeMillis()}.jpg"
+                
+                // 1. 下载图片数据
+                val request = Request.Builder().url(imageUrl).build()
+                val response = client.newCall(request).execute()
+                val bytes = response.body?.bytes() ?: throw Exception("Download failed")
+                
+                // 2. 写入 MediaStore
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Fluxhub")
+                    }
+                }
+                
+                val resolver = context.contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                
+                uri?.let {
+                    resolver.openOutputStream(it)?.use { stream ->
+                        stream.write(bytes)
+                    }
+                    
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        contentValues.clear()
+                        contentValues.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                        resolver.update(uri, contentValues, null, null)
+                    }
+                    
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "图片已保存至相册", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(getApplication(), "保存失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 }
