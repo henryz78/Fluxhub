@@ -1158,28 +1158,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isLoading = false
                 val errorMsg = "请求失败: ${e.message}"
                 showErrorMessage(errorMsg)
+                
+                // 绝不移除气泡，而是显示错误
                 val index = messages.indexOfFirst { it.id == aiMessageId }
                 if (index >= 0) {
-                    messages[index] = messages[index].copy(content = "⚠️ $errorMsg", isStreaming = false)
+                    messages[index] = messages[index].copy(
+                        content = "⚠️ $errorMsg",
+                        isStreaming = false
+                    )
                 }
             }
         }
     }
     
     private fun buildApiMessages(history: List<UiMessage>): List<ChatMessage> {
+        Log.d(TAG, "Building API messages from history of size ${history.size}")
         val baseMessages = history
-            .filter { it.role == "user" || (it.role == "assistant" && it.content.isNotEmpty()) }
-            // 排除当前正在生成的空占位符消息，但保留用户消息
-            .filter { it.role == "user" || it.content.isNotBlank() }
-            
-        // 应用上下文长度限制 (保留最新的 N 条)
-        val contextMessages = if (contextSize > 0) {
-             baseMessages.takeLast(contextSize)
-        } else {
-             baseMessages
-        }
+            // 关键：必须排除当前正在生成的(isStreaming)或者还没内容的助手消息
+            // 否则 API 会因为 history 以 assistant 消息结尾而返回 400 错误
+            .filter { it.role == "user" || (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank()) }
+            .takeLast(contextSize) // 直接限制上下文数量
 
-        val processedMsgs = contextMessages.map { message ->
+        val processedMsgs = baseMessages.map { message ->
             // 解析 Vision 图片 (Markdown: ![image](uri))
             val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
             val contentElement = if (imageMatch != null) {
@@ -1456,24 +1456,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch {
                     isLoading = false
                     
-                    showErrorMessage("请求失败: $errorMsg")
+                    val errorDetail = "请求失败: $errorMsg"
+                    showErrorMessage(errorDetail)
                     
-                    // 移除空的 AI 消息
-                    messages.removeAll { it.id == aiMessageId }
+                    // 将错误信息写入气泡，而不是移除
+                    val index = messages.indexOfFirst { it.id == aiMessageId }
+                    if (index >= 0) {
+                        messages[index] = messages[index].copy(
+                            content = "⚠️ $errorDetail",
+                            isStreaming = false
+                        )
+                    }
                 }
             }
         }
         
                 // 使用 EventSources 创建 SSE 连接
                 currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
             } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 isLoading = false
-                val errorMsg = "初始化请求失败: ${e.message}"
+                val errorMsg = "初始化流式请求失败: ${e.message}"
                 showErrorMessage(errorMsg)
+                
+                // 绝不移除气泡，而是显示错误
                 val index = messages.indexOfFirst { it.id == aiMessageId }
                 if (index >= 0) {
-                    messages[index] = messages[index].copy(content = "⚠️ $errorMsg", isStreaming = false)
+                    messages[index] = messages[index].copy(
+                        content = "⚠️ $errorMsg",
+                        isStreaming = false
+                    )
                 }
             }
         }
