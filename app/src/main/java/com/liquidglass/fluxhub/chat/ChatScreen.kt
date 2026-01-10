@@ -362,16 +362,21 @@ private fun LiquidGlassChatContent(
     val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
     
     // AI 生成时显示灵动岛
+    // 使用 remember 跟踪是否正在加载（避免覆盖登录通知）
+    var wasLoading by remember { mutableStateOf(false) }
+    
     LaunchedEffect(viewModel.isLoading) {
         if (viewModel.isLoading) {
+            wasLoading = true
             // 开始生成：显示加载状态
             controller.showLoading(
                 title = "AI 正在思考...",
                 modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
                 avatar = viewModel.currentAssistant?.avatar ?: "🤖"
             )
-        } else if (controller.state != com.liquidglass.fluxhub.chat.ui.components.DynamicIslandState.Hidden) {
-            // 生成结束：显示成功或失败
+        } else if (wasLoading) {
+            // 仅当从加载状态结束时才显示成功/失败
+            wasLoading = false
             if (viewModel.showError) {
                 controller.showError("失败")
             } else {

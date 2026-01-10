@@ -98,13 +98,22 @@ object DynamicIslandController {
     /**
      * 显示成功状态
      */
-    fun showSuccess(message: String = "完成", autoHideDelayMs: Long = 2500) {
+    fun showSuccess(
+        message: String = "完成",
+        autoHideDelayMs: Long = 2500,
+        avatar: String? = null,
+        customTitle: String? = null
+    ) {
         if (!isEnabled) return
         
         stopTimer()
         this.successMessage = message
         this.isCompleted = true
         this.isFailed = false
+        // 设置自定义头像和标题（用于登录通知等）
+        if (avatar != null) this.assistantAvatar = avatar
+        if (customTitle != null) this.title = customTitle
+        this.modelName = null // 清空模型名称
         this.state = DynamicIslandState.Collapsed
         
         // 自动隐藏

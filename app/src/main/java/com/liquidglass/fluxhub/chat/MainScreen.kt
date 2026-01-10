@@ -459,7 +459,11 @@ fun MainScreen(
             if (shouldShow) {
                 hasShownLoginSuccess = true
                 hasShownThisSession = true
-                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess("登录成功")
+                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                    message = "登录成功",
+                    avatar = "👋",
+                    customTitle = "欢迎回来"
+                )
             }
         }
         
