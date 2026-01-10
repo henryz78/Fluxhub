@@ -422,9 +422,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
-        // 如果当前对话为空（只有系统消息或无消息），则不创建新对话，直接复用
+        // 如果当前对话为空（只有系统消息或无消息），且已有当前会话 ID，则不创建新对话，直接复用
+        // 如果 currentConversationId 为 null (新用户首次进入)，则必须创建
         val isCurrentEmpty = messages.none { it.role != "system" }
-        if (isCurrentEmpty) {
+        if (currentConversationId != null && isCurrentEmpty) {
             return
         }
 

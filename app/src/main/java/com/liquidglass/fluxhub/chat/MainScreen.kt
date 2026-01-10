@@ -144,17 +144,7 @@ fun MainScreen(
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
-                    if (targetState > initialState) {
-                        // 向左滑动 (0->1, 1->2)
-                        (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
-                            slideOutHorizontally { width -> -width } + fadeOut()
-                        )
-                    } else {
-                        // 向右滑动 (2->1, 1->0)
-                        (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
-                            slideOutHorizontally { width -> width } + fadeOut()
-                        )
-                    }
+                    fadeIn().togetherWith(fadeOut())
                 },
                 label = "MainTabs"
             ) { targetTab ->
@@ -173,9 +163,7 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                fadeIn().togetherWith(fadeOut())
                             },
                             label = "ChatSubPage"
                         ) { subPage ->
@@ -206,9 +194,7 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                fadeIn().togetherWith(fadeOut())
                             },
                             label = "SettingsSubPage"
                         ) { subPage ->

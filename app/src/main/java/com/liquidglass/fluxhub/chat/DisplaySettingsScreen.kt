@@ -156,60 +156,6 @@ fun DisplaySettingsScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        // Interaction Settings
-        Text(
-            "交互体验",
-            style = TextStyle(
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-            )
-        )
-        
-        Spacer(Modifier.height(16.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { ContinuousRoundedRectangle(16.dp) },
-                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
-                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
-                )
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "震动反馈",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "操作时的触感反馈",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                }
-                
-                com.liquidglass.fluxhub.components.LiquidToggle(
-                    selected = { viewModel.hapticFeedbackEnabled },
-                    onSelect = { viewModel.updateHapticFeedbackEnabled(it) },
-                    backdrop = backdrop
-                )
-            }
-        }
-        
-        Spacer(Modifier.height(24.dp))
-        
         // Interaction Config
         Text(
             "交互与反馈",
@@ -250,10 +196,9 @@ fun DisplaySettingsScreen(
                     )
                 }
                 
-                com.liquidglass.fluxhub.components.LiquidToggle(
-                    selected = { viewModel.hapticFeedbackEnabled },
-                    onSelect = { viewModel.updateHapticFeedbackEnabled(it) },
-                    backdrop = backdrop
+                androidx.compose.material3.Switch(
+                    checked = viewModel.hapticFeedbackEnabled,
+                    onCheckedChange = { viewModel.updateHapticFeedbackEnabled(it) }
                 )
             }
         }
