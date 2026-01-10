@@ -133,12 +133,19 @@ fun ChatScreen(
     initialPrompt: String? = null,
     onPromptConsumed: () -> Unit = {}
 ) {
-    var inputText by remember { mutableStateOf(initialPrompt ?: "") }
+    // 使用 ViewModel 中的 inputText（导航时不会丢失）
+    var inputText by remember { mutableStateOf(viewModel.inputText) }
+    
+    // 同步到 ViewModel（确保导航时保存）
+    LaunchedEffect(inputText) {
+        viewModel.inputText = inputText
+    }
     
     // 消费初始提示词
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank()) {
             inputText = initialPrompt
+            viewModel.inputText = initialPrompt
             onPromptConsumed()
         }
     }
@@ -1529,7 +1536,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(26.dp)
             )
         }
         
@@ -1545,7 +1552,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Lucide.SlidersHorizontal,
                 contentDescription = "工具箱",
                 tint = Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(26.dp)
             )
         }
 
@@ -1569,7 +1576,11 @@ private fun LiquidGlassChatInputBar(
                 )
                 .heightIn(min = 44.dp, max = 160.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+            ) {
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
@@ -1612,11 +1623,11 @@ private fun LiquidGlassChatInputBar(
                 if (text.count { it == '\n' } > 1 || text.length > 80) {
                     Box(
                         modifier = Modifier
-                            .width(3.dp)
+                            .width(4.dp)
                             .fillMaxHeight()
-                            .padding(top = 8.dp, bottom = 8.dp, end = 4.dp)
+                            .padding(vertical = 10.dp, horizontal = 2.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.White.copy(alpha = 0.3f))
+                            .background(Color.White.copy(alpha = 0.5f))
                     )
                 }
             }
@@ -1635,7 +1646,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(30.dp)
             )
         }
     }

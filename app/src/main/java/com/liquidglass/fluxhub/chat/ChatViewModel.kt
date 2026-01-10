@@ -144,6 +144,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
     
+    // 输入框文本（保存在 ViewModel 中，避免导航时丢失）
+    var inputText by mutableStateOf("")
+    
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
     var wallpaperUri by mutableStateOf<String?>(null)
