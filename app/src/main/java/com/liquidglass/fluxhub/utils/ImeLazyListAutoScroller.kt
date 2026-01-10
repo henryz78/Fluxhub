@@ -1,6 +1,6 @@
 package com.liquidglass.fluxhub.utils
 
-import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyListState
@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * 自动跟随键盘滚动的 Hook
