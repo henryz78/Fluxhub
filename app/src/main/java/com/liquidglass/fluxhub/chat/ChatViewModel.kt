@@ -251,17 +251,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             
-            // 设置 Token 并验证
+            // 设置 Token 并验证 (带一次自动重试，针对服务器冷启动)
             adminSyncService.authToken = token
             
-            when (val result = adminSyncService.verifyToken()) {
+            var attempts = 0
+            var result: AuthResult? = null
+            
+            while (attempts < 2) {
+                result = adminSyncService.verifyToken()
+                if (result is AuthResult.Success || (result is AuthResult.Error && (result.message.contains("过期") || result.message.contains("禁用")))) {
+                    break
+                }
+                attempts++
+                if (attempts < 2) delay(2000)
+            }
+            
+            when (result) {
                 is AuthResult.Success -> {
                     authState = AuthState.Authenticated(result.userId, result.username)
                 }
                 is AuthResult.Error -> {
                     when {
                         result.message.contains("过期") -> {
-                            // 尝试获取本地保存的用户名
                             val savedUsername = settingsRepository.username.first() ?: ""
                             authState = AuthState.Expired(result.message, savedUsername)
                         }
@@ -269,11 +280,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             authState = AuthState.Blocked(result.message)
                         }
                         else -> {
-                            // Token 无效，需要重新登录
+                            // Token 无效应重新登录，清除失效状态
                             settingsRepository.clearAuth()
                             authState = AuthState.NotLoggedIn
                         }
                     }
+                }
+                else -> {
+                    authState = AuthState.NotLoggedIn
                 }
             }
         }
@@ -301,6 +315,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             authState = AuthState.Blocked(result.message)
                         }
                         else -> {
+                            // 重要：如果当前已经是 NotLoggedIn 或 Error 状态，
+                            // 保持该状态，仅更新 authState 为 Error 以便回显错误。
+                            // 这样 MainScreen 不会因为状态没变而销毁重排 AuthScreen，保留输入。
                             authState = AuthState.Error(result.message)
                         }
                     }

@@ -98,46 +98,40 @@ class AdminSyncService(private val context: Context) {
      * 用户登录
      */
     suspend fun login(username: String, password: String): AuthResult = withContext(Dispatchers.IO) {
-        var attempts = 0
-        while (attempts < 2) {
-            try {
-                val body = json.encodeToString(
-                    LoginRequest(username = username, password = password)
-                )
-                
-                val request = Request.Builder()
-                    .url("$ADMIN_BASE_URL/api/user-auth/login")
-                    .post(body.toRequestBody("application/json".toMediaType()))
-                    .build()
-                
-                val response = client.newCall(request).execute()
-                val responseBody = response.body?.string() ?: "{}"
-                
-                if (response.isSuccessful) {
-                    val result = json.decodeFromString<AuthResponse>(responseBody)
-                    authToken = result.token
-                    userId = result.user.id
-                    this@AdminSyncService.username = result.user.username
-                    Log.d(TAG, "Login success: ${result.user.username}")
-                    return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
-                } else {
-                    val error = try {
-                        json.decodeFromString<ErrorResponse>(responseBody).error
-                    } catch (e: Exception) { "登录失败" }
-                    Log.e(TAG, "Login failed: $error")
-                    return@withContext AuthResult.Error(error)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Login attempt ${attempts + 1} failed", e)
-                attempts++
-                if (attempts >= 2) {
-                    return@withContext AuthResult.Error("网络连接失败")
-                }
-                // 简单的失败重试，针对冷启动可能断开连接的情况
-                try { kotlinx.coroutines.delay(1000) } catch (e: Exception) {}
+        try {
+            val body = json.encodeToString(
+                LoginRequest(username = username, password = password)
+            )
+            
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/user-auth/login")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+            
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: "{}"
+            
+            if (response.isSuccessful) {
+                val result = json.decodeFromString<AuthResponse>(responseBody)
+                authToken = result.token
+                userId = result.user.id
+                this@AdminSyncService.username = result.user.username
+                Log.d(TAG, "Login success: ${result.user.username}")
+                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
+            } else {
+                val error = try {
+                    json.decodeFromString<ErrorResponse>(responseBody).error
+                } catch (e: Exception) { "登录失败" }
+                Log.e(TAG, "Login failed: $error")
+                return@withContext AuthResult.Error(error)
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            Log.e(TAG, "Login timeout", e)
+            return@withContext AuthResult.Error("服务器响应超时，请重试")
+        } catch (e: Exception) {
+            Log.e(TAG, "Login error", e)
+            return@withContext AuthResult.Error("网络连接失败")
         }
-        return@withContext AuthResult.Error("网络连接失败")
     }
     
     /**
