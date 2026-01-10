@@ -1025,7 +1025,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isLoading = false
             }
             
-            val streamEnabled = settingsRepository.streamOutput.value
+            val useStream = this@ChatViewModel.streamEnabled
             isLoading = true
             
             val aiMessageId = UUID.randomUUID().toString()
@@ -1034,7 +1034,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 role = "assistant",
                 content = "正在思考...", 
                 thinkingContent = "",
-                isStreaming = streamEnabled,
+                isStreaming = useStream,
                 model = model
             )
             
@@ -1044,7 +1044,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             clearError()
             
             // 发起真正的 API 调用
-            if (streamEnabled) {
+            if (useStream) {
                 callStreamingApiWithEventSource(aiMessageId, conversationId)
             } else {
                 callNonStreamingApi(aiMessageId, conversationId)
