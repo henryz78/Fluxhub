@@ -139,89 +139,107 @@ fun MainScreen(
                 settingsSubPage = null
             }
             
-            when (selectedTab) {
-                0 -> HomeScreen(
-                    backdrop = backdrop,
-                    bottomPadding = PaddingValues(bottom = bottomPadding),
-                    onNavigateToChat = { selectedTab = 1 },
-                    onQuickPrompt = { prompt ->
-                        pendingPrompt = prompt
-                        selectedTab = 1
-                    },
-                    viewModel = viewModel
-                )
-                1 -> {
-                    AnimatedContent(
-                        targetState = chatSubPage,
-                        transitionSpec = {
-                            (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                slideOutHorizontally { -it } + fadeOut()
-                            )
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        // 向左滑动 (0->1, 1->2)
+                        (slideInHorizontally { width -> width } + fadeIn()).togetherWith(
+                            slideOutHorizontally { width -> -width } + fadeOut()
+                        )
+                    } else {
+                        // 向右滑动 (2->1, 1->0)
+                        (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(
+                            slideOutHorizontally { width -> width } + fadeOut()
+                        )
+                    }
+                },
+                label = "MainTabs"
+            ) { targetTab ->
+                when (targetTab) {
+                    0 -> HomeScreen(
+                        backdrop = backdrop,
+                        bottomPadding = PaddingValues(bottom = bottomPadding),
+                        onNavigateToChat = { selectedTab = 1 },
+                        onQuickPrompt = { prompt ->
+                            pendingPrompt = prompt
+                            selectedTab = 1
                         },
-                        label = "ChatSubPage"
-                    ) { subPage ->
-                        if (subPage == "assistant_selection") {
-                            AssistantListScreen(
-                                onBack = { chatSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding),
-                                isSelectionMode = true
-                            )
-                        } else {
-                            ChatScreen(
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding), 
-                                onNavigateToSettings = { selectedTab = 2 },
-                                onNavigateToAssistantSelection = { chatSubPage = "assistant_selection" },
-                                viewModel = viewModel,
-                                listState = chatListState,
-                                drawerState = drawerState,
-                                initialPrompt = pendingPrompt,
-                                onPromptConsumed = { pendingPrompt = null }
-                            )
+                        viewModel = viewModel
+                    )
+                    1 -> {
+                        AnimatedContent(
+                            targetState = chatSubPage,
+                            transitionSpec = {
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
+                            },
+                            label = "ChatSubPage"
+                        ) { subPage ->
+                            if (subPage == "assistant_selection") {
+                                AssistantListScreen(
+                                    onBack = { chatSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                                    isSelectionMode = true
+                                )
+                            } else {
+                                ChatScreen(
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding), 
+                                    onNavigateToSettings = { selectedTab = 2 },
+                                    onNavigateToAssistantSelection = { chatSubPage = "assistant_selection" },
+                                    viewModel = viewModel,
+                                    listState = chatListState,
+                                    drawerState = drawerState,
+                                    initialPrompt = pendingPrompt,
+                                    onPromptConsumed = { pendingPrompt = null }
+                                )
+                            }
                         }
                     }
-                }
-                2 -> {
-                    AnimatedContent(
-                        targetState = settingsSubPage,
-                        transitionSpec = {
-                            (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                slideOutHorizontally { -it } + fadeOut()
-                            )
-                        },
-                        label = "SettingsSubPage"
-                    ) { subPage ->
-                        when (subPage) {
-                            "assistants" -> AssistantListScreen(
-                                onBack = { settingsSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding)
-                            )
-                            "providers" -> ProviderListScreen(
-                                onBack = { settingsSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding)
-                            )
-                            "display_settings" -> DisplaySettingsScreen(
-                                onBack = { settingsSubPage = null },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                bottomPadding = PaddingValues(bottom = bottomPadding)
-                            )
-                            else -> SettingsScreen(
-                                onBack = { selectedTab = 1 },
-                                viewModel = viewModel,
-                                backdrop = backdrop,
-                                isTab = true,
-                                bottomPadding = PaddingValues(bottom = bottomPadding),
-                                onNavigateToAssistants = { settingsSubPage = "assistants" },
-                                onNavigateToProviders = { settingsSubPage = "providers" },
-                                onNavigateToDisplay = { settingsSubPage = "display_settings" }
-                            )
+                    2 -> {
+                        AnimatedContent(
+                            targetState = settingsSubPage,
+                            transitionSpec = {
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
+                                )
+                            },
+                            label = "SettingsSubPage"
+                        ) { subPage ->
+                            when (subPage) {
+                                "assistants" -> AssistantListScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
+                                "providers" -> ProviderListScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
+                                "display_settings" -> DisplaySettingsScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
+                                else -> SettingsScreen(
+                                    onBack = { selectedTab = 1 },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    isTab = true,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding),
+                                    onNavigateToAssistants = { settingsSubPage = "assistants" },
+                                    onNavigateToProviders = { settingsSubPage = "providers" },
+                                    onNavigateToDisplay = { settingsSubPage = "display_settings" }
+                                )
+                            }
                         }
                     }
                 }

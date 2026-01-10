@@ -150,7 +150,7 @@ fun HomeScreen(
                         )
                     }
                     BasicText(
-                        text = "v1.0.2 · 2026.01.07",
+                        text = "v1.0.3 · 2026.01.09",
                         style = TextStyle(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -159,7 +159,7 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     BasicText(
-                        text = "• 新增液态玻璃风格关于界面\n• 优化深度思考功能 (级别选择)\n• 改进快捷配置按钮可见性\n• 修复思考预算与 maxTokens 冲突\n• 正确传递 reasoning_effort 参数",
+                        text = "• 性能优化：应用预热，启动更流畅\n• 交互改进：消息支持原生文本选择复制\n• 体验升级：AI回复时自动跟随滚动\n• 修复：非流式响应内容为空的问题\n• 界面优化：增强思考预算选项对比度\n• 工具箱：添加部分设置项的提示信息",
                         style = TextStyle(
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.9f),
