@@ -1301,61 +1301,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "SSE onEvent: ${data.take(100)}")
                 
                 try {
-                    // 处理可能的多行 JSON（有些 API 会在一个 event 中返回多个 JSON）
-                    // 使用动态 JSON 解析（参考 Rikkahub）来兼容更多 API 格式
+                    // 使用动态 JSON 解析（参考 Rikkahub ChatCompletionsAPI.kt: parseMessage）
                     data.trim().split("\n").filter { it.isNotBlank() }.forEach { line ->
                         val chunkJson = json.parseToJsonElement(line).jsonObject
                         
-                        // 检查是否有错误
-                        val errorObj = chunkJson["error"]
-                        if (errorObj != null) {
-                            val errorMessage = errorObj.jsonObject["message"]?.jsonPrimitive?.contentOrNull 
-                                ?: "Unknown API error"
-                            Log.e(TAG, "SSE error response: $errorMessage")
+                        // Rikkahub 检查 error
+                        chunkJson["error"]?.let { errorElement ->
+                            val errorMsg = errorElement.jsonObject["message"]?.jsonPrimitive?.contentOrNull 
+                                ?: "API Error"
+                            Log.e(TAG, "SSE API error: $errorMsg")
                             viewModelScope.launch {
-                                showErrorMessage(errorMessage)
+                                showErrorMessage(errorMsg)
                             }
-                            return
+                            eventSource.cancel()
+                            return@forEach
                         }
                         
                         val choices = chunkJson["choices"]?.jsonArray
                         if (choices.isNullOrEmpty()) {
-                            Log.d(TAG, "SSE chunk without choices (usage data?): ${line.take(100)}")
+                            // 可能是 usage data，忽略
                             return@forEach
                         }
                         
                         val choice = choices[0].jsonObject
-                        // 关键：同时检查 delta 和 message（兼容不同 API）
+                        // Rikkahub 方式：同时尝试 delta 和 message
                         val deltaOrMessage = choice["delta"]?.jsonObject 
                             ?: choice["message"]?.jsonObject
+                            ?: return@forEach
                         
-                        if (deltaOrMessage == null) {
-                            Log.w(TAG, "SSE chunk has choices but no delta/message: ${line.take(100)}")
-                            return@forEach
-                        }
-                        
-                        // 获取 content（可能是字符串或数组）
-                        val contentElement = deltaOrMessage["content"]
-                        val deltaContent = when (contentElement) {
-                            is JsonPrimitive -> contentElement.contentOrNull
-                            is JsonArray -> {
-                                // Vision 格式
-                                contentElement.filterIsInstance<JsonObject>()
-                                    .filter { it["type"]?.jsonPrimitive?.contentOrNull == "text" }
-                                    .mapNotNull { it["text"]?.jsonPrimitive?.contentOrNull }
-                                    .joinToString("")
-                            }
-                            else -> null
-                        }
-                        
-                        // 获取 reasoning_content
+                        // Rikkahub parseMessage: 直接读取 jsonPrimitive.contentOrNull
+                        val deltaContent = deltaOrMessage["content"]?.jsonPrimitive?.contentOrNull ?: ""
                         val deltaReasoning = deltaOrMessage["reasoning_content"]?.jsonPrimitive?.contentOrNull
                             ?: deltaOrMessage["reasoning"]?.jsonPrimitive?.contentOrNull
                         
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
-                            
-                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1364,10 +1344,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         
-                        if (!deltaContent.isNullOrEmpty()) {
+                        if (deltaContent.isNotEmpty()) {
                             fullContent += deltaContent
-                            
-                            // 更新 UI (使用 copy 触发重绘)
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
@@ -1377,7 +1355,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(200)}", e)
+                    Log.e(TAG, "SSE parse failed: ${data.take(200)}", e)
                 }
             }
             
