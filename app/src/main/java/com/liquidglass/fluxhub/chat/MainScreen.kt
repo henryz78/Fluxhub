@@ -439,16 +439,15 @@ fun MainScreen(
             // 仅在首页（Tab 0）显示
             if (selectedTab != 0) return@LaunchedEffect
             
-            val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
-            
             // 等待 1 秒让 DataStore 设置加载完成
             kotlinx.coroutines.delay(1000)
             
+            // 直接从 viewModel 读取设置（确保是最新值）
             // 检查是否启用灵动岛
-            if (!controller.isEnabled) return@LaunchedEffect
+            if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
             
             // 检查通知模式
-            val shouldShow = when (controller.loginNotificationMode) {
+            val shouldShow = when (viewModel.loginNotificationMode) {
                 "every" -> !hasShownThisSession // 每次进入软件显示一次
                 "first" -> !hasShownLoginSuccess // 仅登录成功后显示（跨 session 持久化）
                 else -> !hasShownLoginSuccess
@@ -457,7 +456,7 @@ fun MainScreen(
             if (shouldShow) {
                 hasShownLoginSuccess = true
                 hasShownThisSession = true
-                controller.showSuccess("登录成功")
+                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess("登录成功")
             }
         }
         
