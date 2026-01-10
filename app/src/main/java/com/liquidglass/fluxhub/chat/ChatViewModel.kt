@@ -1015,9 +1015,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messages.add(UiMessage(
             id = aiMessageId,
             role = "assistant",
-            content = "",
+            content = "正在思考...", // 初始占位符，确保气泡可见
             thinkingContent = "",
-            isStreaming = streamEnabled, // 根据设置决定状态
+            isStreaming = streamEnabled,
             model = model
         ))
         
@@ -1055,7 +1055,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         requestMessages.forEach { msg ->
                             add(buildJsonObject {
                                 put("role", msg.role)
-                                put("content", msg.content ?: JsonPrimitive(""))
+                                // 安全处理：如果是 JsonElement 则直接 put，否则转为 JsonPrimitive
+                                val content = msg.content
+                                if (content != null) {
+                                    put("content", content)
+                                } else {
+                                    put("content", "")
+                                }
                             })
                         }
                     })
@@ -1139,8 +1145,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e(TAG, "Non-streaming request failed", e)
                 isLoading = false
-                showErrorMessage("请求失败: ${e.message}")
-                messages.removeAll { it.id == aiMessageId }
+                val errorMsg = "请求失败: ${e.message}"
+                showErrorMessage(errorMsg)
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(content = "⚠️ $errorMsg", isStreaming = false)
+                }
             }
         }
     }
@@ -1222,14 +1232,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     else -> "high"
                 }
                 
-                // 动态构建流式请求体
                 val requestJson = buildJsonObject {
                     put("model", model)
                     put("messages", buildJsonArray {
                         messagesWithSystem.forEach { msg ->
                             add(buildJsonObject {
                                 put("role", msg.role)
-                                put("content", msg.content ?: JsonPrimitive(""))
+                                val content = msg.content
+                                if (content != null) {
+                                    put("content", content)
+                                } else {
+                                    put("content", "")
+                                }
                             })
                         }
                     })
@@ -1435,8 +1449,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 isLoading = false
-                showErrorMessage("请求失败: ${e.message}")
-                messages.removeAll { it.id == aiMessageId }
+                val errorMsg = "初始化请求失败: ${e.message}"
+                showErrorMessage(errorMsg)
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    messages[index] = messages[index].copy(content = "⚠️ $errorMsg", isStreaming = false)
+                }
             }
         }
     }
