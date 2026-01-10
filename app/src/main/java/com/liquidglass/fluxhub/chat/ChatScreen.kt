@@ -6,6 +6,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
@@ -536,7 +541,10 @@ private fun LiquidGlassChatContent(
                     defaultModel = defaultModel,
                     onRegenerate = { viewModel.regenerate(message.id) },
                     onDelete = { viewModel.deleteMessage(message.id) },
-                    onEdit = { onInputTextChange(message.content) },
+                    onEdit = { 
+                        onInputTextChange(message.content)
+                        viewModel.deleteMessageAndFollowing(message.id)
+                    },
                     hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
                 )
             }
@@ -1215,6 +1223,10 @@ private fun LiquidGlassChatBubble(
                          
                          // 全屏图片预览
                          if (showImagePreview) {
+                             var scale by remember { mutableFloatStateOf(1f) }
+                             var offsetX by remember { mutableFloatStateOf(0f) }
+                             var offsetY by remember { mutableFloatStateOf(0f) }
+                             
                              androidx.compose.ui.window.Dialog(
                                  onDismissRequest = { showImagePreview = false },
                                  properties = androidx.compose.ui.window.DialogProperties(
@@ -1225,16 +1237,49 @@ private fun LiquidGlassChatBubble(
                                  Box(
                                      modifier = Modifier
                                          .fillMaxSize()
-                                         .background(Color.Black)
-                                         .clickable { showImagePreview = false },
+                                         .background(Color.Black),
                                      contentAlignment = Alignment.Center
                                  ) {
+                                     // 可缩放的图片
                                      AsyncImage(
                                          model = imageUrl,
                                          contentDescription = "Full Image",
-                                         modifier = Modifier.fillMaxWidth(),
+                                         modifier = Modifier
+                                             .fillMaxWidth()
+                                             .graphicsLayer(
+                                                 scaleX = scale,
+                                                 scaleY = scale,
+                                                 translationX = offsetX,
+                                                 translationY = offsetY
+                                             )
+                                             .pointerInput(Unit) {
+                                                 detectTransformGestures { _, pan, zoom, _ ->
+                                                     scale = (scale * zoom).coerceIn(1f, 5f)
+                                                     if (scale > 1f) {
+                                                         offsetX += pan.x
+                                                         offsetY += pan.y
+                                                     } else {
+                                                         offsetX = 0f
+                                                         offsetY = 0f
+                                                     }
+                                                 }
+                                             },
                                          contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                      )
+                                     
+                                     // 下载按钮
+                                     LiquidButton(
+                                         onClick = { viewModel.saveImageToGallery(imageUrl) },
+                                         backdrop = backdrop,
+                                         modifier = Modifier
+                                             .align(Alignment.BottomCenter)
+                                             .padding(bottom = 64.dp)
+                                             .size(56.dp),
+                                         isInteractive = true,
+                                         tint = Color(0xFF007AFF).copy(alpha = 0.8f)
+                                     ) {
+                                         Icon(Lucide.Download, null, tint = Color.White)
+                                     }
                                      
                                      // 关闭按钮
                                      LiquidButton(
@@ -1393,13 +1438,13 @@ private fun LiquidGlassChatInputBar(
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Add Button (File/Image) - 更紧凑
+        // 左侧按钮组：+ 和工具箱
         LiquidButton(
             onClick = onPickImage,
             backdrop = backdrop,
-            modifier = Modifier.size(44.dp),
+            modifier = Modifier.size(36.dp),
             isInteractive = true,
             onPressed = onInteractionChanged,
             tint = Color(0xFF34C759).copy(alpha = 0.8f)
@@ -1408,17 +1453,34 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        
+        LiquidButton(
+            onClick = onOpenToolbox,
+            backdrop = backdrop,
+            modifier = Modifier.size(36.dp),
+            isInteractive = true,
+            onPressed = onInteractionChanged,
+            tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
+        ) {
+            Icon(
+                imageVector = Lucide.SlidersHorizontal,
+                contentDescription = "工具箱",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
             )
         }
 
-        // Input field with glass effect
+        // 输入框（带滚动条）
+        val scrollState = rememberScrollState()
         Box(
             modifier = Modifier
                 .weight(1f)
                 .drawBackdrop(
                     backdrop = backdrop,
-                    shape = { ContinuousRoundedRectangle(28.dp) },
+                    shape = { ContinuousRoundedRectangle(24.dp) },
                     effects = {
                         vibrancy()
                         blur(4f.dp.toPx())
@@ -1429,65 +1491,66 @@ private fun LiquidGlassChatInputBar(
                         drawRect(Color.White.copy(alpha = 0.15f))
                     }
                 )
-                .heightIn(min = 48.dp, max = 180.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            contentAlignment = Alignment.CenterStart
+                .heightIn(min = 44.dp, max = 160.dp)
         ) {
-            BasicTextField(
-                value = text,
-                onValueChange = onTextChange,
-                enabled = !isLoading,
-                textStyle = TextStyle(
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                ),
-                cursorBrush = SolidColor(Color(0xFF007AFF)),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { onSend() }),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (text.isEmpty()) {
-                            BasicText(
-                                text = "输入消息...",
-                                style = TextStyle(
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 16.sp,
-                                    lineHeight = 24.sp,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    enabled = !isLoading,
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    ),
+                    cursorBrush = SolidColor(Color(0xFF007AFF)),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { onSend() }),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .verticalScroll(scrollState),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (text.isEmpty()) {
+                                BasicText(
+                                    text = "输入消息...",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 15.sp,
+                                        lineHeight = 22.sp,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                                    )
                                 )
-                            )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        
-        // Toolbox button - 更紧凑
-        LiquidButton(
-            onClick = onOpenToolbox,
-            backdrop = backdrop,
-            modifier = Modifier.size(40.dp),
-            isInteractive = true,
-            onPressed = onInteractionChanged,
-            tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
-        ) {
-            Icon(
-                imageVector = Lucide.SlidersHorizontal,
-                contentDescription = "工具箱",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // 滚动条指示器（多行时显示）
+                if (text.count { it == '\n' } > 1 || text.length > 80) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 8.dp, end = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = 0.3f))
+                    )
+                }
+            }
         }
             
-        // Send/Stop button - 更紧凑
+        // 发送/停止按钮
         LiquidButton(
             onClick = if (isLoading) onStop else onSend,
             backdrop = backdrop,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = isLoading || text.isNotBlank(),
             onPressed = onInteractionChanged,
             tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
@@ -1496,7 +1559,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
     }
