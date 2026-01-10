@@ -451,6 +451,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun switchConversation(conversationId: String) {
         if (conversationId == currentConversationId) return
         
+        val previousConversationId = currentConversationId
+        
         // 同步设置以提升响应速度
         currentConversationId = conversationId
         messages.clear()
@@ -460,6 +462,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = false
         
         viewModelScope.launch {
+            // 清理之前的空对话（参考 Rikkahub：空对话不保存）
+            if (previousConversationId != null) {
+                val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
+                if (previousMessages == 0) {
+                    Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
+                    conversationDao.deleteConversation(previousConversationId)
+                }
+            }
+            
             val conversation = conversationDao.getConversation(conversationId)
             if (conversation != null) {
                 currentConversationTitle = conversation.title
