@@ -506,11 +506,19 @@ private fun LiquidGlassChatContent(
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(viewModel.messages.filter { it.role != "system" }, key = { it.id }) { message ->
+            // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
+            val defaultModel = viewModel.model
+            items(
+                items = viewModel.messages.filter { it.role != "system" }, 
+                key = { it.id },
+                contentType = { it.role } // 帮助 Compose 复用相同类型的组件
+            ) { message ->
                 LiquidGlassChatBubble(
                     message = message,
                     backdrop = backdrop,
-                    viewModel = viewModel,
+                    defaultModel = defaultModel,
+                    onRegenerate = { viewModel.regenerate(message.id) },
+                    onDelete = { viewModel.deleteMessage(message.id) },
                     onLongClick = { selectedMessageForMenu = message }
                 )
             }
@@ -1052,13 +1060,13 @@ private fun LiquidGlassChatContent(
 private fun LiquidGlassChatBubble(
     message: UiMessage,
     backdrop: Backdrop,
-    viewModel: ChatViewModel,
+    defaultModel: String,
+    onRegenerate: () -> Unit,
+    onDelete: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
-    // AI 气泡使用白色 liquid glass 风格
-    // AI 气泡使用白色 liquid glass 风格
     val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
     val keyboardController = LocalSoftwareKeyboardController.current
     
@@ -1066,18 +1074,16 @@ private fun LiquidGlassChatBubble(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-            // 移除 animateContentSize() 以优化滚动性能 - 多层嵌套动画会导致卡顿
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // 角色标识（简化版，不显示头像）
+        // 角色标识
         Row(
             modifier = Modifier.padding(bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Model name only, TTS removed
             Text(
-                text = if (isUser) "你" else (message.model ?: viewModel.model),
+                text = if (isUser) "你" else (message.model ?: defaultModel),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 12.sp,
@@ -1284,7 +1290,7 @@ private fun LiquidGlassChatBubble(
                                 }
                                 LiquidButton(
                                     onClick = {
-                                        viewModel.deleteMessage(message.id)
+                                        onDelete()
                                         showDeleteDialog = false
                                     },
                                     backdrop = backdrop,
@@ -1302,7 +1308,7 @@ private fun LiquidGlassChatBubble(
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
-                onRegenerate = { viewModel.regenerate(message.id) },
+                onRegenerate = onRegenerate,
                 onDelete = { showDeleteDialog = true }
             )
         }
