@@ -21,8 +21,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Home
@@ -72,19 +70,6 @@ fun MainScreen(
     val context = LocalContext.current
     // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
-    
-    // 同步 selectedTab 和 pagerState
-    LaunchedEffect(selectedTab) {
-        if (pagerState.currentPage != selectedTab) {
-            pagerState.animateScrollToPage(selectedTab)
-        }
-    }
-    LaunchedEffect(pagerState.currentPage) {
-        if (selectedTab != pagerState.currentPage) {
-            selectedTab = pagerState.currentPage
-        }
-    }
     
     val backgroundBitmap = remember(viewModel.wallpaperUri) {
         if (viewModel.wallpaperUri != null) {
@@ -160,14 +145,16 @@ fun MainScreen(
                 settingsSubPage = null
             }
             
-            // 使用 HorizontalPager 实现真正的页面预加载
-            // beyondViewportPageCount = 2 确保所有 3 个页面同时保持加载状态
-            HorizontalPager(
-                state = pagerState,
-                beyondViewportPageCount = 2, // 预加载左右各 2 页 (3 页全部加载)
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                when (page) {
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(300)) + 
+                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
+                     fadeOut(animationSpec = tween(300)))
+                },
+                label = "TabContent"
+            ) { targetTab ->
+                when (targetTab) {
                     0 -> HomeScreen(
                         backdrop = backdrop,
                         bottomPadding = PaddingValues(bottom = bottomPadding),
