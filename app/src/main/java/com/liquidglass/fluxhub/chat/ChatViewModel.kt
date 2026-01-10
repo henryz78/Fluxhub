@@ -1261,7 +1261,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             reasoningEffort?.let { put("reasoning_effort", it) }
         }
         
-        val requestBody = json.encodeToString(requestJson)
+        val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
         Log.d(TAG, "Request body (dynamic): $requestBody")
         
         // 优先从 currentProvider 获取配置
