@@ -344,76 +344,31 @@ private fun LiquidGlassChatContent(
     // 工具箱弹窗状态
     var showToolbox by remember { mutableStateOf(false) }
 
-    // Dynamic Island State Sync
-    var dynamicIslandState by remember { mutableStateOf(DynamicIslandState.Hidden) }
-    var elapsedSeconds by remember { mutableIntStateOf(0) }
-    var isCompleted by remember { mutableStateOf(false) }
-    var isFailed by remember { mutableStateOf(false) }
+    // ========== 灵动岛控制（使用全局控制器）==========
+    val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
     
-    // 计时器 - 加载时每秒增加
+    // AI 生成时显示灵动岛
     LaunchedEffect(viewModel.isLoading) {
         if (viewModel.isLoading) {
-            elapsedSeconds = 0
-            isCompleted = false
-            isFailed = false
-            // 显示灵动岛（仅当启用时）
-            if (viewModel.dynamicIslandEnabled && dynamicIslandState == DynamicIslandState.Hidden) {
-                dynamicIslandState = DynamicIslandState.Collapsed
-            }
-            // 开始计时
-            while (viewModel.isLoading) {
-                kotlinx.coroutines.delay(1000)
-                elapsedSeconds++
-            }
-        } else if (dynamicIslandState != DynamicIslandState.Hidden) {
-            // 检测是否失败（通过 viewModel.showError 判断）
+            // 开始生成：显示加载状态
+            controller.showLoading(
+                title = "AI 正在思考...",
+                modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
+                avatar = viewModel.currentAssistant?.avatar ?: "🤖"
+            )
+        } else if (controller.state != com.liquidglass.fluxhub.chat.ui.components.DynamicIslandState.Hidden) {
+            // 生成结束：显示成功或失败
             if (viewModel.showError) {
-                isFailed = true
-                isCompleted = false
+                controller.showError("失败")
             } else {
-                isCompleted = true
-                isFailed = false
+                controller.showSuccess("完成")
             }
-            // 等待 2.5 秒让用户看到完成/失败动画
-            kotlinx.coroutines.delay(2500)
-            dynamicIslandState = DynamicIslandState.Hidden
-            isCompleted = false
-            isFailed = false
         }
     }
     
-    // 成功消息（可自定义）
-    var successMessage by remember { mutableStateOf("完成") }
-    
-    // 启动时显示登录成功提示
-    // 使用 rememberSaveable 持久化，避免重复显示
-    var hasShownLoginSuccess by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        // 等待 1 秒让 DataStore 设置加载完成
-        kotlinx.coroutines.delay(1000)
-        
-        // 再次检查是否启用灵动岛（此时设置应该已加载）
-        if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
-        
-        // 检查通知模式
-        val shouldShow = when (viewModel.loginNotificationMode) {
-            "every" -> true // 每次都显示
-            "first" -> !hasShownLoginSuccess // 仅首次显示
-            else -> !hasShownLoginSuccess
-        }
-        
-        if (shouldShow) {
-            hasShownLoginSuccess = true
-            // 显示登录成功
-            successMessage = "登录成功"
-            isCompleted = true
-            dynamicIslandState = DynamicIslandState.Collapsed
-            // 2.5 秒后隐藏
-            kotlinx.coroutines.delay(2500)
-            dynamicIslandState = DynamicIslandState.Hidden
-            isCompleted = false
-            successMessage = "完成" // 恢复默认
-        }
+    // 实时更新 Token 计数
+    LaunchedEffect(viewModel.streamingTokenCount) {
+        controller.updateTokenCount(viewModel.streamingTokenCount)
     }
 
     Box(
@@ -1120,32 +1075,7 @@ private fun LiquidGlassChatContent(
             )
         }
     }
-
-    // Dynamic Island - Overlay
-    DynamicIsland(
-        data = DynamicIslandData(
-            title = if (viewModel.isLoading) "AI 正在思考..." else "AI 就绪",
-            modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
-            assistantAvatar = viewModel.currentAssistant?.avatar ?: "🤖",
-            state = dynamicIslandState,
-            tokenCount = viewModel.streamingTokenCount,
-            elapsedSeconds = elapsedSeconds,
-            isCompleted = isCompleted,
-            isFailed = isFailed,
-            successMessage = successMessage,
-            showTokenCount = viewModel.showTokenCount,
-            showElapsedTime = viewModel.showElapsedTime
-        ),
-        backdrop = backdrop,
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .statusBarsPadding(), // 避开状态栏，悬浮在顶部
-        onExpand = { dynamicIslandState = DynamicIslandState.Expanded },
-        onCollapse = { dynamicIslandState = DynamicIslandState.Collapsed },
-        onLongPress = { dynamicIslandState = DynamicIslandState.LongPressMenu },
-        onStopGeneration = { viewModel.stopGeneration() },
-        onDismiss = { /* Optional */ }
-    )
+    // DynamicIsland 已移至 MainScreen 全局处理
     }
 }
 

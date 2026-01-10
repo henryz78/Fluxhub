@@ -351,6 +351,59 @@ fun MainScreen(
             }
         }
         
+        // ========== 全局灵动岛 ==========
+        // 同步设置到控制器
+        LaunchedEffect(
+            viewModel.dynamicIslandEnabled,
+            viewModel.loginNotificationMode,
+            viewModel.showTokenCount,
+            viewModel.showElapsedTime
+        ) {
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.apply {
+                isEnabled = viewModel.dynamicIslandEnabled
+                loginNotificationMode = viewModel.loginNotificationMode
+                showTokenCountEnabled = viewModel.showTokenCount
+                showElapsedTimeEnabled = viewModel.showElapsedTime
+            }
+        }
+        
+        // 全局灵动岛 UI
+        com.liquidglass.fluxhub.chat.ui.components.DynamicIsland(
+            data = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.toData(),
+            backdrop = backdrop,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding(),
+            onExpand = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.expand() },
+            onCollapse = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.collapse() },
+            onLongPress = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showLongPressMenu() },
+            onStopGeneration = { viewModel.stopGeneration() },
+            onDismiss = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.hide() }
+        )
+        
+        // 登录成功通知（全局处理）
+        var hasShownLoginSuccess by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
+            // 等待 1 秒让 DataStore 设置加载完成
+            kotlinx.coroutines.delay(1000)
+            
+            // 检查是否启用灵动岛
+            if (!controller.isEnabled) return@LaunchedEffect
+            
+            // 检查通知模式
+            val shouldShow = when (controller.loginNotificationMode) {
+                "every" -> true // 每次都显示
+                "first" -> !hasShownLoginSuccess // 仅首次显示
+                else -> !hasShownLoginSuccess
+            }
+            
+            if (shouldShow) {
+                hasShownLoginSuccess = true
+                controller.showSuccess("登录成功")
+            }
+        }
+        
         // 用户协议弹窗
         if (!viewModel.agreementAccepted) {
             AgreementDialog(
