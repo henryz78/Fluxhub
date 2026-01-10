@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
@@ -62,8 +63,6 @@ fun MainScreen(
     viewModel: ChatViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    // 默认打开首页 (Tab 0)
-    var selectedTab by remember { mutableIntStateOf(0) }
     
     val backgroundBitmap = remember(viewModel.wallpaperUri) {
         if (viewModel.wallpaperUri != null) {
@@ -84,111 +83,135 @@ fun MainScreen(
     // 认证状态检查 - 在应用入口级别
     val authState = viewModel.authState
     
-    when (authState) {
-        is AuthState.Checking -> {
-            // 显示加载中
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    androidx.compose.material3.CircularProgressIndicator(color = Color.White)
-                    Spacer(Modifier.height(16.dp))
-                    androidx.compose.material3.Text("正在加载液态玻璃...", color = Color.White)
-                }
-            }
-            return
-        }
-        is AuthState.NotLoggedIn, is AuthState.Error -> {
-            // 显示登录界面
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                // 背景图片
-                if (backgroundBitmap != null) {
-                    Image(
-                        bitmap = backgroundBitmap.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .layerBackdrop(backdrop)
-                            .fillMaxSize()
-                    )
-                }
-                AuthScreen(
-                    backdrop = backdrop,
-                    authState = authState,
-                    isCheckingAuth = viewModel.isCheckingAuth,
-                    onLogin = { username, password ->
-                        viewModel.login(username, password)
-                    },
-                    onRegister = { username, email, password, inviteCode ->
-                        viewModel.register(username, email, password, inviteCode)
-                    }
-                )
-            }
-            return
-        }
-        is AuthState.Blocked -> {
-            // 显示被封禁界面
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
+    // 全局页面切换动画
+    AnimatedContent(
+        targetState = authState,
+        transitionSpec = {
+            (scaleIn(initialScale = 0.8f, animationSpec = tween(500)) + fadeIn(animationSpec = tween(500)))
+                .togetherWith(scaleOut(targetScale = 1.2f, animationSpec = tween(500)) + fadeOut(animationSpec = tween(500)))
+        },
+        label = "AuthTransition",
+        modifier = Modifier.fillMaxSize().background(Color.Black) // 默认黑底，防止转场白屏
+    ) { targetState ->
+        when (targetState) {
+            is AuthState.Checking -> {
+                // 显示加载中
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color.Black),
+                    contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.material3.Text("⛔", fontSize = 64.sp)
-                    Spacer(Modifier.height(16.dp))
-                    androidx.compose.material3.Text(
-                        authState.message,
-                        color = Color.White,
-                        fontSize = 18.sp
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    androidx.compose.material3.TextButton(
-                        onClick = { viewModel.logout() }
-                    ) {
-                        androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        androidx.compose.material3.CircularProgressIndicator(color = Color.White)
+                        Spacer(Modifier.height(16.dp))
+                        androidx.compose.material3.Text("正在加载液态玻璃...", color = Color.White)
                     }
                 }
             }
-            return
-        }
-        is AuthState.Expired -> {
-            // 显示过期续期界面
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                // 背景图片
-                if (backgroundBitmap != null) {
-                    Image(
-                        bitmap = backgroundBitmap.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .layerBackdrop(backdrop)
-                            .fillMaxSize()
+            is AuthState.NotLoggedIn, is AuthState.Error -> {
+                // 显示登录界面
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    // 背景图片
+                    if (backgroundBitmap != null) {
+                        Image(
+                            bitmap = backgroundBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .layerBackdrop(backdrop)
+                                .fillMaxSize()
+                        )
+                    }
+                    val msg = if (targetState is AuthState.Error) targetState.message else ""
+                    // AuthScreen 不需要传递 authState，只需要是否检查中
+                    AuthScreen(
+                        backdrop = backdrop,
+                        authState = targetState,
+                        isCheckingAuth = viewModel.isCheckingAuth,
+                        onLogin = { username, password ->
+                            viewModel.login(username, password)
+                        },
+                        onRegister = { username, email, password, inviteCode ->
+                            viewModel.register(username, email, password, inviteCode)
+                        }
                     )
                 }
-                ExpiredScreen(
+            }
+            is AuthState.Blocked -> {
+                // 显示被封禁界面
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        androidx.compose.material3.Text("⛔", fontSize = 64.sp)
+                        Spacer(Modifier.height(16.dp))
+                        androidx.compose.material3.Text(
+                            targetState.message,
+                            color = Color.White,
+                            fontSize = 18.sp
+                        )
+                        Spacer(Modifier.height(24.dp))
+                        androidx.compose.material3.TextButton(
+                            onClick = { viewModel.logout() }
+                        ) {
+                            androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30))
+                        }
+                    }
+                }
+            }
+            is AuthState.Expired -> {
+                // 显示过期续期界面
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    // 背景图片
+                    if (backgroundBitmap != null) {
+                        Image(
+                            bitmap = backgroundBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .layerBackdrop(backdrop)
+                                .fillMaxSize()
+                        )
+                    }
+                    ExpiredScreen(
+                        backdrop = backdrop,
+                        message = targetState.message,
+                        isCheckingAuth = viewModel.isCheckingAuth,
+                        onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
+                        onLogout = { viewModel.logout() }
+                    )
+                }
+            }
+            is AuthState.Authenticated -> {
+                // 已认证，显示主应用内容
+                AuthenticatedContent(
+                    viewModel = viewModel,
                     backdrop = backdrop,
-                    message = authState.message,
-                    isCheckingAuth = viewModel.isCheckingAuth,
-                    onRenew = { inviteCode -> viewModel.renewAccount(inviteCode) },
-                    onLogout = { viewModel.logout() }
+                    backgroundBitmap = backgroundBitmap
                 )
             }
-            return
-        }
-        is AuthState.Authenticated -> {
-            // 已认证，继续正常流程
         }
     }
+}
+
+@Composable
+private fun AuthenticatedContent(
+    viewModel: ChatViewModel,
+    backdrop: com.kyant.backdrop.Backdrop,
+    backgroundBitmap: android.graphics.Bitmap?
+) {
+    // 默认打开首页 (Tab 0) - 每次进入已认证状态时重置
+    var selectedTab by remember { mutableIntStateOf(0) }
     
     // 监听键盘可见性
     val isKeyboardVisible = rememberIsKeyboardVisible()
     
     // 为 ChatScreen 提升 drawerState
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    // val scope = rememberCoroutineScope() // Unused currently
     
     // 将 listState 提升到 MainScreen 级别，保持滚动位置
     val chatListState = rememberLazyListState()
