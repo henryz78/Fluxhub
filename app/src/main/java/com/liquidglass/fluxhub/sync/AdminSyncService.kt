@@ -209,14 +209,12 @@ class AdminSyncService(private val context: Context) {
             val responseBody = response.body?.string() ?: "{}"
             
             if (response.isSuccessful) {
-                // 续期成功，重新验证获取用户信息
-                val user = if (!token.isNullOrBlank()) verifyTokenInternal(token) else null
-                if (user != null) {
-                    Log.d(TAG, "Renew success: ${user.username}")
-                    return@withContext AuthResult.Success(token ?: "", user.id, user.username)
-                }
-                // 即使没有 Token 验证用户，也视为成功，但可能没有完整 ID
-                return@withContext AuthResult.Success(token ?: "", userId ?: "", username ?: "")
+                val result = json.decodeFromString<AuthResponse>(responseBody)
+                authToken = result.token
+                userId = result.user.id
+                this@AdminSyncService.username = result.user.username
+                Log.d(TAG, "Renew success: ${result.user.username}")
+                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
             } else {
                 val error = try {
                     json.decodeFromString<ErrorResponse>(responseBody).error

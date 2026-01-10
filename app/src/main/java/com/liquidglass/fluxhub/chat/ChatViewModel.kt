@@ -351,6 +351,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             
             when (val result = adminSyncService.renew(inviteCode, username)) {
                 is AuthResult.Success -> {
+                    // 保存新 Token 到 DataStore 确保持久化
+                    settingsRepository.saveAuth(result.token, result.userId, result.username)
                     authState = AuthState.Authenticated(result.userId, result.username)
                 }
                 is AuthResult.Error -> {
