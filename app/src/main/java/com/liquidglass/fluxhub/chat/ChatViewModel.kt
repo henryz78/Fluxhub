@@ -198,7 +198,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
-<<<<<<< HEAD
     // ========== 灵动岛配置项 ==========
     var dynamicIslandEnabled by mutableStateOf(true)
         private set
@@ -210,11 +209,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var showElapsedTime by mutableStateOf(true)
         private set
-=======
+    
+    // 触感反馈
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
-    
->>>>>>> origin/main
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -289,7 +287,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.contextSize.collect { contextSize = it }
         }
-<<<<<<< HEAD
         // 加载灵动岛配置项
         viewModelScope.launch {
             settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
@@ -305,16 +302,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             settingsRepository.showElapsedTime.collect { showElapsedTime = it }
-=======
+        }
+        // 触感反馈
         viewModelScope.launch {
             settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
         }
     }
     
     fun updateHapticFeedbackEnabled(enabled: Boolean) {
+        hapticFeedbackEnabled = enabled
         viewModelScope.launch {
             settingsRepository.setHapticFeedbackEnabled(enabled)
->>>>>>> origin/main
         }
     }
     
