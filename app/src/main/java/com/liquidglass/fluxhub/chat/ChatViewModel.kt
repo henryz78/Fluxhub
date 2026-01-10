@@ -72,11 +72,13 @@ data class ChatResponse(
 )
 
 // 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
+// @Immutable 帮助 Compose 跳过不必要的重组
+@androidx.compose.runtime.Immutable
 data class UiMessage(
     val id: String = UUID.randomUUID().toString(),
     val role: String,
-    var content: String,
-    var thinkingContent: String? = null,
+    val content: String,  // 改为 val 配合 Immutable
+    val thinkingContent: String? = null,  // 改为 val 配合 Immutable
     val isStreaming: Boolean = false,
     val model: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
@@ -1330,6 +1332,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 var fullContent = ""
                 var fullThinkingContent = ""
                 
+                // 性能优化：UI 更新节流（每 50ms 最多更新一次）
+                var lastUiUpdateTime = 0L
+                val uiUpdateThrottleMs = 50L
+                var pendingUiUpdate = false
+                
                 // ... (EventSourceListener setup continues)
         
         val listener = object : EventSourceListener() {
@@ -1347,7 +1354,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         val index = messages.indexOfFirst { it.id == aiMessageId }
                         if (index >= 0) {
-                            messages[index] = messages[index].copy(isStreaming = false)
+                            // 确保最终内容完整更新（节流可能跳过最后几个 chunk）
+                            messages[index] = messages[index].copy(
+                                content = fullContent,
+                                thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                                isStreaming = false
+                            )
                         }
                         
                         // 保存到数据库
@@ -1398,20 +1410,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         if (!deltaReasoning.isNullOrEmpty()) {
                             fullThinkingContent += deltaReasoning
-                            viewModelScope.launch {
-                                val index = messages.indexOfFirst { it.id == aiMessageId }
-                                if (index >= 0) {
-                                    messages[index] = messages[index].copy(thinkingContent = fullThinkingContent)
-                                }
-                            }
+                            pendingUiUpdate = true
                         }
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
+                            pendingUiUpdate = true
+                        }
+                        
+                        // 节流 UI 更新：最多每 50ms 更新一次
+                        val now = System.currentTimeMillis()
+                        if (pendingUiUpdate && (now - lastUiUpdateTime >= uiUpdateThrottleMs)) {
+                            pendingUiUpdate = false
+                            lastUiUpdateTime = now
                             viewModelScope.launch {
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
-                                    messages[index] = messages[index].copy(content = fullContent)
+                                    messages[index] = messages[index].copy(
+                                        content = fullContent,
+                                        thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() }
+                                    )
                                 }
                             }
                         }
@@ -1429,7 +1447,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
-                        messages[index] = messages[index].copy(isStreaming = false)
+                        // 确保最终内容完整更新
+                        messages[index] = messages[index].copy(
+                            content = fullContent,
+                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                            isStreaming = false
+                        )
                     }
                     
                     // 保存到数据库

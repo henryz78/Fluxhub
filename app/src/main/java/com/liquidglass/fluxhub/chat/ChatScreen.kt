@@ -612,18 +612,92 @@ private fun LiquidGlassChatContent(
                             }
                         }
 
-                        // 模型列表
+                        // 搜索框
+                        var modelSearchQuery by remember { mutableStateOf("") }
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Lucide.Search,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                BasicTextField(
+                                    value = modelSearchQuery,
+                                    onValueChange = { modelSearchQuery = it },
+                                    textStyle = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    ),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        Box {
+                                            if (modelSearchQuery.isEmpty()) {
+                                                BasicText(
+                                                    text = "搜索模型...",
+                                                    style = TextStyle(
+                                                        color = Color.White.copy(alpha = 0.4f),
+                                                        fontSize = 14.sp
+                                                    )
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (modelSearchQuery.isNotEmpty()) {
+                                    Icon(
+                                        Lucide.X,
+                                        contentDescription = "清除",
+                                        tint = Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable { modelSearchQuery = "" }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 模型列表（根据搜索过滤）
+                        val filteredModels = remember(viewModel.availableModels, modelSearchQuery) {
+                            if (modelSearchQuery.isBlank()) {
+                                viewModel.availableModels
+                            } else {
+                                viewModel.availableModels.filter { 
+                                    it.contains(modelSearchQuery, ignoreCase = true) 
+                                }
+                            }
+                        }
+                        
                         if (viewModel.availableModels.isEmpty()) {
                             Text(
                                 text = "正在加载模型列表...",
                                 color = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.padding(vertical = 16.dp)
                             )
+                        } else if (filteredModels.isEmpty()) {
+                            Text(
+                                text = "未找到匹配的模型",
+                                color = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
                         } else {
                             LazyColumn(
-                                modifier = Modifier.heightIn(max = 400.dp)
+                                modifier = Modifier.heightIn(max = 350.dp)
                             ) {
-                                items(viewModel.availableModels) { modelName ->
+                                items(filteredModels) { modelName ->
                                     val isSelected = modelName == viewModel.model
                                     Row(
                                         modifier = Modifier
@@ -1651,7 +1725,66 @@ private fun ConversationDrawerContent(
                     }
                 }
                 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
+                
+                // 搜索框
+                var conversationSearchQuery by remember { mutableStateOf("") }
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Lucide.Search,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        BasicTextField(
+                            value = conversationSearchQuery,
+                            onValueChange = { conversationSearchQuery = it },
+                            textStyle = TextStyle(
+                                color = Color.White,
+                                fontSize = 14.sp
+                            ),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (conversationSearchQuery.isEmpty()) {
+                                        BasicText(
+                                            text = "搜索对话...",
+                                            style = TextStyle(
+                                                color = Color.White.copy(alpha = 0.4f),
+                                                fontSize = 14.sp
+                                            )
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (conversationSearchQuery.isNotEmpty()) {
+                            Icon(
+                                Lucide.X,
+                                contentDescription = "清除",
+                                tint = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable { conversationSearchQuery = "" }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
                 
                 Text(
                     text = "最近会话",
@@ -1660,6 +1793,17 @@ private fun ConversationDrawerContent(
                     color = Color.White.copy(alpha = 0.4f),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
+                
+                // 过滤会话列表
+                val filteredConversations = remember(conversations, conversationSearchQuery) {
+                    if (conversationSearchQuery.isBlank()) {
+                        conversations
+                    } else {
+                        conversations.filter { 
+                            it.title.contains(conversationSearchQuery, ignoreCase = true) 
+                        }
+                    }
+                }
                 
                 // 会话列表
                 if (conversations.isEmpty()) {
@@ -1670,6 +1814,14 @@ private fun ConversationDrawerContent(
                             color = Color.White.copy(alpha = 0.3f)
                         )
                     }
+                } else if (filteredConversations.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "未找到匹配的对话",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.4f)
+                        )
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
@@ -1677,10 +1829,10 @@ private fun ConversationDrawerContent(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(
-                            count = conversations.size,
-                            key = { index -> conversations[index].id }
+                            count = filteredConversations.size,
+                            key = { index -> filteredConversations[index].id }
                         ) { index ->
-                            val conversation = conversations[index]
+                            val conversation = filteredConversations[index]
                             val isSelected = conversation.id == currentConversationId
                             
                             // 重命名对话框状态
