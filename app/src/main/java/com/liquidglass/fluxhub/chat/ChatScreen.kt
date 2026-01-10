@@ -56,7 +56,9 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.kyant.backdrop.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
@@ -281,6 +283,7 @@ private fun LiquidGlassChatContent(
     onInteractionChanged: (Boolean) -> Unit,
     onImageSelected: (android.net.Uri?) -> Unit = {}
 ) {
+    val haptic = LocalHapticFeedback.current
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -901,7 +904,12 @@ private fun LiquidGlassChatContent(
                 LiquidGlassChatInputBar(
                     text = inputText,
                     onTextChange = onInputTextChange,
-                    onSend = onSend,
+                    onSend = {
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        onSend()
+                    },
                     onStop = { viewModel.stopStreaming() },
                     isLoading = viewModel.isLoading,
                     backdrop = backdrop,

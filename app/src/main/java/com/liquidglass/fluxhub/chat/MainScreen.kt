@@ -266,6 +266,9 @@ fun MainScreen(
                     // Tab 0: Home
                     LiquidBottomTab(
                         onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
                             selectedTab = 0 
                             settingsSubPage = null // Reset Settings navigation
                         }
@@ -295,6 +298,9 @@ fun MainScreen(
                     // Tab 1: Chat
                     LiquidBottomTab(
                         onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
                             selectedTab = 1 
                             settingsSubPage = null // Reset Settings navigation
                         }
@@ -323,7 +329,12 @@ fun MainScreen(
                     
                     // Tab 2: Settings
                     LiquidBottomTab(
-                        onClick = { selectedTab = 2 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 2 
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
