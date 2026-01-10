@@ -536,6 +536,7 @@ private fun LiquidGlassChatContent(
                     defaultModel = defaultModel,
                     onRegenerate = { viewModel.regenerate(message.id) },
                     onDelete = { viewModel.deleteMessage(message.id) },
+                    onEdit = { onInputTextChange(message.content) },
                     hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
                 )
             }
@@ -1067,6 +1068,7 @@ private fun LiquidGlassChatBubble(
     defaultModel: String,
     onRegenerate: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     hapticFeedbackEnabled: Boolean
 ) {
     val isUser = message.role == "user"
@@ -1195,6 +1197,9 @@ private fun LiquidGlassChatBubble(
                         message.content.substring(imageMatch.range.last + 1).trimStart()
                     } else message.content
 
+                    // 图片预览状态
+                    var showImagePreview by remember { mutableStateOf(false) }
+
                     if (imageUrl != null) {
                          AsyncImage(
                              model = imageUrl,
@@ -1202,10 +1207,51 @@ private fun LiquidGlassChatBubble(
                              modifier = Modifier
                                  .fillMaxWidth()
                                  .heightIn(max = 240.dp)
-                                 .clip(RoundedCornerShape(12.dp)),
+                                 .clip(RoundedCornerShape(12.dp))
+                                 .clickable { showImagePreview = true },
                              contentScale = androidx.compose.ui.layout.ContentScale.Crop
                          )
                          Spacer(Modifier.height(8.dp))
+                         
+                         // 全屏图片预览
+                         if (showImagePreview) {
+                             androidx.compose.ui.window.Dialog(
+                                 onDismissRequest = { showImagePreview = false },
+                                 properties = androidx.compose.ui.window.DialogProperties(
+                                     usePlatformDefaultWidth = false,
+                                     decorFitsSystemWindows = false
+                                 )
+                             ) {
+                                 Box(
+                                     modifier = Modifier
+                                         .fillMaxSize()
+                                         .background(Color.Black)
+                                         .clickable { showImagePreview = false },
+                                     contentAlignment = Alignment.Center
+                                 ) {
+                                     AsyncImage(
+                                         model = imageUrl,
+                                         contentDescription = "Full Image",
+                                         modifier = Modifier.fillMaxWidth(),
+                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                     )
+                                     
+                                     // 关闭按钮
+                                     LiquidButton(
+                                         onClick = { showImagePreview = false },
+                                         backdrop = backdrop,
+                                         modifier = Modifier
+                                             .align(Alignment.TopEnd)
+                                             .padding(top = 48.dp, end = 24.dp)
+                                             .size(44.dp),
+                                         isInteractive = true,
+                                         tint = Color.White.copy(alpha = 0.2f)
+                                     ) {
+                                         Icon(Lucide.X, null, tint = Color.White)
+                                     }
+                                 }
+                             }
+                         }
                     }
 
                     if (textContent.isNotEmpty()) {
@@ -1238,8 +1284,8 @@ private fun LiquidGlassChatBubble(
                 }
             }
         
-        // AI 消息显示操作按钮 (非流式时)
-        if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
+        // 消息显示操作按钮 (用户和AI都显示，流式输出时不显示)
+        if (!message.isStreaming && message.content.isNotEmpty()) {
             var showDeleteDialog by remember { mutableStateOf(false) }
             
             if (showDeleteDialog) {
@@ -1322,7 +1368,8 @@ private fun LiquidGlassChatBubble(
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
-                onRegenerate = onRegenerate,
+                onRegenerate = if (isUser) null else onRegenerate,
+                onEdit = if (isUser) onEdit else null,
                 onDelete = { showDeleteDialog = true }
             )
         }

@@ -1032,7 +1032,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val initialMessage = UiMessage(
                 id = aiMessageId,
                 role = "assistant",
-                content = "正在思考...", 
+                content = "",
                 thinkingContent = "",
                 isStreaming = useStream,
                 model = model
@@ -1209,7 +1209,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 否则 API 会因为 history 以 assistant 消息结尾而返回 400 错误
             .filter { 
                 it.role == "user" || 
-                (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank() && it.id != aiMessageId && it.content != "正在思考...")
+                (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank() && it.id != aiMessageId)
             }
             .takeLast(contextSize) // 直接限制上下文数量
 
