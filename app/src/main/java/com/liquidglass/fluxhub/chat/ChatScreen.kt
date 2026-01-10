@@ -2100,7 +2100,7 @@ private fun ReasoningLevelCard(
             .fillMaxWidth()
             .height(64.dp),
         isInteractive = true,
-        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f) // 提高可见度
+        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2112,12 +2112,24 @@ private fun ReasoningLevelCard(
                     text = title,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    style = LocalTextStyle.current.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            blurRadius = 4f
+                        )
+                    )
                 )
                 Text(
                     text = description,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    style = LocalTextStyle.current.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            blurRadius = 4f
+                        )
+                    )
                 )
             }
             if (isSelected) {
