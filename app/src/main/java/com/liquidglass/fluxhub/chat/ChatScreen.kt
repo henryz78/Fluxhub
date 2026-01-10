@@ -60,7 +60,6 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
@@ -333,9 +332,8 @@ private fun LiquidGlassChatContent(
         }
     }
 
-    // 消息操作菜单状态
-    var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
-    val clipboardManager = LocalClipboard.current
+    // 消息操作菜单状态 (已移除)
+    // clipboardManager 已移除
     // 模型选择器状态
     var showModelSelector by remember { mutableStateOf(false) }
     // 助手选择器状态
@@ -493,6 +491,21 @@ private fun LiquidGlassChatContent(
             }
         }
         
+        // 自动滚动逻辑
+        LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
+            if (viewModel.messages.isNotEmpty()) {
+                val lastMessage = viewModel.messages.last()
+                // 只有当是流式输出或者用户刚发送消息（列表变长）时才自动滚动
+                // 避免查看历史消息时被强制滚动到底部
+                val shouldScroll = lastMessage.isStreaming || 
+                                 (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= viewModel.messages.size - 2
+                
+                if (shouldScroll) {
+                    listState.animateScrollToItem(viewModel.messages.size) // 滚动到底部（包括 spacer）
+                }
+            }
+        }
+
         // Messages - 占据剩余空间
         LazyColumn(
             state = listState,
@@ -519,8 +532,7 @@ private fun LiquidGlassChatContent(
                     backdrop = backdrop,
                     defaultModel = defaultModel,
                     onRegenerate = { viewModel.regenerate(message.id) },
-                    onDelete = { viewModel.deleteMessage(message.id) },
-                    onLongClick = { selectedMessageForMenu = message }
+                    onDelete = { viewModel.deleteMessage(message.id) }
                 )
             }
             
@@ -532,30 +544,6 @@ private fun LiquidGlassChatContent(
                         .height(32.dp) // 保持适中距离
                 )
             }
-        }
-
-        // 消息长按菜单
-        selectedMessageForMenu?.let { message ->
-            MessageActionsSheet(
-                content = message.content,
-                isUser = message.role == "user",
-                onDismiss = { selectedMessageForMenu = null },
-                onCopy = {
-                    scope.launch {
-                        val clipData = ClipData.newPlainText("message", message.content)
-                        clipboardManager.setClipEntry(ClipEntry(clipData))
-                    }
-                },
-                onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) },
-                onEditAndResend = {
-                    // 将消息内容填入输入框
-                    onInputTextChange(message.content)
-                    // 删除原消息及其后续所有消息
-                    viewModel.deleteMessageAndFollowing(message.id)
-                    selectedMessageForMenu = null
-                }
-            )
         }
 
         // 模型选择器底部弹窗
@@ -1063,8 +1051,7 @@ private fun LiquidGlassChatBubble(
     backdrop: Backdrop,
     defaultModel: String,
     onRegenerate: () -> Unit,
-    onDelete: () -> Unit,
-    onLongClick: () -> Unit
+    onDelete: () -> Unit
 ) {
     val isUser = message.role == "user"
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
@@ -1132,10 +1119,7 @@ private fun LiquidGlassChatBubble(
                         )
                     )
                 }
-                .combinedClickable(
-                    onClick = { keyboardController?.hide() },
-                    onLongClick = onLongClick
-                )
+                .clickable { keyboardController?.hide() }
                 .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
@@ -1149,7 +1133,7 @@ private fun LiquidGlassChatBubble(
                         fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
                     )
                 ) {
-                    // 使用 SelectionContainer 支持文本选择复制
+                    // 使用 SelectionContainer 支持系统文本选择复制
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         Column {
                     // 1. 如果有思考内容，则显示
