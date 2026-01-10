@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,13 +46,18 @@ fun AuthScreen(
     onLogin: (username: String, password: String) -> Unit,
     onRegister: (username: String, email: String, password: String, inviteCode: String) -> Unit
 ) {
-    var isLoginMode by remember { mutableStateOf(true) }
-    var username by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var inviteCode by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoginMode by rememberSaveable { mutableStateOf(true) }
+    var username by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var inviteCode by rememberSaveable { mutableStateOf("") }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    
+    // 日志追踪 AuthScreen 生命周期
+    SideEffect {
+        android.util.Log.d("AuthScreen", "AuthScreen Recomposed / Created. currentUsername=$username, isLoginMode=$isLoginMode")
+    }
     
     val keyboardController = LocalSoftwareKeyboardController.current
     
@@ -394,9 +400,9 @@ fun ExpiredScreen(
     onRenew: (inviteCode: String) -> Unit,
     onLogout: () -> Unit
 ) {
-    var inviteCode by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
+    var inviteCode by rememberSaveable { mutableStateOf("") }
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
     
     val keyboardController = LocalSoftwareKeyboardController.current
     

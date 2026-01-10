@@ -98,40 +98,60 @@ class AdminSyncService(private val context: Context) {
      * 用户登录
      */
     suspend fun login(username: String, password: String): AuthResult = withContext(Dispatchers.IO) {
-        try {
-            val body = json.encodeToString(
-                LoginRequest(username = username, password = password)
-            )
-            
-            val request = Request.Builder()
-                .url("$ADMIN_BASE_URL/api/user-auth/login")
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-            
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: "{}"
-            
-            if (response.isSuccessful) {
-                val result = json.decodeFromString<AuthResponse>(responseBody)
-                authToken = result.token
-                userId = result.user.id
-                this@AdminSyncService.username = result.user.username
-                Log.d(TAG, "Login success: ${result.user.username}")
-                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
-            } else {
-                val error = try {
-                    json.decodeFromString<ErrorResponse>(responseBody).error
-                } catch (e: Exception) { "登录失败" }
-                Log.e(TAG, "Login failed: $error")
-                return@withContext AuthResult.Error(error)
+        val maxAttempts = 3
+        var attempts = 0
+        
+        while (attempts < maxAttempts) {
+            attempts++
+            try {
+                val body = json.encodeToString(
+                    LoginRequest(username = username, password = password)
+                )
+                
+                val request = Request.Builder()
+                    .url("$ADMIN_BASE_URL/api/user-auth/login")
+                    .post(body.toRequestBody("application/json".toMediaType()))
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: "{}"
+                
+                if (response.isSuccessful) {
+                    val result = json.decodeFromString<AuthResponse>(responseBody)
+                    authToken = result.token
+                    userId = result.user.id
+                    this@AdminSyncService.username = result.user.username
+                    Log.d(TAG, "Login success: ${result.user.username}")
+                    return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
+                } else {
+                    val error = try {
+                        json.decodeFromString<ErrorResponse>(responseBody).error
+                    } catch (e: Exception) { "登录失败" }
+                    // 如果是特定业务错误（如密码错、账号不存在），无需重试
+                    if (error.contains("密码") || error.contains("不存在") || error.contains("过期") || error.contains("禁用")) {
+                        return@withContext AuthResult.Error(error)
+                    }
+                    if (attempts >= maxAttempts) return@withContext AuthResult.Error(error)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Login attempt $attempts failed", e)
+                if (attempts >= maxAttempts) {
+                    val msg = if (e is java.net.SocketTimeoutException) "服务器响应超时，请重试" else "网络连接失败"
+                    return@withContext AuthResult.Error(msg)
+                }
             }
-        } catch (e: java.net.SocketTimeoutException) {
-            Log.e(TAG, "Login timeout", e)
-            return@withContext AuthResult.Error("服务器响应超时，请重试")
-        } catch (e: Exception) {
-            Log.e(TAG, "Login error", e)
-            return@withContext AuthResult.Error("网络连接失败")
+            
+            // 下次重试前等待，给予服务器唤醒时间
+            val delayMs = when(attempts) {
+                1 -> 1000L
+                2 -> 2000L
+                else -> 0L
+            }
+            if (delayMs > 0) {
+                try { kotlinx.coroutines.delay(delayMs) } catch (e: Exception) {}
+            }
         }
+        return@withContext AuthResult.Error("网络连接失败")
     }
     
     /**
