@@ -1230,18 +1230,39 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             else -> "high"
         }
         
-        val requestData = ChatRequest(
-            model = model,
-            messages = messagesWithSystem,
-            stream = true,
-            temperature = temperature,
-            topP = topP,
-            maxTokens = maxTokens,
-            reasoningEffort = reasoningEffort
-        )
+        // 使用动态 JsonObject 构建请求（参考 Rikkahub buildChatCompletionRequest）
+        val requestJson = buildJsonObject {
+            put("model", model)
+            put("stream", true)
+            
+            // stream_options (Rikkahub对某些API需要这个)
+            put("stream_options", buildJsonObject {
+                put("include_usage", true)
+            })
+            
+            // messages 数组
+            putJsonArray("messages") {
+                messagesWithSystem.forEach { msg ->
+                    add(buildJsonObject {
+                        put("role", msg.role)
+                        when (val content = msg.content) {
+                            is JsonPrimitive -> put("content", content)
+                            is JsonArray -> put("content", content)
+                            else -> put("content", "")
+                        }
+                    })
+                }
+            }
+            
+            // 可选参数
+            temperature.let { put("temperature", it) }
+            topP.let { put("top_p", it) }
+            maxTokens?.let { put("max_tokens", it) }
+            reasoningEffort?.let { put("reasoning_effort", it) }
+        }
         
-        val requestBody = json.encodeToString(ChatRequest.serializer(), requestData)
-        Log.d(TAG, "Request body: $requestBody")
+        val requestBody = json.encodeToString(requestJson)
+        Log.d(TAG, "Request body (dynamic): $requestBody")
         
         // 优先从 currentProvider 获取配置
         val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl

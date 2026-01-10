@@ -169,9 +169,17 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回聊天页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "ChatSubPage"
                         ) { subPage ->
@@ -202,9 +210,19 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                // 进入子页面：从右滑入，主页面往左滑出
+                                // 返回主页面：从左滑入，子页面往右滑出
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回主设置页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "SettingsSubPage"
                         ) { subPage ->
