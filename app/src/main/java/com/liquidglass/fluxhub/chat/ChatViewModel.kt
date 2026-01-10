@@ -1065,6 +1065,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     .post(requestBody.toRequestBody("application/json".toMediaType()))
                     .build()
                 
+                withContext(Dispatchers.IO) {
                     val response = client.newCall(request).execute()
                     val body = response.body?.string() ?: "{}"
                     Log.d(TAG, "Non-streaming response: $body")
