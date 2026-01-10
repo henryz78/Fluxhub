@@ -1860,7 +1860,7 @@ private fun ToolboxDialog(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
+                .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.7f)
                 .clip(RoundedCornerShape(28.dp))
                 .drawBackdrop(
@@ -2287,7 +2287,7 @@ private fun ToolboxWebSearchPage(
                 selected = { viewModel.webSearchEnabled },
                 onSelect = { viewModel.updateWebSearchEnabled(it) },
                 backdrop = backdrop,
-                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+                modifier = Modifier.size(width = 64.dp, height = 36.dp)
             )
         }
         
@@ -2351,7 +2351,7 @@ private fun ToolboxStreamOutputPage(
                 selected = { viewModel.streamEnabled },
                 onSelect = { viewModel.updateStreamEnabled(it) },
                 backdrop = backdrop,
-                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+                modifier = Modifier.size(width = 64.dp, height = 36.dp)
             )
         }
         
