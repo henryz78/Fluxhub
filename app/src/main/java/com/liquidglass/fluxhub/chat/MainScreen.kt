@@ -61,6 +61,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
@@ -313,8 +314,12 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.Filled.Home,
                                 contentDescription = "Home",
-                                tint = if (selectedTab == 0) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                modifier = Modifier.size(24.dp)
+                                tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        shadowElevation = 2f
+                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -322,8 +327,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
+                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }
@@ -346,8 +351,12 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Chat,
                                 contentDescription = "Chat",
-                                tint = if (selectedTab == 1) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                modifier = Modifier.size(24.dp)
+                                tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        shadowElevation = 2f
+                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -355,8 +364,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
+                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }
@@ -378,8 +387,12 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.Filled.Settings,
                                 contentDescription = "Settings",
-                                tint = if (selectedTab == 2) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                modifier = Modifier.size(24.dp)
+                                tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        shadowElevation = 2f
+                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -387,8 +400,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color(0xFF3C3C43),
-                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
+                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }
