@@ -803,6 +803,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isDefault = assistants.isEmpty() // 第一个助手为默认
             )
             assistantDao.insertAssistant(assistant)
+            // 显示创建成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已创建",
+                avatar = avatar ?: "🤖"
+            )
         }
     }
     
@@ -900,6 +905,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+            // 显示创建成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已创建",
+                avatar = "➕"
+            )
         }
     }
     
