@@ -157,6 +157,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 输入框文本（保存在 ViewModel 中，避免导航时丢失）
     var inputText by mutableStateOf("")
     
+    // 编辑状态：正在编辑的消息 ID
+    var editingMessageId by mutableStateOf<String?>(null)
+        private set
+    
+    /**
+     * 开始编辑消息
+     */
+    fun startEditingMessage(messageId: String, content: String) {
+        editingMessageId = messageId
+        inputText = content
+    }
+    
+    /**
+     * 取消编辑
+     */
+    fun cancelEditing() {
+        editingMessageId = null
+        inputText = ""
+    }
+    
+    /**
+     * 是否正在编辑
+     */
+    fun isEditing(): Boolean = editingMessageId != null
+    
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
     var wallpaperUri by mutableStateOf<String?>(null)
@@ -565,6 +590,73 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             Log.d(TAG, "deleteMessageAndFollowing: database deletion complete")
         }
+    }
+    
+    /**
+     * 处理消息编辑
+     * 
+     * @param newContent 编辑后的新内容
+     * 
+     * 行为：
+     * 1. 找到正在编辑的消息
+     * 2. 删除该消息之后的所有消息
+     * 3. 更新该消息的内容
+     * 4. 重新生成 AI 回复
+     */
+    fun handleMessageEdit(newContent: String) {
+        val messageId = editingMessageId ?: return
+        val conversationId = currentConversationId ?: return
+        
+        if (newContent.isBlank()) {
+            cancelEditing()
+            return
+        }
+        
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex < 0) {
+            cancelEditing()
+            return
+        }
+        
+        Log.d(TAG, "handleMessageEdit: editing message at index $messageIndex")
+        
+        // 取消当前生成任务
+        cancelGeneration()
+        
+        // 1. 删除该消息之后的所有消息
+        val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+        deletedMessageIds.addAll(idsToDelete)
+        
+        // 2. 更新 UI 中的消息内容
+        val originalMessage = messages[messageIndex]
+        messages[messageIndex] = originalMessage.copy(content = newContent)
+        
+        // 3. 立即移除后续消息
+        messages.removeAll { idsToDelete.contains(it.id) }
+        
+        // 4. 清除编辑状态
+        editingMessageId = null
+        inputText = ""
+        
+        // 5. 异步更新数据库
+        viewModelScope.launch {
+            // 删除后续消息
+            idsToDelete.forEach { id ->
+                messageDao.deleteMessage(id)
+            }
+            
+            // 更新编辑的消息内容
+            val existingMessage = messageDao.getMessage(messageId)
+            if (existingMessage != null) {
+                messageDao.updateMessage(existingMessage.copy(content = newContent))
+            }
+            
+            // 更新会话时间
+            conversationDao.updateConversationTimestamp(conversationId, System.currentTimeMillis())
+        }
+        
+        // 6. 重新生成 AI 回复
+        initiateAiResponse(conversationId)
     }
     
     /**

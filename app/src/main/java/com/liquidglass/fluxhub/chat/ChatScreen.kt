@@ -222,7 +222,14 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
-            viewModel.sendMessage(textToSend)
+            
+            // 如果正在编辑消息，调用编辑处理函数
+            if (viewModel.isEditing()) {
+                viewModel.handleMessageEdit(textToSend)
+            } else {
+                viewModel.sendMessage(textToSend)
+            }
+            
             // 发送后立即滚动到底部 (官方通常是立即到达底部)
             scope.launch {
                 listState.scrollToItem(messagesSnapshot.size)
@@ -550,8 +557,8 @@ private fun LiquidGlassChatContent(
                     onRegenerate = { viewModel.regenerate(message.id) },
                     onDelete = { viewModel.deleteMessage(message.id) },
                     onEdit = { 
-                        onInputTextChange(message.content)
-                        viewModel.deleteMessageAndFollowing(message.id)
+                        // 仅加载内容到输入框，不立即删除消息
+                        viewModel.startEditingMessage(message.id, message.content)
                     },
                     onSaveImage = { url -> viewModel.saveImageToGallery(url) },
                     hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
@@ -993,6 +1000,71 @@ private fun LiquidGlassChatContent(
                          )
                      }
                  }
+
+                // 编辑指示器（正在编辑消息时显示）
+                AnimatedVisibility(
+                    visible = viewModel.isEditing(),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { RoundedCornerShape(12.dp) },
+                                effects = { vibrancy(); blur(8.dp.toPx()) },
+                                onDrawSurface = { drawRect(Color(0xFFFF9500).copy(alpha = 0.3f)) }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Lucide.PenLine,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                BasicText(
+                                    text = "正在编辑消息",
+                                    style = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
+                                    )
+                                )
+                            }
+                            
+                            // 取消按钮
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { viewModel.cancelEditing() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                BasicText(
+                                    text = "取消",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
 
                 LiquidGlassChatInputBar(
                     text = inputText,

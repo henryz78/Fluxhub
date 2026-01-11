@@ -78,10 +78,10 @@ fun MainScreen(
                 val stream = context.contentResolver.openInputStream(uri)
                 BitmapFactory.decodeStream(stream)
             } catch (e: Exception) {
-                BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+                BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
             }
         } else {
-            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
         }
     }
     

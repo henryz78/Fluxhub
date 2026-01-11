@@ -22,6 +22,9 @@ interface MessageDao {
     
     @Query("DELETE FROM messages WHERE id = :messageId")
     suspend fun deleteMessage(messageId: String)
+    
+    @Query("SELECT * FROM messages WHERE id = :messageId")
+    suspend fun getMessage(messageId: String): MessageEntity?
 }
 
 @Dao
