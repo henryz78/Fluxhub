@@ -60,6 +60,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
