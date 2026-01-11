@@ -146,6 +146,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 记录已删除的消息 ID，防止 sync 逻辑将其“复活”
     private val deletedMessageIds = Collections.synchronizedSet(HashSet<String>())
     
+    // 记录"临时会话" ID (尚未保存到数据库的会话)
+    private val transientConversationIds = Collections.synchronizedSet(HashSet<String>())
+    // 暂存系统提示词 (用于在第一条消息发送时写入)
+    private var pendingSystemPrompt: String? = null
+    
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
     
@@ -426,32 +431,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
-        // Removed empty check to align with Rikkahub logic
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
         currentConversationTitle = title
         messages.clear()
         
-        // 开启新消息采集
+        // 标记为临时会话
+        transientConversationIds.add(newId)
+        pendingSystemPrompt = systemPrompt
+        
+        // 开启新消息采集 (此时 DB 为空，所以 UI 也是空的)
         startMessagesCollection(newId)
         
         viewModelScope.launch {
-            val conversation = ConversationEntity(
-                id = newId,
-                title = title,
-                assistantId = currentAssistant?.id
-            )
-            conversationDao.insertConversation(conversation)
+            // 注意：我们不再立即插入 ConversationEntity，也不插入 systemPrompt
+            // 而是等到用户发送第一条消息时才真正创建
             
-            if (!systemPrompt.isNullOrBlank()) {
-                messageDao.insertMessage(MessageEntity(
-                    id = UUID.randomUUID().toString(),
-                    conversationId = newId,
-                    role = "system",
-                    content = systemPrompt
-                ))
-            }
-            
+            // 但是我们要保存这个 ID 到设置，以便下次打开尝试恢复(虽然没存DB会失败，但逻辑一致)
             settingsRepository.setCurrentConversationId(newId)
         }
     }
@@ -469,13 +465,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentEventSource?.cancel()
         isLoading = false
         
+        // 取消当前流式输出
+        currentEventSource?.cancel()
+        isLoading = false
+        
         viewModelScope.launch {
-            // 清理之前的空对话（参考 Rikkahub：空对话不保存）
+            // 清理之前的会话
             if (previousConversationId != null) {
-                val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
-                if (previousMessages == 0) {
-                    Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
-                    conversationDao.deleteConversation(previousConversationId)
+                if (transientConversationIds.contains(previousConversationId)) {
+                    // 如果是临时会话且未转正，直接丢弃
+                    Log.d(TAG, "Discarding transient conversation: $previousConversationId")
+                    transientConversationIds.remove(previousConversationId)
+                } else {
+                    // 检查是否为空会话（已存在数据库但无消息）
+                    val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
+                    if (previousMessages == 0) {
+                        Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
+                        conversationDao.deleteConversation(previousConversationId)
+                    }
                 }
             }
             
@@ -703,7 +710,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val noConversations = conversations.isEmpty()
                 
                 if (currentIdMissing || noConversations) {
-                    if (conversations.isNotEmpty()) {
+                    // 关键检查：如果是临时会话，不要因为不在 DB 里就切换走！
+                    if (currentConversationId != null && transientConversationIds.contains(currentConversationId)) {
+                        Log.d(TAG, "Current conversation $currentConversationId is transient, staying put.")
+                    } else if (conversations.isNotEmpty()) {
                         // 如果有其他会话，切换到第一个
                         switchConversation(conversations.first().id)
                     } else {
@@ -1035,23 +1045,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 content = finalContent
             ))
             
-            // 始终更新会话状态
-            val currentConv = conversationDao.getConversation(conversationId)
-            if (messages.size <= 1) {
-                val newTitle = content.take(50)
-                conversationDao.updateConversation(
-                    ConversationEntity(
-                        id = conversationId,
-                        title = newTitle,
-                        createdAt = currentConv?.createdAt ?: System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
-                    )
+            // 检查是否是临时会话，如果是，现在立即"转正"
+            if (transientConversationIds.contains(conversationId)) {
+                Log.d(TAG, "Persisting transient conversation: $conversationId")
+                transientConversationIds.remove(conversationId)
+                
+                val conversation = ConversationEntity(
+                    id = conversationId,
+                    title = content.take(50), // 用第一局话做标题
+                    assistantId = currentAssistant?.id,
+                    createdAt = System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis()
                 )
-                currentConversationTitle = newTitle
-            } else {
-                currentConv?.let {
-                    conversationDao.updateConversation(it.copy(updatedAt = System.currentTimeMillis()))
+                conversationDao.insertConversation(conversation)
+                currentConversationTitle = conversation.title
+                
+                // 如果有暂存的 System Prompt，也写入
+                pendingSystemPrompt?.let { prompt ->
+                    if (prompt.isNotBlank()) {
+                         messageDao.insertMessage(MessageEntity(
+                            id = UUID.randomUUID().toString(),
+                            conversationId = conversationId,
+                            role = "system",
+                            content = prompt
+                        ))
+                    }
+                    pendingSystemPrompt = null
                 }
+            } else {
+                // 原有逻辑：更新会话时间和标题
+                val currentConv = conversationDao.getConversation(conversationId)
+                if (messages.size <= 1) { // 这里的 messages.size 可能不准确，因为 Collection 是异步的
+                    val newTitle = content.take(50)
+                    conversationDao.updateConversationTitle(conversationId, newTitle)
+                    currentConversationTitle = newTitle
+                }
+                // 更新时间
+                conversationDao.updateConversationTimestamp(conversationId, System.currentTimeMillis())
             }
         }
         
