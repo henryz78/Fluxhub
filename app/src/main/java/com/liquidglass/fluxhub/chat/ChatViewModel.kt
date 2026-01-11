@@ -39,6 +39,8 @@ import android.net.Uri
 import com.liquidglass.fluxhub.utils.FileUtils
 import kotlinx.serialization.json.*
 
+import java.util.Collections
+
 private const val TAG = "ChatViewModel"
 
 @Serializable
@@ -140,6 +142,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var temperature by mutableStateOf(0.7f)
     var topP by mutableStateOf(1.0f)
     var maxTokens by mutableStateOf<Int?>(null) // null = 使用模型默认值
+    
+    // 记录已删除的消息 ID，防止 sync 逻辑将其“复活”
+    private val deletedMessageIds = Collections.synchronizedSet(HashSet<String>())
     
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
@@ -394,7 +399,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 获取当前 UI 中存在但数据库中尚未存储的消息（主要是 AI 占位符）
                 val uiOnlyMessages = messages.filter { uiMsg ->
-                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id }
+                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id } && !deletedMessageIds.contains(uiMsg.id)
                 }
                 
                 // 组合消息：保留所有 UI 独有的消息（占位符）
@@ -484,15 +489,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun deleteConversation(conversationId: String) {
+        // 如果是当前会话，立即清空消息列表
+        // 1. 提升响应速度
+        // 2. 防止 sync 逻辑将已删除的消息误判为"尚未保存的UI消息"而保留
+        if (conversationId == currentConversationId) {
+            messages.clear()
+        }
+
         viewModelScope.launch {
             // 删除消息
             messageDao.deleteMessagesForConversation(conversationId)
             // 删除会话
             conversationDao.deleteConversation(conversationId)
             
-            if (conversationId == currentConversationId) {
-                createNewConversation()
-            }
+            // 移除手动 createNewConversation，交由 startConversationsCollection 监听处理
         }
     }
 
@@ -507,9 +517,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteMessage(messageId: String) {
+        // 记录已删除 ID，防止 sync 逻辑复活
+        deletedMessageIds.add(messageId)
+        
+        // 立即从 UI 移除
+        messages.removeAll { it.id == messageId }
+        
         viewModelScope.launch {
             messageDao.deleteMessage(messageId)
-            // 自动从 UI 列表中移除 (DAO 会触发 collect)
         }
     }
     
@@ -525,6 +540,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         // 获取要删除的消息 ID 列表（从该消息开始到最后）
         val idsToDelete = messages.drop(messageIndex).map { it.id }
+        
+        // 记录 IDs
+        deletedMessageIds.addAll(idsToDelete)
         
         Log.d(TAG, "deleteMessageAndFollowing: deleting ${idsToDelete.size} messages starting from index $messageIndex")
         
@@ -566,6 +584,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (message.role == "user") {
                     // 用户消息：删除该消息之后的所有消息，保留用户消息
                     val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+                    deletedMessageIds.addAll(idsToDelete)
+                    
                     idsToDelete.forEach { id ->
                         messageDao.deleteMessage(id)
                     }
@@ -575,6 +595,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     // AI 消息：删除该 AI 消息及其后续所有消息
                     val idsToDelete = messages.drop(messageIndex).map { it.id }
+                    deletedMessageIds.addAll(idsToDelete)
+                    
                     idsToDelete.forEach { id ->
                         messageDao.deleteMessage(id)
                     }

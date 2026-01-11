@@ -32,6 +32,7 @@ import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
 import com.liquidglass.fluxhub.components.LiquidTextField
+import com.liquidglass.fluxhub.components.LiquidConfirmationDialog
 import com.liquidglass.fluxhub.data.AssistantEntity
 import java.util.UUID
 
@@ -295,23 +296,17 @@ private fun AssistantCard(
                 }
                 
                 if (showDeleteDialog) {
-                    AlertDialog(
+                    LiquidConfirmationDialog(
                         onDismissRequest = { showDeleteDialog = false },
-                        title = { Text("删除助手") },
-                        text = { Text("确定要删除此助手吗？此操作不可撤销。") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                onDelete()
-                                showDeleteDialog = false
-                            }) {
-                                Text("删除", color = Color(0xFFFF3B30))
-                            }
+                        onConfirm = {
+                            onDelete()
+                            showDeleteDialog = false
                         },
-                        dismissButton = {
-                            TextButton(onClick = { showDeleteDialog = false }) {
-                                Text("取消")
-                            }
-                        }
+                        title = "删除助手",
+                        message = "确定要删除此助手吗？此操作不可撤销。",
+                        confirmText = "删除",
+                        icon = Lucide.Trash2,
+                        backdrop = backdrop
                     )
                 }
             }
