@@ -485,12 +485,15 @@ private fun ExpandedContent(data: DynamicIslandData) {
                         fontWeight = FontWeight.Bold
                     )
                 )
-                Text(
-                    text = data.modelName ?: "Unknown Model",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = 0.7f)
+                // 仅在加载状态显示模型名称
+                if (!data.isCompleted && !data.isFailed && data.modelName != null) {
+                    Text(
+                        text = data.modelName,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
                     )
-                )
+                }
             }
         }
         

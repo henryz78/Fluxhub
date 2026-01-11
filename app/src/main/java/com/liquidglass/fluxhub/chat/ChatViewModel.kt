@@ -813,6 +813,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 currentAssistant = assistant
                 applyAssistantSettings(assistant)
             }
+            // 显示更新成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已更新",
+                avatar = assistant.avatar
+            )
         }
     }
     
@@ -906,6 +911,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+            // 显示更新成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已更新",
+                avatar = "🔧"
+            )
         }
     }
     
