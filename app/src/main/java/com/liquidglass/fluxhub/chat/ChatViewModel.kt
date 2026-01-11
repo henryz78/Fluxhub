@@ -486,6 +486,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             settingsRepository.setCurrentConversationId(newId)
+            // 显示新对话创建成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "新对话已创建",
+                avatar = "✨"
+            )
         }
     }
     
@@ -1769,13 +1774,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "图片已保存至相册", android.widget.Toast.LENGTH_SHORT).show()
+                        // 使用灵动岛通知替换 Toast
+                        com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                            message = "图片已保存至相册",
+                            avatar = "🖼️"
+                        )
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(getApplication(), "保存失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showError(
+                        message = "保存失败"
+                    )
                 }
             }
         }

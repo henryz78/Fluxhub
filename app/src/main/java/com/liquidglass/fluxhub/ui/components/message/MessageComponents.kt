@@ -161,6 +161,11 @@ fun MessageActionButtons(
                         ClipEntry(ClipData.newPlainText("message", content))
                     )
                     showCopiedHint = true
+                    // 显示复制成功通知
+                    com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                        message = "已复制到剪贴板",
+                        avatar = "📝"
+                    )
                 }
             }
         )
