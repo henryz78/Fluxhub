@@ -190,6 +190,7 @@ fun DynamicIsland(
         }
     }
 }
+}
 
 @Composable
 private fun CollapsedContent(data: DynamicIslandData) {
