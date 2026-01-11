@@ -67,6 +67,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.LiquidConfirmationDialog
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
@@ -221,7 +222,14 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
-            viewModel.sendMessage(textToSend)
+            
+            // 如果正在编辑消息，调用编辑处理函数
+            if (viewModel.isEditing()) {
+                viewModel.handleMessageEdit(textToSend)
+            } else {
+                viewModel.sendMessage(textToSend)
+            }
+            
             // 发送后立即滚动到底部 (官方通常是立即到达底部)
             scope.launch {
                 listState.scrollToItem(messagesSnapshot.size)
@@ -584,8 +592,8 @@ private fun LiquidGlassChatContent(
                     onRegenerate = { viewModel.regenerate(message.id) },
                     onDelete = { viewModel.deleteMessage(message.id) },
                     onEdit = { 
-                        onInputTextChange(message.content)
-                        viewModel.deleteMessageAndFollowing(message.id)
+                        // 仅加载内容到输入框，不立即删除消息
+                        viewModel.startEditingMessage(message.id, message.content)
                     },
                     onSaveImage = { url -> viewModel.saveImageToGallery(url) },
                     hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
@@ -1028,6 +1036,71 @@ private fun LiquidGlassChatContent(
                      }
                  }
 
+                // 编辑指示器（正在编辑消息时显示）
+                AnimatedVisibility(
+                    visible = viewModel.isEditing(),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { RoundedCornerShape(12.dp) },
+                                effects = { vibrancy(); blur(8.dp.toPx()) },
+                                onDrawSurface = { drawRect(Color(0xFFFF9500).copy(alpha = 0.3f)) }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Lucide.PenLine,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                BasicText(
+                                    text = "正在编辑消息",
+                                    style = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
+                                    )
+                                )
+                            }
+                            
+                            // 取消按钮
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { viewModel.cancelEditing() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                BasicText(
+                                    text = "取消",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
                 LiquidGlassChatInputBar(
                     text = inputText,
                     onTextChange = onInputTextChange,
@@ -1454,80 +1527,18 @@ private fun LiquidGlassChatBubble(
             var showDeleteDialog by remember { mutableStateOf(false) }
             
             if (showDeleteDialog) {
-                // 液态玻璃样式的删除确认对话框
-                Dialog(onDismissRequest = { showDeleteDialog = false }) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { ContinuousRoundedRectangle(24.dp) },
-                                effects = {
-                                    vibrancy()
-                                    blur(6f.dp.toPx())
-                                    lens(12f.dp.toPx(), 24f.dp.toPx())
-                                },
-                                highlight = { Highlight.Plain },
-                                onDrawSurface = {
-                                    drawRect(Color.White.copy(alpha = 0.25f))
-                                }
-                            )
-                            .drawBehind {
-                                drawRoundRect(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
-                                )
-                            }
-                            .padding(24.dp)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Lucide.Trash2,
-                                contentDescription = null,
-                                tint = Color(0xFFFF453A),
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Text(
-                                text = "删除消息",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "确定要删除这条消息吗？",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 14.sp
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                LiquidButton(
-                                    onClick = { showDeleteDialog = false },
-                                    backdrop = backdrop,
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    tint = Color.White.copy(alpha = 0.2f)
-                                ) {
-                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
-                                }
-                                LiquidButton(
-                                    onClick = {
-                                        onDelete()
-                                        showDeleteDialog = false
-                                    },
-                                    backdrop = backdrop,
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    tint = Color(0xFFFF453A).copy(alpha = 0.6f)
-                                ) {
-                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
+                LiquidConfirmationDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    onConfirm = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    title = "删除消息",
+                    message = "确定要删除这条消息吗？",
+                    confirmText = "删除",
+                    icon = Lucide.Trash2,
+                    backdrop = backdrop
+                )
             }
             
             MessageActionButtons(
@@ -1964,70 +1975,18 @@ private fun ConversationDrawerContent(
                             // 删除确认对话框
                             var showDeleteConfirmDialog by remember { mutableStateOf(false) }
                             if (showDeleteConfirmDialog) {
-                                androidx.compose.ui.window.Dialog(
-                                    onDismissRequest = { showDeleteConfirmDialog = false }
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(0.85f)
-                                            .clip(RoundedCornerShape(24.dp))
-                                            .drawBackdrop(
-                                                backdrop = backdrop,
-                                                shape = { RoundedCornerShape(24.dp) },
-                                                effects = { vibrancy(); blur(16.dp.toPx()) },
-                                                onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.6f)) }
-                                            )
-                                            .padding(24.dp)
-                                    ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Lucide.Trash2,
-                                                contentDescription = null,
-                                                tint = Color(0xFFFF453A),
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                            Text(
-                                                text = "删除将会话",
-                                                color = Color.White,
-                                                fontSize = 18.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                text = "确定要删除 \"${conversation.title}\" 吗？此操作无法撤销。",
-                                                color = Color.White.copy(alpha = 0.7f),
-                                                fontSize = 14.sp,
-                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                            )
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                            ) {
-                                                LiquidButton(
-                                                    onClick = { showDeleteConfirmDialog = false },
-                                                    backdrop = backdrop,
-                                                    modifier = Modifier.weight(1f).height(44.dp),
-                                                    tint = Color.White.copy(alpha = 0.15f)
-                                                ) {
-                                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
-                                                }
-                                                LiquidButton(
-                                                    onClick = {
-                                                        onDeleteConversation(conversation.id)
-                                                        showDeleteConfirmDialog = false
-                                                    },
-                                                    backdrop = backdrop,
-                                                    modifier = Modifier.weight(1f).height(44.dp),
-                                                    tint = Color(0xFFFF453A).copy(alpha = 0.8f)
-                                                ) {
-                                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                LiquidConfirmationDialog(
+                                    onDismissRequest = { showDeleteConfirmDialog = false },
+                                    onConfirm = {
+                                        onDeleteConversation(conversation.id)
+                                        showDeleteConfirmDialog = false
+                                    },
+                                    title = "删除对话",
+                                    message = "确定要删除 \"${conversation.title}\" 吗？此操作无法撤销。",
+                                    confirmText = "删除",
+                                    icon = Lucide.Trash2,
+                                    backdrop = backdrop
+                                )
                             }
                             
                             val dismissState = rememberSwipeToDismissBoxState(

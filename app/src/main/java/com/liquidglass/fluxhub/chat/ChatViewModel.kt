@@ -40,6 +40,8 @@ import android.net.Uri
 import com.liquidglass.fluxhub.utils.FileUtils
 import kotlinx.serialization.json.*
 
+import java.util.Collections
+
 private const val TAG = "ChatViewModel"
 
 @Serializable
@@ -144,6 +146,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var topP by mutableStateOf(1.0f)
     var maxTokens by mutableStateOf<Int?>(null) // null = 使用模型默认值
     
+    // 记录已删除的消息 ID，防止 sync 逻辑将其“复活”
+    private val deletedMessageIds = Collections.synchronizedSet(HashSet<String>())
+    
+    // 记录"临时会话" ID (尚未保存到数据库的会话)
+    private val transientConversationIds = Collections.synchronizedSet(HashSet<String>())
+    // 暂存系统提示词 (用于在第一条消息发送时写入)
+    private var pendingSystemPrompt: String? = null
+    
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
 
@@ -154,6 +164,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 输入框文本（保存在 ViewModel 中，避免导航时丢失）
     var inputText by mutableStateOf("")
+    
+    // 编辑状态：正在编辑的消息 ID
+    var editingMessageId by mutableStateOf<String?>(null)
+        private set
+    
+    /**
+     * 开始编辑消息
+     */
+    fun startEditingMessage(messageId: String, content: String) {
+        editingMessageId = messageId
+        inputText = content
+    }
+    
+    /**
+     * 取消编辑
+     */
+    fun cancelEditing() {
+        editingMessageId = null
+        inputText = ""
+    }
+    
+    /**
+     * 是否正在编辑
+     */
+    fun isEditing(): Boolean = editingMessageId != null
     
     // 显示设置
     var themeMode by mutableStateOf("system") // system, light, dark
@@ -432,7 +467,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 // 获取当前 UI 中存在但数据库中尚未存储的消息（主要是 AI 占位符）
                 val uiOnlyMessages = messages.filter { uiMsg ->
-                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id }
+                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id } && !deletedMessageIds.contains(uiMsg.id)
                 }
                 
                 // 组合消息：保留所有 UI 独有的消息（占位符）
@@ -459,32 +494,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun createNewConversation(systemPrompt: String? = null, title: String = "新对话", showNotification: Boolean = false) {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
-        // Removed empty check to align with Rikkahub logic
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
         currentConversationTitle = title
         messages.clear()
         
-        // 开启新消息采集
+        // 标记为临时会话
+        transientConversationIds.add(newId)
+        pendingSystemPrompt = systemPrompt
+        
+        // 开启新消息采集 (此时 DB 为空，所以 UI 也是空的)
         startMessagesCollection(newId)
         
         viewModelScope.launch {
-            val conversation = ConversationEntity(
-                id = newId,
-                title = title,
-                assistantId = currentAssistant?.id
-            )
-            conversationDao.insertConversation(conversation)
+            // 注意：我们不再立即插入 ConversationEntity，也不插入 systemPrompt
+            // 而是等到用户发送第一条消息时才真正创建
             
-            if (!systemPrompt.isNullOrBlank()) {
-                messageDao.insertMessage(MessageEntity(
-                    id = UUID.randomUUID().toString(),
-                    conversationId = newId,
-                    role = "system",
-                    content = systemPrompt
-                ))
-            }
-            
+            // 但是我们要保存这个 ID 到设置，以便下次打开尝试恢复(虽然没存DB会失败，但逻辑一致)
             settingsRepository.setCurrentConversationId(newId)
             // 显示新对话创建成功通知
             if (showNotification) {
@@ -509,13 +535,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentEventSource?.cancel()
         isLoading = false
         
+        // 取消当前流式输出
+        currentEventSource?.cancel()
+        isLoading = false
+        
         viewModelScope.launch {
-            // 清理之前的空对话（参考 Rikkahub：空对话不保存）
+            // 清理之前的会话
             if (previousConversationId != null) {
-                val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
-                if (previousMessages == 0) {
-                    Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
-                    conversationDao.deleteConversation(previousConversationId)
+                if (transientConversationIds.contains(previousConversationId)) {
+                    // 如果是临时会话且未转正，直接丢弃
+                    Log.d(TAG, "Discarding transient conversation: $previousConversationId")
+                    transientConversationIds.remove(previousConversationId)
+                } else {
+                    // 检查是否为空会话（已存在数据库但无消息）
+                    val previousMessages = messageDao.getMessageCountForConversation(previousConversationId)
+                    if (previousMessages == 0) {
+                        Log.d(TAG, "Cleaning up empty conversation: $previousConversationId")
+                        conversationDao.deleteConversation(previousConversationId)
+                    }
                 }
             }
             
@@ -529,15 +566,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun deleteConversation(conversationId: String) {
+        // 如果是当前会话，立即清空消息列表
+        // 1. 提升响应速度
+        // 2. 防止 sync 逻辑将已删除的消息误判为"尚未保存的UI消息"而保留
+        if (conversationId == currentConversationId) {
+            messages.clear()
+        }
+
         viewModelScope.launch {
             // 删除消息
             messageDao.deleteMessagesForConversation(conversationId)
             // 删除会话
             conversationDao.deleteConversation(conversationId)
             
-            if (conversationId == currentConversationId) {
-                createNewConversation(showNotification = false)
-            }
+            // 移除手动 createNewConversation，交由 startConversationsCollection 监听处理
             // 显示删除成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
                 message = "对话已删除",
@@ -562,9 +604,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteMessage(messageId: String) {
+        // 记录已删除 ID，防止 sync 逻辑复活
+        deletedMessageIds.add(messageId)
+        
+        // 立即从 UI 移除
+        messages.removeAll { it.id == messageId }
+        
         viewModelScope.launch {
             messageDao.deleteMessage(messageId)
-            // 自动从 UI 列表中移除 (DAO 会触发 collect)
         }
     }
     
@@ -581,6 +628,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // 获取要删除的消息 ID 列表（从该消息开始到最后）
         val idsToDelete = messages.drop(messageIndex).map { it.id }
         
+        // 记录 IDs
+        deletedMessageIds.addAll(idsToDelete)
+        
         Log.d(TAG, "deleteMessageAndFollowing: deleting ${idsToDelete.size} messages starting from index $messageIndex")
         
         // 立即更新 UI 列表（移除从该索引开始的所有消息）
@@ -595,6 +645,73 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             Log.d(TAG, "deleteMessageAndFollowing: database deletion complete")
         }
+    }
+    
+    /**
+     * 处理消息编辑
+     * 
+     * @param newContent 编辑后的新内容
+     * 
+     * 行为：
+     * 1. 找到正在编辑的消息
+     * 2. 删除该消息之后的所有消息
+     * 3. 更新该消息的内容
+     * 4. 重新生成 AI 回复
+     */
+    fun handleMessageEdit(newContent: String) {
+        val messageId = editingMessageId ?: return
+        val conversationId = currentConversationId ?: return
+        
+        if (newContent.isBlank()) {
+            cancelEditing()
+            return
+        }
+        
+        val messageIndex = messages.indexOfFirst { it.id == messageId }
+        if (messageIndex < 0) {
+            cancelEditing()
+            return
+        }
+        
+        Log.d(TAG, "handleMessageEdit: editing message at index $messageIndex")
+        
+        // 取消当前生成任务
+        cancelGeneration()
+        
+        // 1. 删除该消息之后的所有消息
+        val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+        deletedMessageIds.addAll(idsToDelete)
+        
+        // 2. 更新 UI 中的消息内容
+        val originalMessage = messages[messageIndex]
+        messages[messageIndex] = originalMessage.copy(content = newContent)
+        
+        // 3. 立即移除后续消息
+        messages.removeAll { idsToDelete.contains(it.id) }
+        
+        // 4. 清除编辑状态
+        editingMessageId = null
+        inputText = ""
+        
+        // 5. 异步更新数据库
+        viewModelScope.launch {
+            // 删除后续消息
+            idsToDelete.forEach { id ->
+                messageDao.deleteMessage(id)
+            }
+            
+            // 更新编辑的消息内容
+            val existingMessage = messageDao.getMessage(messageId)
+            if (existingMessage != null) {
+                messageDao.updateMessage(existingMessage.copy(content = newContent))
+            }
+            
+            // 更新会话时间
+            conversationDao.updateConversationTimestamp(conversationId, System.currentTimeMillis())
+        }
+        
+        // 6. 重新生成 AI 回复
+        initiateAiResponse(conversationId)
     }
     
     /**
@@ -621,6 +738,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 if (message.role == "user") {
                     // 用户消息：删除该消息之后的所有消息，保留用户消息
                     val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
+                    deletedMessageIds.addAll(idsToDelete)
+                    
                     idsToDelete.forEach { id ->
                         messageDao.deleteMessage(id)
                     }
@@ -630,6 +749,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     // AI 消息：删除该 AI 消息及其后续所有消息
                     val idsToDelete = messages.drop(messageIndex).map { it.id }
+                    deletedMessageIds.addAll(idsToDelete)
+                    
                     idsToDelete.forEach { id ->
                         messageDao.deleteMessage(id)
                     }
@@ -736,7 +857,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val noConversations = conversations.isEmpty()
                 
                 if (currentIdMissing || noConversations) {
-                    if (conversations.isNotEmpty()) {
+                    // 关键检查：如果是临时会话，不要因为不在 DB 里就切换走！
+                    if (currentConversationId != null && transientConversationIds.contains(currentConversationId)) {
+                        Log.d(TAG, "Current conversation $currentConversationId is transient, staying put.")
+                    } else if (conversations.isNotEmpty()) {
                         // 如果有其他会话，切换到第一个
                         switchConversation(conversations.first().id)
                     } else {
@@ -1145,23 +1269,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 content = finalContent
             ))
             
-            // 始终更新会话状态
-            val currentConv = conversationDao.getConversation(conversationId)
-            if (messages.size <= 1) {
-                val newTitle = content.take(50)
-                conversationDao.updateConversation(
-                    ConversationEntity(
-                        id = conversationId,
-                        title = newTitle,
-                        createdAt = currentConv?.createdAt ?: System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
-                    )
+            // 检查是否是临时会话，如果是，现在立即"转正"
+            if (transientConversationIds.contains(conversationId)) {
+                Log.d(TAG, "Persisting transient conversation: $conversationId")
+                transientConversationIds.remove(conversationId)
+                
+                val conversation = ConversationEntity(
+                    id = conversationId,
+                    title = content.take(50), // 用第一局话做标题
+                    assistantId = currentAssistant?.id,
+                    createdAt = System.currentTimeMillis(),
+                    updatedAt = System.currentTimeMillis()
                 )
-                currentConversationTitle = newTitle
-            } else {
-                currentConv?.let {
-                    conversationDao.updateConversation(it.copy(updatedAt = System.currentTimeMillis()))
+                conversationDao.insertConversation(conversation)
+                currentConversationTitle = conversation.title
+                
+                // 如果有暂存的 System Prompt，也写入
+                pendingSystemPrompt?.let { prompt ->
+                    if (prompt.isNotBlank()) {
+                         messageDao.insertMessage(MessageEntity(
+                            id = UUID.randomUUID().toString(),
+                            conversationId = conversationId,
+                            role = "system",
+                            content = prompt
+                        ))
+                    }
+                    pendingSystemPrompt = null
                 }
+            } else {
+                // 原有逻辑：更新会话时间和标题
+                val currentConv = conversationDao.getConversation(conversationId)
+                if (messages.size <= 1) { // 这里的 messages.size 可能不准确，因为 Collection 是异步的
+                    val newTitle = content.take(50)
+                    conversationDao.updateConversationTitle(conversationId, newTitle)
+                    currentConversationTitle = newTitle
+                }
+                // 更新时间
+                conversationDao.updateConversationTimestamp(conversationId, System.currentTimeMillis())
             }
         }
         

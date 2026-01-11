@@ -22,6 +22,9 @@ interface MessageDao {
     
     @Query("DELETE FROM messages WHERE id = :messageId")
     suspend fun deleteMessage(messageId: String)
+    
+    @Query("SELECT * FROM messages WHERE id = :messageId")
+    suspend fun getMessage(messageId: String): MessageEntity?
 }
 
 @Dao
@@ -40,6 +43,9 @@ interface ConversationDao {
     
     @Query("UPDATE conversations SET title = :title WHERE id = :id")
     suspend fun updateConversationTitle(id: String, title: String)
+
+    @Query("UPDATE conversations SET updatedAt = :timestamp WHERE id = :id")
+    suspend fun updateConversationTimestamp(id: String, timestamp: Long)
     
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String)
