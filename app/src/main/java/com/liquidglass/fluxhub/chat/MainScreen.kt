@@ -442,8 +442,8 @@ fun MainScreen(
             // 仅在首页（Tab 0）显示
             if (selectedTab != 0) return@LaunchedEffect
             
-            // 等待 500ms 让协议弹窗消失
-            kotlinx.coroutines.delay(500)
+            // 等待 100ms 让协议弹窗消失
+            kotlinx.coroutines.delay(100)
             
             // 直接从 viewModel 读取设置（确保是最新值）
             // 检查是否启用灵动岛
