@@ -312,7 +312,7 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.Filled.Home,
                                 contentDescription = "Home",
-                                tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
+                                tint = if (selectedTab == 0) Color(0xFF007AFF) else Color(0xFF3C3C43),
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
@@ -321,7 +321,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color(0xFF3C3C43),
+                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
                                 )
                             )
                         }
@@ -344,7 +345,7 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Chat,
                                 contentDescription = "Chat",
-                                tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
+                                tint = if (selectedTab == 1) Color(0xFF007AFF) else Color(0xFF3C3C43),
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
@@ -353,7 +354,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color(0xFF3C3C43),
+                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
                                 )
                             )
                         }
@@ -375,7 +377,7 @@ fun MainScreen(
                             Icon(
                                 imageVector = Icons.Filled.Settings,
                                 contentDescription = "Settings",
-                                tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
+                                tint = if (selectedTab == 2) Color(0xFF007AFF) else Color(0xFF3C3C43),
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
@@ -384,7 +386,8 @@ fun MainScreen(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color(0xFF3C3C43),
+                                    shadow = Shadow(color = Color.White.copy(alpha = 0.8f), blurRadius = 4f)
                                 )
                             )
                         }
