@@ -317,9 +317,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -354,9 +351,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -390,9 +384,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
