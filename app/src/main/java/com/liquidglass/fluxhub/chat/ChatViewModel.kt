@@ -531,6 +531,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (conversationId == currentConversationId) {
                 createNewConversation()
             }
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "对话已删除",
+                avatar = "🗑️"
+            )
         }
     }
 
@@ -541,6 +546,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (conversationId == currentConversationId) {
                 currentConversationTitle = newTitle
             }
+            // 显示重命名成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "对话已重命名",
+                avatar = "✏️"
+            )
         }
     }
 
@@ -772,6 +782,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun switchAssistant(assistant: AssistantEntity) {
         currentAssistant = assistant
         applyAssistantSettings(assistant)
+        // 显示切换成功通知
+        com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+            message = "已切换助手",
+            avatar = assistant.avatar ?: "🤖"
+        )
     }
     
     private fun applyAssistantSettings(assistant: AssistantEntity) {
@@ -833,6 +848,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 currentAssistant = assistants.firstOrNull { it.id != assistantId }
                 currentAssistant?.let { applyAssistantSettings(it) }
             }
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已删除",
+                avatar = "🗑️"
+            )
         }
     }
     
@@ -876,6 +896,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             currentProvider = provider.copy(isActive = true)
             applyProviderSettings(currentProvider!!)
             fetchModels() // 切换 Provider 后重新获取模型列表
+            // 显示切换成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "已切换服务商",
+                avatar = "🔄"
+            )
         }
     }
     
@@ -939,6 +964,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fetchModels()
                 }
             }
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已删除",
+                avatar = "🗑️"
+            )
         }
     }
     
