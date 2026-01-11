@@ -44,6 +44,9 @@ object DynamicIslandController {
     
     var successMessage by mutableStateOf("完成")
         private set
+
+    var triggerId by mutableStateOf(0L)
+        private set
     
     // ========== 设置（从 ViewModel 同步）==========
     var isEnabled by mutableStateOf(true)
@@ -68,6 +71,7 @@ object DynamicIslandController {
     ) {
         if (!isEnabled) return
         
+        triggerId++
         this.title = title
         this.modelName = modelName
         this.assistantAvatar = avatar
@@ -106,6 +110,7 @@ object DynamicIslandController {
     ) {
         if (!isEnabled) return
         
+        triggerId++
         stopTimer()
         this.successMessage = message
         this.isCompleted = true
@@ -126,6 +131,7 @@ object DynamicIslandController {
     fun showError(message: String = "失败", autoHideDelayMs: Long = 2500) {
         if (!isEnabled) return
         
+        triggerId++
         stopTimer()
         this.successMessage = message
         this.isCompleted = false
@@ -215,7 +221,8 @@ object DynamicIslandController {
             isFailed = isFailed,
             successMessage = successMessage,
             showTokenCount = showTokenCountEnabled,
-            showElapsedTime = showElapsedTimeEnabled
+            showElapsedTime = showElapsedTimeEnabled,
+            triggerId = triggerId
         )
     }
 }

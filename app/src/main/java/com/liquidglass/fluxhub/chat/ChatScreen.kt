@@ -248,7 +248,7 @@ fun ChatScreen(
                         viewModel.renameConversation(id, newTitle)
                     },
                     onNewConversation = {
-                        viewModel.createNewConversation()
+                        viewModel.createNewConversation(showNotification = true)
                         scope.launch { drawerState.close() }
                     },
                     onInteractionChanged = { isInteractingWithButtons = it },
@@ -524,7 +524,7 @@ private fun LiquidGlassChatContent(
                 
                 // 新建会话按钮（右上角）
                 LiquidButton(
-                    onClick = { viewModel.createNewConversation() },
+                    onClick = { viewModel.createNewConversation(showNotification = true) },
                     backdrop = backdrop,
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,

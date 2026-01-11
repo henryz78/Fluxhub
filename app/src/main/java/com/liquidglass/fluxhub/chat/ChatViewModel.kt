@@ -410,7 +410,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
             }
-            createNewConversation()
+            createNewConversation(showNotification = false)
         }
     }
     
@@ -457,7 +457,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
+    fun createNewConversation(systemPrompt: String? = null, title: String = "新对话", showNotification: Boolean = false) {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
         // Removed empty check to align with Rikkahub logic
         val newId = UUID.randomUUID().toString()
@@ -487,10 +487,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             
             settingsRepository.setCurrentConversationId(newId)
             // 显示新对话创建成功通知
-            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
-                message = "新对话已创建",
-                avatar = "✨"
-            )
+            if (showNotification) {
+                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                    message = "新对话已创建",
+                    avatar = "✨"
+                )
+            }
         }
     }
     
@@ -534,7 +536,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             conversationDao.deleteConversation(conversationId)
             
             if (conversationId == currentConversationId) {
-                createNewConversation()
+                createNewConversation(showNotification = false)
             }
             // 显示删除成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(

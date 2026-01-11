@@ -58,7 +58,8 @@ data class DynamicIslandData(
     val isFailed: Boolean = false,    // 是否失败（用于显示错误动画）
     val successMessage: String = "完成", // 成功时显示的文字
     val showTokenCount: Boolean = true, // 是否显示 Token 计数
-    val showElapsedTime: Boolean = true // 是否显示耗时
+    val showElapsedTime: Boolean = true, // 是否显示耗时
+    val triggerId: Long = 0L
 )
 
 @Composable
@@ -129,10 +130,12 @@ fun DynamicIsland(
             transformOrigin = TransformOrigin(0.5f, 0f)
         ) + fadeOut(animationSpec = tween(400))
     ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 8.dp) // 距离顶部的间距
-                .size(width, height)
+        // Use key to restart everything when triggerId changes
+        key(data.triggerId) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp) // 距离顶部的间距
+                    .size(width, height)
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { RoundedCornerShape(40.dp) },
