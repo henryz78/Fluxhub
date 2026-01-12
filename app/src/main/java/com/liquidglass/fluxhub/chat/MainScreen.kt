@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,24 +59,45 @@ import androidx.compose.ui.draw.clip
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun MainScreen(
     viewModel: ChatViewModel = viewModel()
 ) {
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     
     val backgroundBitmap = remember(viewModel.wallpaperUri) {
-        if (viewModel.wallpaperUri != null) {
-            try {
-                val uri = android.net.Uri.parse(viewModel.wallpaperUri)
-                val stream = context.contentResolver.openInputStream(uri)
-                BitmapFactory.decodeStream(stream)
-            } catch (e: Exception) {
-                BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+        val uri = viewModel.wallpaperUri
+        when {
+            uri == null -> {
+                // 默认壁纸
+                BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
             }
-        } else {
-            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_light)
+            uri.startsWith("preset:") -> {
+                // 预设壁纸
+                val presetName = uri.removePrefix("preset:")
+                val resourceId = when (presetName) {
+                    "wallpaper_liquid" -> R.drawable.wallpaper_liquid
+                    "wallpaper_light" -> R.drawable.wallpaper_light
+                    else -> R.drawable.wallpaper_liquid
+                }
+                BitmapFactory.decodeResource(context.resources, resourceId)
+            }
+            else -> {
+                // 自定义壁纸
+                try {
+                    val parsedUri = android.net.Uri.parse(uri)
+                    val stream = context.contentResolver.openInputStream(parsedUri)
+                    BitmapFactory.decodeStream(stream)
+                } catch (e: Exception) {
+                    BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                }
+            }
         }
     }
     
@@ -220,6 +243,10 @@ private fun AuthenticatedContent(
     // 快捷提示词状态
     var pendingPrompt by remember { mutableStateOf<String?>(null) }
     
+    // 保持各页面的子页面状态 (Moved to top scope for access in Bottom Bar)
+    var chatSubPage by remember { mutableStateOf<String?>(null) }
+    var settingsSubPage by remember { mutableStateOf<String?>(null) }
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -247,7 +274,20 @@ private fun AuthenticatedContent(
             val imeHeightDp = with(density) { imeHeight.toDp() }
             val bottomPadding = (100.dp - imeHeightDp).coerceAtLeast(0.dp) // 增加到100dp避免重叠
             
-            // 恢复使用 AnimatedContent 动画
+            // 预加载所有页面：消除首次切换的编译卡顿
+            // 使用 key 保持状态，但只显示当前选中的页面
+            // 这样避免了 z-index 和触摸事件冲突
+            
+            // 保持各页面的子页面状态 (Hoisted)
+            
+            // BackHandler 处理
+            BackHandler(enabled = chatSubPage != null && selectedTab == 1) {
+                chatSubPage = null
+            }
+            BackHandler(enabled = settingsSubPage != null && selectedTab == 2) {
+                settingsSubPage = null
+            }
+            
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
@@ -269,17 +309,20 @@ private fun AuthenticatedContent(
                         viewModel = viewModel
                     )
                     1 -> {
-                        var chatSubPage by remember { mutableStateOf<String?>(null) }
-                        BackHandler(enabled = chatSubPage != null) {
-                            chatSubPage = null
-                        }
-                        
                         AnimatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回聊天页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "ChatSubPage"
                         ) { subPage ->
@@ -307,21 +350,22 @@ private fun AuthenticatedContent(
                         }
                     }
                     2 -> {
-                        // 设置子页面状态
-                        var settingsSubPage by remember { mutableStateOf<String?>(null) }
-                        
-                        // 处理系统返回键
-                        BackHandler(enabled = settingsSubPage != null) {
-                            settingsSubPage = null
-                        }
-                        
-                        // 带动画的子页面切换
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                    slideOutHorizontally { -it } + fadeOut()
-                                )
+                                // 进入子页面：从右滑入，主页面往左滑出
+                                // 返回主页面：从左滑入，子页面往右滑出
+                                if (targetState != null) {
+                                    // 进入子页面
+                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { -it } + fadeOut()
+                                    )
+                                } else {
+                                    // 返回主设置页
+                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                        slideOutHorizontally { it } + fadeOut()
+                                    )
+                                }
                             },
                             label = "SettingsSubPage"
                         ) { subPage ->
@@ -384,14 +428,25 @@ private fun AuthenticatedContent(
             ) {
                 LiquidBottomTabs(
                     selectedTabIndex = { selectedTab },
-                    onTabSelected = { selectedTab = it },
+                    onTabSelected = { 
+                        selectedTab = it
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
                     backdrop = backdrop,
                     tabsCount = 3,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Tab 0: Home
                     LiquidBottomTab(
-                        onClick = { selectedTab = 0 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 0 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -401,7 +456,8 @@ private fun AuthenticatedContent(
                                 imageVector = Icons.Filled.Home,
                                 contentDescription = "Home",
                                 tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -409,7 +465,8 @@ private fun AuthenticatedContent(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }
@@ -417,7 +474,13 @@ private fun AuthenticatedContent(
                     
                     // Tab 1: Chat
                     LiquidBottomTab(
-                        onClick = { selectedTab = 1 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 1 
+                            settingsSubPage = null // Reset Settings navigation
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -427,7 +490,8 @@ private fun AuthenticatedContent(
                                 imageVector = Icons.AutoMirrored.Filled.Chat,
                                 contentDescription = "Chat",
                                 tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -435,7 +499,8 @@ private fun AuthenticatedContent(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }
@@ -443,7 +508,12 @@ private fun AuthenticatedContent(
                     
                     // Tab 2: Settings
                     LiquidBottomTab(
-                        onClick = { selectedTab = 2 }
+                        onClick = { 
+                            if (viewModel.hapticFeedbackEnabled) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            selectedTab = 2 
+                        }
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -453,7 +523,8 @@ private fun AuthenticatedContent(
                                 imageVector = Icons.Filled.Settings,
                                 contentDescription = "Settings",
                                 tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -461,7 +532,8 @@ private fun AuthenticatedContent(
                                 style = TextStyle(
                                     fontSize = 10.sp,
                                     fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray
+                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
+                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
                                 )
                             )
                         }

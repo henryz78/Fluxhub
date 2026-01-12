@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.*
+import androidx.compose.foundation.background
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -202,16 +203,21 @@ private fun ActionButton(
     tint: Color = Color.White.copy(alpha = 0.9f), // 提高对比度
     onClick: () -> Unit
 ) {
-    Icon(
-        imageVector = icon,
-        contentDescription = contentDescription,
+    Box(
         modifier = Modifier
             .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.15f))
             .clickable(onClick = onClick)
-            .padding(6.dp)
-            .size(14.dp),
-        tint = tint
-    )
+            .padding(8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(14.dp),
+            tint = tint
+        )
+    }
 }
 
 /**

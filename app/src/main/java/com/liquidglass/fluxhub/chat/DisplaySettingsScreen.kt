@@ -35,6 +35,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 @Composable
 fun DisplaySettingsScreen(
@@ -44,6 +46,7 @@ fun DisplaySettingsScreen(
     bottomPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val wallpaperUri = viewModel.wallpaperUri
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
@@ -118,6 +121,46 @@ fun DisplaySettingsScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 
+                // 预设壁纸选择
+                Text(
+                    "预设壁纸",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 壁纸1: wallpaper_liquid
+                    PresetWallpaperItem(
+                        resourceId = com.liquidglass.fluxhub.R.drawable.wallpaper_liquid,
+                        isSelected = wallpaperUri == "preset:wallpaper_liquid",
+                        onClick = {
+                            viewModel.updateWallpaperUri("preset:wallpaper_liquid")
+                        }
+                    )
+                    
+                    // 壁纸2: wallpaper_light
+                    PresetWallpaperItem(
+                        resourceId = com.liquidglass.fluxhub.R.drawable.wallpaper_light,
+                        isSelected = wallpaperUri == "preset:wallpaper_light",
+                        onClick = {
+                            viewModel.updateWallpaperUri("preset:wallpaper_light")
+                        }
+                    )
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // 自定义壁纸
+                Text(
+                    "自定义壁纸",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
+                
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LiquidButton(
                         onClick = { launcher.launch("image/*") },
@@ -144,13 +187,110 @@ fun DisplaySettingsScreen(
                     }
                 }
                 
-                if (wallpaperUri != null) {
+                if (wallpaperUri != null && !wallpaperUri.startsWith("preset:")) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "当前使用自定义壁纸",
                         style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                     )
                 }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        // Interaction Config
+        Text(
+            "交互与反馈",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "震动反馈",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "操作时提供触觉反馈体验",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+                
+                com.liquidglass.fluxhub.components.LiquidToggle(
+                    selected = { viewModel.hapticFeedbackEnabled },
+                    onSelect = { 
+                        viewModel.updateHapticFeedbackEnabled(it)
+                        if (it) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
+                    backdrop = backdrop
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetWallpaperItem(
+    resourceId: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .border(
+                width = if (isSelected) 3.dp else 1.dp,
+                color = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.3f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(resourceId),
+            contentDescription = "壁纸",
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "已选择",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

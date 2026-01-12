@@ -1,6 +1,6 @@
 package com.liquidglass.fluxhub.utils
 
-import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyListState
@@ -12,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalDensity
-import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * 自动跟随键盘滚动的 Hook
@@ -24,20 +23,20 @@ fun ImeLazyListAutoScroller(
 ) {
     val ime = WindowInsets.ime
     val localDensity = LocalDensity.current
-    var imeHeight by remember { mutableIntStateOf(0) }
+    var imeHeigh by remember { mutableIntStateOf(0) }
     
     LaunchedEffect(Unit) {
         snapshotFlow {
             ime.getBottom(localDensity)
-        }
-        .distinctUntilChanged() // 避免相同高度重复触发
-        .collect { keyboardHeight ->
-            val delta = keyboardHeight - imeHeight
-            if (delta != 0) {
-                // 使用 animateScrollBy 使滚动更平滑
-                lazyListState.animateScrollBy(delta.toFloat())
+        }.collect { keyboardHeight ->
+            if (keyboardHeight > 0) {
+                if (imeHeigh < keyboardHeight) {
+                    lazyListState.scrollBy((keyboardHeight - imeHeigh).toFloat())
+                } else {
+                    lazyListState.scrollBy((keyboardHeight - imeHeigh).toFloat())
+                }
+                imeHeigh = keyboardHeight
             }
-            imeHeight = keyboardHeight
         }
     }
 }

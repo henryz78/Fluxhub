@@ -6,6 +6,11 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
@@ -57,12 +62,15 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousCapsule
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
-import androidx.compose.foundation.combinedClickable
+import com.liquidglass.fluxhub.components.LiquidConfirmationDialog
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import com.liquidglass.fluxhub.ui.components.richtext.MarkdownBlock
 import com.liquidglass.fluxhub.ui.components.richtext.ProvideHighlighter
@@ -127,12 +135,26 @@ fun ChatScreen(
     initialPrompt: String? = null,
     onPromptConsumed: () -> Unit = {}
 ) {
-    var inputText by remember { mutableStateOf(initialPrompt ?: "") }
+    // 使用 ViewModel 中的 inputText（导航时不会丢失）
+    var inputText by remember { mutableStateOf(viewModel.inputText) }
+    
+    // 同步从 ViewModel 到本地（编辑消息时 ViewModel 会修改 inputText）
+    LaunchedEffect(viewModel.inputText) {
+        if (inputText != viewModel.inputText) {
+            inputText = viewModel.inputText
+        }
+    }
+    
+    // 同步到 ViewModel（确保导航时保存）
+    LaunchedEffect(inputText) {
+        viewModel.inputText = inputText
+    }
     
     // 消费初始提示词
     LaunchedEffect(initialPrompt) {
         if (!initialPrompt.isNullOrBlank()) {
             inputText = initialPrompt
+            viewModel.inputText = initialPrompt
             onPromptConsumed()
         }
     }
@@ -162,35 +184,42 @@ fun ChatScreen(
         return lastItem.offset + lastItem.size <= viewportEnd + lastItem.size * 0.15 + 32
     }
 
-    // 自动跟随键盘滚动 (参考 RikkaHub)
-    ImeLazyListAutoScroller(lazyListState = listState)
+    // 官方设计：发送消息时自动滑动，AI 生成时跟随
+    var isRecentScroll by remember { mutableStateOf(false) }
     
-    // 获取最新状态用于自动滚动 (参考 RikkaHub)
+    // 追踪用户手动滚动，暂时暂停自动跟随
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            isRecentScroll = true
+            kotlinx.coroutines.delay(2000)
+            isRecentScroll = false
+        }
+    }
+    
+    // 获取最新状态用于自动滚动 (过滤系统消息以对齐列表索引)
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    val messagesSnapshot by rememberUpdatedState(viewModel.messages.toList())
+    val messagesSnapshot by rememberUpdatedState(viewModel.messages.filter { it.role != "system" })
     
-    // 自动滚动到底部 (完全对齐 RikkaHub 的 snapshotFlow 实现)
+    // 自动滚动到底部 (精简版官方逻辑)
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { visibleItemsInfo ->
-            // 只在加载中且不在用户手动滚动时自动跟随
-            if (!listState.isScrollInProgress && loadingState) {
+            // 只在加载中且用户最近没有手动大幅度滚动时自动跟随
+            if (!listState.isScrollInProgress && !isRecentScroll && loadingState) {
                 if (visibleItemsInfo.isAtBottom()) {
-                    // 滚动到消息列表末尾 + 偏移量确保到达 spacer
-                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+                    listState.requestScrollToItem(messagesSnapshot.size)
                 }
             }
         }
     }
     
-    // 消息内容变化时滚动到底部 (流式输出时)
-    LaunchedEffect(Unit) {
-        snapshotFlow { 
-            messagesSnapshot.lastOrNull()?.content?.length ?: 0 
-        }.collect { contentLength ->
-            if (loadingState && contentLength > 0) {
-                val visibleItems = listState.layoutInfo.visibleItemsInfo
-                if (visibleItems.isAtBottom()) {
-                    listState.requestScrollToItem(messagesSnapshot.size + 10)
+
+    // 强制跟随流式内容长度变化
+    LaunchedEffect(loadingState) {
+        if (loadingState) {
+            snapshotFlow { messagesSnapshot.lastOrNull()?.content?.length ?: 0 }.collect {
+                // 增加小延迟确保内容渲染后滚动
+                if (!listState.isScrollInProgress && !isRecentScroll && listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
+                    listState.requestScrollToItem(messagesSnapshot.size)
                 }
             }
         }
@@ -201,11 +230,17 @@ fun ChatScreen(
         if (inputText.isNotBlank()) {
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
-            viewModel.sendMessage(textToSend)
-            // 发送后平滑滚动到底部
+            
+            // 如果正在编辑消息，调用编辑处理函数
+            if (viewModel.isEditing()) {
+                viewModel.handleMessageEdit(textToSend)
+            } else {
+                viewModel.sendMessage(textToSend)
+            }
+            
+            // 发送后立即滚动到底部 (官方通常是立即到达底部)
             scope.launch {
-                kotlinx.coroutines.delay(50)
-                listState.animateScrollToItem(viewModel.messages.size + 10)
+                listState.scrollToItem(messagesSnapshot.size)
             }
         }
     }
@@ -276,6 +311,7 @@ private fun LiquidGlassChatContent(
     onInteractionChanged: (Boolean) -> Unit,
     onImageSelected: (android.net.Uri?) -> Unit = {}
 ) {
+    val haptic = LocalHapticFeedback.current
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -327,9 +363,8 @@ private fun LiquidGlassChatContent(
         }
     }
 
-    // 消息操作菜单状态
-    var selectedMessageForMenu by remember { mutableStateOf<UiMessage?>(null) }
-    val clipboardManager = LocalClipboard.current
+    // 消息操作菜单状态 (已移除)
+    // clipboardManager 已移除
     // 模型选择器状态
     var showModelSelector by remember { mutableStateOf(false) }
     // 助手选择器状态
@@ -487,6 +522,21 @@ private fun LiquidGlassChatContent(
             }
         }
         
+        // 自动滚动逻辑
+        LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
+            if (viewModel.messages.isNotEmpty()) {
+                val lastMessage = viewModel.messages.last()
+                // 只有当是流式输出或者用户刚发送消息（列表变长）时才自动滚动
+                // 避免查看历史消息时被强制滚动到底部
+                val shouldScroll = lastMessage.isStreaming || 
+                                 (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= viewModel.messages.size - 2
+                
+                if (shouldScroll) {
+                    listState.animateScrollToItem(viewModel.messages.size) // 滚动到底部（包括 spacer）
+                }
+            }
+        }
+
         // Messages - 占据剩余空间
         LazyColumn(
             state = listState,
@@ -501,12 +551,25 @@ private fun LiquidGlassChatContent(
             ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(viewModel.messages.filter { it.role != "system" }, key = { it.id }) { message ->
+            // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
+            val defaultModel = viewModel.model
+            items(
+                items = viewModel.messages.filter { it.role != "system" }, 
+                key = { it.id },
+                contentType = { it.role } // 帮助 Compose 复用相同类型的组件
+            ) { message ->
                 LiquidGlassChatBubble(
                     message = message,
                     backdrop = backdrop,
-                    viewModel = viewModel,
-                    onLongClick = { selectedMessageForMenu = message }
+                    defaultModel = defaultModel,
+                    onRegenerate = { viewModel.regenerate(message.id) },
+                    onDelete = { viewModel.deleteMessage(message.id) },
+                    onEdit = { 
+                        // 仅加载内容到输入框，不立即删除消息
+                        viewModel.startEditingMessage(message.id, message.content)
+                    },
+                    onSaveImage = { url -> viewModel.saveImageToGallery(url) },
+                    hapticFeedbackEnabled = viewModel.hapticFeedbackEnabled
                 )
             }
             
@@ -515,33 +578,9 @@ private fun LiquidGlassChatContent(
                 Spacer(
                     Modifier
                         .fillMaxWidth()
-                        .height(16.dp)
+                        .height(32.dp) // 保持适中距离
                 )
             }
-        }
-
-        // 消息长按菜单
-        selectedMessageForMenu?.let { message ->
-            MessageActionsSheet(
-                content = message.content,
-                isUser = message.role == "user",
-                onDismiss = { selectedMessageForMenu = null },
-                onCopy = {
-                    scope.launch {
-                        val clipData = ClipData.newPlainText("message", message.content)
-                        clipboardManager.setClipEntry(ClipEntry(clipData))
-                    }
-                },
-                onRegenerate = { viewModel.regenerate(message.id) },
-                onDelete = { viewModel.deleteMessage(message.id) },
-                onEditAndResend = {
-                    // 将消息内容填入输入框
-                    onInputTextChange(message.content)
-                    // 删除原消息及其后续所有消息
-                    viewModel.deleteMessageAndFollowing(message.id)
-                    selectedMessageForMenu = null
-                }
-            )
         }
 
         // 模型选择器底部弹窗
@@ -596,18 +635,92 @@ private fun LiquidGlassChatContent(
                             }
                         }
 
-                        // 模型列表
+                        // 搜索框
+                        var modelSearchQuery by remember { mutableStateOf("") }
+                        
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Lucide.Search,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                BasicTextField(
+                                    value = modelSearchQuery,
+                                    onValueChange = { modelSearchQuery = it },
+                                    textStyle = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    ),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        Box {
+                                            if (modelSearchQuery.isEmpty()) {
+                                                BasicText(
+                                                    text = "搜索模型...",
+                                                    style = TextStyle(
+                                                        color = Color.White.copy(alpha = 0.4f),
+                                                        fontSize = 14.sp
+                                                    )
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (modelSearchQuery.isNotEmpty()) {
+                                    Icon(
+                                        Lucide.X,
+                                        contentDescription = "清除",
+                                        tint = Color.White.copy(alpha = 0.5f),
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clickable { modelSearchQuery = "" }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 模型列表（根据搜索过滤）
+                        val filteredModels = remember(viewModel.availableModels, modelSearchQuery) {
+                            if (modelSearchQuery.isBlank()) {
+                                viewModel.availableModels
+                            } else {
+                                viewModel.availableModels.filter { 
+                                    it.contains(modelSearchQuery, ignoreCase = true) 
+                                }
+                            }
+                        }
+                        
                         if (viewModel.availableModels.isEmpty()) {
                             Text(
                                 text = "正在加载模型列表...",
                                 color = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.padding(vertical = 16.dp)
                             )
+                        } else if (filteredModels.isEmpty()) {
+                            Text(
+                                text = "未找到匹配的模型",
+                                color = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
                         } else {
                             LazyColumn(
-                                modifier = Modifier.heightIn(max = 400.dp)
+                                modifier = Modifier.heightIn(max = 350.dp)
                             ) {
-                                items(viewModel.availableModels) { modelName ->
+                                items(filteredModels) { modelName ->
                                     val isSelected = modelName == viewModel.model
                                     Row(
                                         modifier = Modifier
@@ -896,11 +1009,87 @@ private fun LiquidGlassChatContent(
                      }
                  }
 
+                // 编辑指示器（正在编辑消息时显示）
+                AnimatedVisibility(
+                    visible = viewModel.isEditing(),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { RoundedCornerShape(12.dp) },
+                                effects = { vibrancy(); blur(8.dp.toPx()) },
+                                onDrawSurface = { drawRect(Color(0xFFFF9500).copy(alpha = 0.3f)) }
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Lucide.PenLine,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                BasicText(
+                                    text = "正在编辑消息",
+                                    style = TextStyle(
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
+                                    )
+                                )
+                            }
+                            
+                            // 取消按钮
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { viewModel.cancelEditing() }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                BasicText(
+                                    text = "取消",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
                 LiquidGlassChatInputBar(
                     text = inputText,
                     onTextChange = onInputTextChange,
-                    onSend = onSend,
-                    onStop = { viewModel.stopStreaming() },
+                    onSend = {
+                        val isSendable = inputText.isNotBlank() || viewModel.selectedImageUri != null
+                        if (isSendable && viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        onSend()
+                    },
+                    onStop = { 
+                        if (viewModel.hapticFeedbackEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        viewModel.stopStreaming() 
+                    },
                     isLoading = viewModel.isLoading,
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
@@ -1047,13 +1236,28 @@ private fun LiquidGlassChatContent(
 private fun LiquidGlassChatBubble(
     message: UiMessage,
     backdrop: Backdrop,
-    viewModel: ChatViewModel,
-    onLongClick: () -> Unit
+    defaultModel: String,
+    onRegenerate: () -> Unit,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    onSaveImage: (String) -> Unit,
+    hapticFeedbackEnabled: Boolean
 ) {
     val isUser = message.role == "user"
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    var lastHapticTime by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(message.content) {
+        if (!isUser && message.isStreaming && hapticFeedbackEnabled) {
+            val now = System.currentTimeMillis()
+            if (now - lastHapticTime > 50) { // 20Hz Limit
+                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                lastHapticTime = now
+            }
+        }
+    }
+
     val bubbleShape = ContinuousRoundedRectangle(20.dp)
-    // AI 气泡使用白色 liquid glass 风格
-    // AI 气泡使用白色 liquid glass 风格
     val tintColor = if (isUser) Color(0xFF007AFF) else Color.White
     val keyboardController = LocalSoftwareKeyboardController.current
     
@@ -1061,18 +1265,16 @@ private fun LiquidGlassChatBubble(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-            // 移除 animateContentSize() 以优化滚动性能 - 多层嵌套动画会导致卡顿
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // 角色标识（简化版，不显示头像）
+        // 角色标识
         Row(
             modifier = Modifier.padding(bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Model name only, TTS removed
             Text(
-                text = if (isUser) "你" else (message.model ?: viewModel.model),
+                text = if (isUser) "你" else (message.model ?: defaultModel),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 12.sp,
@@ -1120,10 +1322,7 @@ private fun LiquidGlassChatBubble(
                         )
                     )
                 }
-                .combinedClickable(
-                    onClick = { keyboardController?.hide() },
-                    onLongClick = onLongClick
-                )
+                .clickable { keyboardController?.hide() }
                 .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 // 使用 CompositionLocalProvider 确保 Markdown 文本颜色为白色
@@ -1137,7 +1336,7 @@ private fun LiquidGlassChatBubble(
                         fontWeight = if (isUser) FontWeight.Medium else FontWeight.Normal
                     )
                 ) {
-                    // 使用 SelectionContainer 支持文本选择复制
+                    // 使用 SelectionContainer 支持系统文本选择复制
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         Column {
                     // 1. 如果有思考内容，则显示
@@ -1170,6 +1369,9 @@ private fun LiquidGlassChatBubble(
                         message.content.substring(imageMatch.range.last + 1).trimStart()
                     } else message.content
 
+                    // 图片预览状态
+                    var showImagePreview by remember { mutableStateOf(false) }
+
                     if (imageUrl != null) {
                          AsyncImage(
                              model = imageUrl,
@@ -1177,10 +1379,88 @@ private fun LiquidGlassChatBubble(
                              modifier = Modifier
                                  .fillMaxWidth()
                                  .heightIn(max = 240.dp)
-                                 .clip(RoundedCornerShape(12.dp)),
+                                 .clip(RoundedCornerShape(12.dp))
+                                 .clickable { showImagePreview = true },
                              contentScale = androidx.compose.ui.layout.ContentScale.Crop
                          )
                          Spacer(Modifier.height(8.dp))
+                         
+                         // 全屏图片预览
+                         if (showImagePreview) {
+                             var scale by remember { mutableFloatStateOf(1f) }
+                             var offsetX by remember { mutableFloatStateOf(0f) }
+                             var offsetY by remember { mutableFloatStateOf(0f) }
+                             
+                             androidx.compose.ui.window.Dialog(
+                                 onDismissRequest = { showImagePreview = false },
+                                 properties = androidx.compose.ui.window.DialogProperties(
+                                     usePlatformDefaultWidth = false,
+                                     decorFitsSystemWindows = false
+                                 )
+                             ) {
+                                 Box(
+                                     modifier = Modifier
+                                         .fillMaxSize()
+                                         .background(Color.Black),
+                                     contentAlignment = Alignment.Center
+                                 ) {
+                                     // 可缩放的图片
+                                     AsyncImage(
+                                         model = imageUrl,
+                                         contentDescription = "Full Image",
+                                         modifier = Modifier
+                                             .fillMaxWidth()
+                                             .graphicsLayer(
+                                                 scaleX = scale,
+                                                 scaleY = scale,
+                                                 translationX = offsetX,
+                                                 translationY = offsetY
+                                             )
+                                             .pointerInput(Unit) {
+                                                 detectTransformGestures { _, pan, zoom, _ ->
+                                                     scale = (scale * zoom).coerceIn(1f, 5f)
+                                                     if (scale > 1f) {
+                                                         offsetX += pan.x
+                                                         offsetY += pan.y
+                                                     } else {
+                                                         offsetX = 0f
+                                                         offsetY = 0f
+                                                     }
+                                                 }
+                                             },
+                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                     )
+                                     
+                                     // 下载按钮
+                                     LiquidButton(
+                                         onClick = { onSaveImage(imageUrl) },
+                                         backdrop = backdrop,
+                                         modifier = Modifier
+                                             .align(Alignment.BottomCenter)
+                                             .padding(bottom = 64.dp)
+                                             .size(56.dp),
+                                         isInteractive = true,
+                                         tint = Color(0xFF007AFF).copy(alpha = 0.8f)
+                                     ) {
+                                         Icon(Lucide.Download, null, tint = Color.White)
+                                     }
+                                     
+                                     // 关闭按钮
+                                     LiquidButton(
+                                         onClick = { showImagePreview = false },
+                                         backdrop = backdrop,
+                                         modifier = Modifier
+                                             .align(Alignment.TopEnd)
+                                             .padding(top = 48.dp, end = 24.dp)
+                                             .size(44.dp),
+                                         isInteractive = true,
+                                         tint = Color.White.copy(alpha = 0.2f)
+                                     ) {
+                                         Icon(Lucide.X, null, tint = Color.White)
+                                     }
+                                 }
+                             }
+                         }
                     }
 
                     if (textContent.isNotEmpty()) {
@@ -1213,91 +1493,30 @@ private fun LiquidGlassChatBubble(
                 }
             }
         
-        // AI 消息显示操作按钮 (非流式时)
-        if (!isUser && !message.isStreaming && message.content.isNotEmpty()) {
+        // 消息显示操作按钮 (用户和AI都显示，流式输出时不显示)
+        if (!message.isStreaming && message.content.isNotEmpty()) {
             var showDeleteDialog by remember { mutableStateOf(false) }
             
             if (showDeleteDialog) {
-                // 液态玻璃样式的删除确认对话框
-                Dialog(onDismissRequest = { showDeleteDialog = false }) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { ContinuousRoundedRectangle(24.dp) },
-                                effects = {
-                                    vibrancy()
-                                    blur(6f.dp.toPx())
-                                    lens(12f.dp.toPx(), 24f.dp.toPx())
-                                },
-                                highlight = { Highlight.Plain },
-                                onDrawSurface = {
-                                    drawRect(Color.White.copy(alpha = 0.25f))
-                                }
-                            )
-                            .drawBehind {
-                                drawRoundRect(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx())
-                                )
-                            }
-                            .padding(24.dp)
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Lucide.Trash2,
-                                contentDescription = null,
-                                tint = Color(0xFFFF453A),
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Text(
-                                text = "删除消息",
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "确定要删除这条消息吗？",
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 14.sp
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                LiquidButton(
-                                    onClick = { showDeleteDialog = false },
-                                    backdrop = backdrop,
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    tint = Color.White.copy(alpha = 0.2f)
-                                ) {
-                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
-                                }
-                                LiquidButton(
-                                    onClick = {
-                                        viewModel.deleteMessage(message.id)
-                                        showDeleteDialog = false
-                                    },
-                                    backdrop = backdrop,
-                                    modifier = Modifier.weight(1f).height(44.dp),
-                                    tint = Color(0xFFFF453A).copy(alpha = 0.6f)
-                                ) {
-                                    Text("删除", color = Color.White, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
+                LiquidConfirmationDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    onConfirm = {
+                        onDelete()
+                        showDeleteDialog = false
+                    },
+                    title = "删除消息",
+                    message = "确定要删除这条消息吗？",
+                    confirmText = "删除",
+                    icon = Lucide.Trash2,
+                    backdrop = backdrop
+                )
             }
             
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
-                onRegenerate = { viewModel.regenerate(message.id) },
+                onRegenerate = if (isUser) null else onRegenerate,
+                onEdit = if (isUser) onEdit else null,
                 onDelete = { showDeleteDialog = true }
             )
         }
@@ -1321,9 +1540,9 @@ private fun LiquidGlassChatInputBar(
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Add Button (File/Image) - 更紧凑
+        // 左侧按钮组：+ 和工具箱
         LiquidButton(
             onClick = onPickImage,
             backdrop = backdrop,
@@ -1336,17 +1555,34 @@ private fun LiquidGlassChatInputBar(
                 imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(26.dp)
+            )
+        }
+        
+        LiquidButton(
+            onClick = onOpenToolbox,
+            backdrop = backdrop,
+            modifier = Modifier.size(44.dp),
+            isInteractive = true,
+            onPressed = onInteractionChanged,
+            tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
+        ) {
+            Icon(
+                imageVector = Lucide.SlidersHorizontal,
+                contentDescription = "工具箱",
+                tint = Color.White,
+                modifier = Modifier.size(26.dp)
             )
         }
 
-        // Input field with glass effect
+        // 输入框（带滚动条）
+        val scrollState = rememberScrollState()
         Box(
             modifier = Modifier
                 .weight(1f)
                 .drawBackdrop(
                     backdrop = backdrop,
-                    shape = { ContinuousRoundedRectangle(28.dp) },
+                    shape = { ContinuousRoundedRectangle(24.dp) },
                     effects = {
                         vibrancy()
                         blur(4f.dp.toPx())
@@ -1357,65 +1593,70 @@ private fun LiquidGlassChatInputBar(
                         drawRect(Color.White.copy(alpha = 0.15f))
                     }
                 )
-                .heightIn(min = 48.dp, max = 180.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            contentAlignment = Alignment.CenterStart
+                .heightIn(min = 44.dp, max = 160.dp)
         ) {
-            BasicTextField(
-                value = text,
-                onValueChange = onTextChange,
-                enabled = !isLoading,
-                textStyle = TextStyle(
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                ),
-                cursorBrush = SolidColor(Color(0xFF007AFF)),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { onSend() }),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (text.isEmpty()) {
-                            BasicText(
-                                text = "输入消息...",
-                                style = TextStyle(
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 16.sp,
-                                    lineHeight = 24.sp,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+            ) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    enabled = !isLoading,
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    ),
+                    cursorBrush = SolidColor(Color(0xFF007AFF)),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { onSend() }),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .verticalScroll(scrollState),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (text.isEmpty()) {
+                                BasicText(
+                                    text = "输入消息...",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 15.sp,
+                                        lineHeight = 22.sp,
+                                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                                    )
                                 )
-                            )
+                            }
+                            innerTextField()
                         }
-                        innerTextField()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        
-        // Toolbox button - 更紧凑
-        LiquidButton(
-            onClick = onOpenToolbox,
-            backdrop = backdrop,
-            modifier = Modifier.size(40.dp),
-            isInteractive = true,
-            onPressed = onInteractionChanged,
-            tint = Color(0xFF9B59B6).copy(alpha = 0.7f)
-        ) {
-            Icon(
-                imageVector = Lucide.SlidersHorizontal,
-                contentDescription = "工具箱",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
-            )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // 滚动条指示器（多行时显示）
+                if (text.count { it == '\n' } > 1 || text.length > 80) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 10.dp, horizontal = 2.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = 0.5f))
+                    )
+                }
+            }
         }
             
-        // Send/Stop button - 更紧凑
+        // 发送/停止按钮
         LiquidButton(
             onClick = if (isLoading) onStop else onSend,
             backdrop = backdrop,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(44.dp),
             isInteractive = isLoading || text.isNotBlank(),
             onPressed = onInteractionChanged,
             tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
@@ -1424,7 +1665,7 @@ private fun LiquidGlassChatInputBar(
                 imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                 contentDescription = if (isLoading) "停止" else "发送",
                 tint = Color.White,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(30.dp)
             )
         }
     }
@@ -1514,7 +1755,66 @@ private fun ConversationDrawerContent(
                     }
                 }
                 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
+                
+                // 搜索框
+                var conversationSearchQuery by remember { mutableStateOf("") }
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Lucide.Search,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        BasicTextField(
+                            value = conversationSearchQuery,
+                            onValueChange = { conversationSearchQuery = it },
+                            textStyle = TextStyle(
+                                color = Color.White,
+                                fontSize = 14.sp
+                            ),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (conversationSearchQuery.isEmpty()) {
+                                        BasicText(
+                                            text = "搜索对话...",
+                                            style = TextStyle(
+                                                color = Color.White.copy(alpha = 0.4f),
+                                                fontSize = 14.sp
+                                            )
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (conversationSearchQuery.isNotEmpty()) {
+                            Icon(
+                                Lucide.X,
+                                contentDescription = "清除",
+                                tint = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable { conversationSearchQuery = "" }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
                 
                 Text(
                     text = "最近会话",
@@ -1523,6 +1823,17 @@ private fun ConversationDrawerContent(
                     color = Color.White.copy(alpha = 0.4f),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
+                
+                // 过滤会话列表
+                val filteredConversations = remember(conversations, conversationSearchQuery) {
+                    if (conversationSearchQuery.isBlank()) {
+                        conversations
+                    } else {
+                        conversations.filter { 
+                            it.title.contains(conversationSearchQuery, ignoreCase = true) 
+                        }
+                    }
+                }
                 
                 // 会话列表
                 if (conversations.isEmpty()) {
@@ -1533,6 +1844,14 @@ private fun ConversationDrawerContent(
                             color = Color.White.copy(alpha = 0.3f)
                         )
                     }
+                } else if (filteredConversations.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "未找到匹配的对话",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.4f)
+                        )
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
@@ -1540,10 +1859,10 @@ private fun ConversationDrawerContent(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(
-                            count = conversations.size,
-                            key = { index -> conversations[index].id }
+                            count = filteredConversations.size,
+                            key = { index -> filteredConversations[index].id }
                         ) { index ->
-                            val conversation = conversations[index]
+                            val conversation = filteredConversations[index]
                             val isSelected = conversation.id == currentConversationId
                             
                             // 重命名对话框状态
@@ -1557,24 +1876,27 @@ private fun ConversationDrawerContent(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(20.dp))
+                                            .fillMaxWidth(0.85f)
+                                            .clip(RoundedCornerShape(24.dp))
                                             .drawBackdrop(
                                                 backdrop = backdrop,
-                                                shape = { RoundedCornerShape(20.dp) },
+                                                shape = { RoundedCornerShape(24.dp) },
                                                 effects = { vibrancy(); blur(16.dp.toPx()) },
                                                 onDrawSurface = { drawRect(Color.Black.copy(alpha = 0.6f)) }
                                             )
-                                            .padding(20.dp)
+                                            .padding(24.dp)
                                     ) {
-                                        Column {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
                                             Text(
                                                 "重命名对话",
                                                 style = MaterialTheme.typography.titleMedium,
                                                 color = Color.White,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp
                                             )
-                                            Spacer(Modifier.height(16.dp))
+                                            Spacer(Modifier.height(20.dp))
                                             OutlinedTextField(
                                                 value = renameText,
                                                 onValueChange = { renameText = it },
@@ -1584,25 +1906,36 @@ private fun ConversationDrawerContent(
                                                     focusedBorderColor = Color(0xFF007AFF),
                                                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                                                     focusedTextColor = Color.White,
-                                                    unfocusedTextColor = Color.White
-                                                )
+                                                    unfocusedTextColor = Color.White,
+                                                    cursorColor = Color(0xFF007AFF)
+                                                ),
+                                                shape = RoundedCornerShape(12.dp)
                                             )
-                                            Spacer(Modifier.height(16.dp))
+                                            Spacer(Modifier.height(24.dp))
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                                             ) {
-                                                TextButton(onClick = { showRenameDialog = false }) {
-                                                    Text("取消", color = Color.White.copy(alpha = 0.7f))
+                                                LiquidButton(
+                                                    onClick = { showRenameDialog = false },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color.White.copy(alpha = 0.15f)
+                                                ) {
+                                                    Text("取消", color = Color.White, fontWeight = FontWeight.Medium)
                                                 }
-                                                Spacer(Modifier.width(8.dp))
-                                                TextButton(onClick = {
-                                                    if (renameText.isNotBlank()) {
-                                                        onRenameConversation(conversation.id, renameText)
-                                                    }
-                                                    showRenameDialog = false
-                                                }) {
-                                                    Text("确定", color = Color(0xFF007AFF))
+                                                LiquidButton(
+                                                    onClick = {
+                                                        if (renameText.isNotBlank()) {
+                                                            onRenameConversation(conversation.id, renameText)
+                                                        }
+                                                        showRenameDialog = false
+                                                    },
+                                                    backdrop = backdrop,
+                                                    modifier = Modifier.weight(1f).height(44.dp),
+                                                    tint = Color(0xFF007AFF).copy(alpha = 0.8f)
+                                                ) {
+                                                    Text("确定", color = Color.White, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -1610,12 +1943,29 @@ private fun ConversationDrawerContent(
                                 }
                             }
                             
+                            // 删除确认对话框
+                            var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+                            if (showDeleteConfirmDialog) {
+                                LiquidConfirmationDialog(
+                                    onDismissRequest = { showDeleteConfirmDialog = false },
+                                    onConfirm = {
+                                        onDeleteConversation(conversation.id)
+                                        showDeleteConfirmDialog = false
+                                    },
+                                    title = "删除对话",
+                                    message = "确定要删除 \"${conversation.title}\" 吗？此操作无法撤销。",
+                                    confirmText = "删除",
+                                    icon = Lucide.Trash2,
+                                    backdrop = backdrop
+                                )
+                            }
+                            
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = {
                                     when (it) {
                                         SwipeToDismissBoxValue.EndToStart -> {
-                                            onDeleteConversation(conversation.id)
-                                            true
+                                            showDeleteConfirmDialog = true
+                                            false // Don't dismiss immediately, wait for dialog confirmation
                                         }
                                         SwipeToDismissBoxValue.StartToEnd -> {
                                             renameText = conversation.title
@@ -2060,8 +2410,20 @@ private fun ToolboxThinkingBudgetPage(
             )
         }
         
+        // 黄色警告提示
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "⚠️ 部分模型不支持此功能",
+            color = Color(0xFFFFCC00),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            style = TextStyle(
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
+            )
+        )
+        
         // 说明文字
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
         Text(
             text = "深度思考让 AI 在回复前进行推理。需要模型支持此功能（如 o1、DeepSeek R1 等）。",
             color = Color.White.copy(alpha = 0.6f),
@@ -2089,7 +2451,7 @@ private fun ReasoningLevelCard(
             .fillMaxWidth()
             .height(64.dp),
         isInteractive = true,
-        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f) // 提高可见度
+        tint = if (isSelected) Color(0xFF007AFF).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.35f)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2101,12 +2463,24 @@ private fun ReasoningLevelCard(
                     text = title,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    style = LocalTextStyle.current.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            blurRadius = 4f
+                        )
+                    )
                 )
                 Text(
                     text = description,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 12.sp
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    style = LocalTextStyle.current.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.6f),
+                            blurRadius = 4f
+                        )
+                    )
                 )
             }
             if (isSelected) {
@@ -2155,7 +2529,7 @@ private fun ToolboxWebSearchPage(
                 selected = { viewModel.webSearchEnabled },
                 onSelect = { viewModel.updateWebSearchEnabled(it) },
                 backdrop = backdrop,
-                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+                modifier = Modifier.size(width = 64.dp, height = 36.dp)
             )
         }
         
@@ -2219,7 +2593,7 @@ private fun ToolboxStreamOutputPage(
                 selected = { viewModel.streamEnabled },
                 onSelect = { viewModel.updateStreamEnabled(it) },
                 backdrop = backdrop,
-                modifier = Modifier.size(width = 56.dp, height = 32.dp)
+                modifier = Modifier.size(width = 64.dp, height = 36.dp)
             )
         }
         
@@ -2258,26 +2632,50 @@ private fun ToolboxContextSizePage(
             modifier = Modifier.padding(vertical = 24.dp)
         )
         
-        // 滑块
+        // 滑块 - 带黄色边框和警告提示
         var sliderValue by remember { mutableFloatStateOf(viewModel.contextSize.toFloat()) }
         LaunchedEffect(viewModel.contextSize) {
             if (sliderValue.toInt() != viewModel.contextSize) {
                 sliderValue = viewModel.contextSize.toFloat()
             }
         }
-        com.liquidglass.fluxhub.components.LiquidSlider(
-            value = { sliderValue },
-            onValueChange = { 
-                sliderValue = it
-                viewModel.updateContextSize(it.toInt()) 
-            },
-            valueRange = 1f..128f,
-            visibilityThreshold = 4f,
-            backdrop = backdrop,
+        
+        // 黄色边框包裹滑块
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp)
-        )
+                .border(
+                    width = 2.dp,
+                    color = Color(0xFFFFCC00).copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .padding(12.dp)
+        ) {
+            Column {
+                com.liquidglass.fluxhub.components.LiquidSlider(
+                    value = { sliderValue },
+                    onValueChange = { 
+                        sliderValue = it
+                        viewModel.updateContextSize(it.toInt()) 
+                    },
+                    valueRange = 1f..128f,
+                    visibilityThreshold = 4f,
+                    backdrop = backdrop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "⚠️ 此拖动条有 Bug，拖动可能卡顿，推荐使用下方快捷档位",
+                    color = Color(0xFFFFCC00),
+                    fontSize = 12.sp,
+                    style = TextStyle(
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
+                    )
+                )
+            }
+        }
         
         // 快捷档位按钮
         Spacer(Modifier.height(24.dp))
