@@ -74,16 +74,32 @@ fun MainScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     
     val backgroundBitmap = remember(viewModel.wallpaperUri) {
-        if (viewModel.wallpaperUri != null) {
-            try {
-                val uri = android.net.Uri.parse(viewModel.wallpaperUri)
-                val stream = context.contentResolver.openInputStream(uri)
-                BitmapFactory.decodeStream(stream)
-            } catch (e: Exception) {
+        val uri = viewModel.wallpaperUri
+        when {
+            uri == null -> {
+                // 默认壁纸
                 BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
             }
-        } else {
-            BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+            uri.startsWith("preset:") -> {
+                // 预设壁纸
+                val presetName = uri.removePrefix("preset:")
+                val resourceId = when (presetName) {
+                    "wallpaper_liquid" -> R.drawable.wallpaper_liquid
+                    "wallpaper_light" -> R.drawable.wallpaper_light
+                    else -> R.drawable.wallpaper_liquid
+                }
+                BitmapFactory.decodeResource(context.resources, resourceId)
+            }
+            else -> {
+                // 自定义壁纸
+                try {
+                    val parsedUri = android.net.Uri.parse(uri)
+                    val stream = context.contentResolver.openInputStream(parsedUri)
+                    BitmapFactory.decodeStream(stream)
+                } catch (e: Exception) {
+                    BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                }
+            }
         }
     }
     
@@ -324,9 +340,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -361,9 +374,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(
@@ -397,9 +407,6 @@ fun MainScreen(
                                 tint = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
                                 modifier = Modifier
                                     .size(24.dp)
-                                    .graphicsLayer {
-                                        shadowElevation = 2f
-                                    }
                             )
                             Spacer(Modifier.height(2.dp))
                             BasicText(

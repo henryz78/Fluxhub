@@ -121,6 +121,46 @@ fun DisplaySettingsScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 
+                // 预设壁纸选择
+                Text(
+                    "预设壁纸",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 壁纸1: wallpaper_liquid
+                    PresetWallpaperItem(
+                        resourceId = com.liquidglass.fluxhub.R.drawable.wallpaper_liquid,
+                        isSelected = wallpaperUri == "preset:wallpaper_liquid",
+                        onClick = {
+                            viewModel.updateWallpaperUri("preset:wallpaper_liquid")
+                        }
+                    )
+                    
+                    // 壁纸2: wallpaper_light
+                    PresetWallpaperItem(
+                        resourceId = com.liquidglass.fluxhub.R.drawable.wallpaper_light,
+                        isSelected = wallpaperUri == "preset:wallpaper_light",
+                        onClick = {
+                            viewModel.updateWallpaperUri("preset:wallpaper_light")
+                        }
+                    )
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // 自定义壁纸
+                Text(
+                    "自定义壁纸",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+                Spacer(Modifier.height(8.dp))
+                
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LiquidButton(
                         onClick = { launcher.launch("image/*") },
@@ -147,7 +187,7 @@ fun DisplaySettingsScreen(
                     }
                 }
                 
-                if (wallpaperUri != null) {
+                if (wallpaperUri != null && !wallpaperUri.startsWith("preset:")) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         "当前使用自定义壁纸",
@@ -208,6 +248,48 @@ fun DisplaySettingsScreen(
                         }
                     },
                     backdrop = backdrop
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetWallpaperItem(
+    resourceId: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .border(
+                width = if (isSelected) 3.dp else 1.dp,
+                color = if (isSelected) Color(0xFF007AFF) else Color.White.copy(alpha = 0.3f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(resourceId),
+            contentDescription = "壁纸",
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "已选择",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
