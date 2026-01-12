@@ -137,6 +137,13 @@ fun ChatScreen(
     // 使用 ViewModel 中的 inputText（导航时不会丢失）
     var inputText by remember { mutableStateOf(viewModel.inputText) }
     
+    // 同步从 ViewModel 到本地（编辑消息时 ViewModel 会修改 inputText）
+    LaunchedEffect(viewModel.inputText) {
+        if (inputText != viewModel.inputText) {
+            inputText = viewModel.inputText
+        }
+    }
+    
     // 同步到 ViewModel（确保导航时保存）
     LaunchedEffect(inputText) {
         viewModel.inputText = inputText
