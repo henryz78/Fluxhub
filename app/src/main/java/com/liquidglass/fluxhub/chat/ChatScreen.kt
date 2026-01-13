@@ -551,6 +551,7 @@ private fun LiquidGlassChatContent(
         }
 
         // Messages - 占据剩余空间
+        // 使用 beyondBoundsItemCount 预加载更多项，减少滚动时的卡顿
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -562,7 +563,9 @@ private fun LiquidGlassChatContent(
                 start = 8.dp, 
                 end = 8.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            // 预加载屏幕外的项，减少滚动时的卡顿
+            beyondBoundsItemCount = 3
         ) {
             // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
             val defaultModel = viewModel.model
@@ -1373,14 +1376,17 @@ private fun LiquidGlassChatBubble(
                         offset = androidx.compose.ui.geometry.Offset(0f, 1f)
                     ) else null
 
-                    // 解析并显示图片 (Vision 格式)
+                    // 解析并显示图片 (Vision 格式) - 使用 remember 缓存结果
                     val imageMatch = remember(message.content) {
-                        Regex("^!\\[image\\]\\((.*?)\\)").find(message.content)
+                        Regex("^!\\[image\\]\\((.+?)\\)").find(message.content)
                     }
                     val imageUrl = imageMatch?.groupValues?.get(1)
-                    val textContent = if (imageUrl != null) {
-                        message.content.substring(imageMatch.range.last + 1).trimStart()
-                    } else message.content
+                    // 缓存 textContent 避免每次重组时重新计算
+                    val textContent = remember(message.content, imageUrl) {
+                        if (imageUrl != null && imageMatch != null) {
+                            message.content.substring(imageMatch.range.last + 1).trimStart()
+                        } else message.content
+                    }
 
                     // 图片预览状态
                     var showImagePreview by remember { mutableStateOf(false) }
@@ -1604,7 +1610,8 @@ private fun LiquidGlassChatInputBar(
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(Color.White.copy(alpha = 0.15f))
+                        // 增加 alpha 值使输入框在深色主题下更清晰
+                        drawRect(Color.White.copy(alpha = 0.25f))
                     }
                 )
                 .heightIn(min = 44.dp, max = 160.dp)
