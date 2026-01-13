@@ -215,14 +215,14 @@ private fun LiquidActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     backdrop: Backdrop,
-    tint: Color = Color.White.copy(alpha = 0.4f), // 加深颜色使按钮更明显
+    tint: Color = Color(0xFF007AFF).copy(alpha = 0.7f), // 使用蓝色，更明显
     onClick: () -> Unit
 ) {
     LiquidButton(
         onClick = onClick,
         backdrop = backdrop,
         modifier = Modifier
-            .size(24.dp)
+            .size(28.dp) // 增大尺寸，更容易点击和看见
             // 消耗拖拽事件，防止触发父组件的滑动或侧边栏
             .pointerInput(Unit) {
                 detectDragGestures { _, _ -> }
@@ -234,7 +234,7 @@ private fun LiquidActionButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(12.dp), // 相应缩小图标
+            modifier = Modifier.size(14.dp), // 相应增大图标
             tint = Color.White
         )
     }
