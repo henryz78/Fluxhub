@@ -225,6 +225,7 @@ private fun AuthenticatedContent(
     backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     backgroundBitmap: android.graphics.Bitmap?
 ) {
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     // 默认打开首页 (Tab 0) - 每次进入已认证状态时重置
     var selectedTab by remember { mutableIntStateOf(0) }
