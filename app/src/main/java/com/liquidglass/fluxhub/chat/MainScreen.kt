@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -163,80 +164,112 @@ fun MainScreen(
                 settingsSubPage = null
             }
             
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(300)) + 
-                     scaleIn(initialScale = 0.98f, animationSpec = tween(300))).togetherWith(
-                     fadeOut(animationSpec = tween(300)))
-                },
-                label = "TabContent"
-            ) { targetTab ->
-                when (targetTab) {
-                    0 -> HomeScreen(
-                        backdrop = backdrop,
-                        bottomPadding = PaddingValues(bottom = bottomPadding),
-                        onNavigateToChat = { selectedTab = 1 },
-                        onQuickPrompt = { prompt ->
-                            pendingPrompt = prompt
-                            selectedTab = 1
-                        },
-                        viewModel = viewModel
-                    )
-                    1 -> {
-                        AnimatedContent(
-                            targetState = chatSubPage,
-                            transitionSpec = {
-                                if (targetState != null) {
-                                    // 进入子页面
-                                    (slideInHorizontally { it } + fadeIn()).togetherWith(
-                                        slideOutHorizontally { -it } + fadeOut()
-                                    )
-                                } else {
-                                    // 返回聊天页
-                                    (slideInHorizontally { -it } + fadeIn()).togetherWith(
-                                        slideOutHorizontally { it } + fadeOut()
-                                    )
-                                }
+            // 预渲染方案：所有页面同时渲染，使用 alpha 和 zIndex 控制显示
+            // 这样切换 Tab 时不需要重新组合，消除首次渲染卡顿
+            val alphaHome by animateFloatAsState(
+                targetValue = if (selectedTab == 0) 1f else 0f,
+                animationSpec = tween(300),
+                label = "alphaHome"
+            )
+            val alphaChat by animateFloatAsState(
+                targetValue = if (selectedTab == 1) 1f else 0f,
+                animationSpec = tween(300),
+                label = "alphaChat"
+            )
+            val alphaSettings by animateFloatAsState(
+                targetValue = if (selectedTab == 2) 1f else 0f,
+                animationSpec = tween(300),
+                label = "alphaSettings"
+            )
+            
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Home Screen - 始终渲染
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { 
+                            alpha = alphaHome
+                            // 非选中页面禁用触摸
+                        }
+                        .then(if (selectedTab != 0) Modifier.pointerInput(Unit) {} else Modifier)
+                ) {
+                    if (alphaHome > 0f || selectedTab == 0) {
+                        HomeScreen(
+                            backdrop = backdrop,
+                            bottomPadding = PaddingValues(bottom = bottomPadding),
+                            onNavigateToChat = { selectedTab = 1 },
+                            onQuickPrompt = { prompt ->
+                                pendingPrompt = prompt
+                                selectedTab = 1
                             },
-                            label = "ChatSubPage"
-                        ) { subPage ->
-                            if (subPage == "assistant_selection") {
-                                AssistantListScreen(
-                                    onBack = { chatSubPage = null },
-                                    viewModel = viewModel,
-                                    backdrop = backdrop,
-                                    bottomPadding = PaddingValues(bottom = bottomPadding),
-                                    isSelectionMode = true
+                            viewModel = viewModel
+                        )
+                    }
+                }
+                
+                // Chat Screen - 始终渲染
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = alphaChat }
+                        .then(if (selectedTab != 1) Modifier.pointerInput(Unit) {} else Modifier)
+                ) {
+                    // Chat 页面始终渲染以保持消息列表状态
+                    AnimatedContent(
+                        targetState = chatSubPage,
+                        transitionSpec = {
+                            if (targetState != null) {
+                                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { -it } + fadeOut()
                                 )
                             } else {
-                                ChatScreen(
-                                    backdrop = backdrop,
-                                    bottomPadding = PaddingValues(bottom = bottomPadding), 
-                                    onNavigateToSettings = { selectedTab = 2 },
-                                    onNavigateToAssistantSelection = { chatSubPage = "assistant_selection" },
-                                    viewModel = viewModel,
-                                    listState = chatListState,
-                                    drawerState = drawerState,
-                                    initialPrompt = pendingPrompt,
-                                    onPromptConsumed = { pendingPrompt = null }
+                                (slideInHorizontally { -it } + fadeIn()).togetherWith(
+                                    slideOutHorizontally { it } + fadeOut()
                                 )
                             }
+                        },
+                        label = "ChatSubPage"
+                    ) { subPage ->
+                        if (subPage == "assistant_selection") {
+                            AssistantListScreen(
+                                onBack = { chatSubPage = null },
+                                viewModel = viewModel,
+                                backdrop = backdrop,
+                                bottomPadding = PaddingValues(bottom = bottomPadding),
+                                isSelectionMode = true
+                            )
+                        } else {
+                            ChatScreen(
+                                backdrop = backdrop,
+                                bottomPadding = PaddingValues(bottom = bottomPadding), 
+                                onNavigateToSettings = { selectedTab = 2 },
+                                onNavigateToAssistantSelection = { chatSubPage = "assistant_selection" },
+                                viewModel = viewModel,
+                                listState = chatListState,
+                                drawerState = drawerState,
+                                initialPrompt = pendingPrompt,
+                                onPromptConsumed = { pendingPrompt = null }
+                            )
                         }
                     }
-                    2 -> {
+                }
+                
+                // Settings Screen - 始终渲染
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = alphaSettings }
+                        .then(if (selectedTab != 2) Modifier.pointerInput(Unit) {} else Modifier)
+                ) {
+                    if (alphaSettings > 0f || selectedTab == 2) {
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                // 进入子页面：从右滑入，主页面往左滑出
-                                // 返回主页面：从左滑入，子页面往右滑出
                                 if (targetState != null) {
-                                    // 进入子页面
                                     (slideInHorizontally { it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { -it } + fadeOut()
                                     )
                                 } else {
-                                    // 返回主设置页
                                     (slideInHorizontally { -it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { it } + fadeOut()
                                     )
