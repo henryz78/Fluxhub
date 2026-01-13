@@ -1301,7 +1301,7 @@ private fun LiquidGlassChatBubble(
         }
         
         // 消息气泡
-        // 简化液态玻璃效果：只保留 vibrancy 和轻微模糊，不使用 lens
+        // 极简效果：只保留透明背景和边框，不使用 GPU 密集型效果
         Box(
             modifier = Modifier
                 .then(
@@ -1317,8 +1317,7 @@ private fun LiquidGlassChatBubble(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        vibrancy()
-                        blur(2f.dp.toPx()) // 轻微模糊，减少 GPU 负载
+                        // 不使用任何效果，最大化性能
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
@@ -1621,7 +1620,7 @@ private fun LiquidGlassChatInputBar(
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
-                    enabled = !isLoading,
+                    enabled = true, // 始终启用，允许预先编辑下一条消息
                     textStyle = TextStyle(
                         color = Color.White,
                         fontSize = 15.sp,
