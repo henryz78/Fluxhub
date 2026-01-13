@@ -1301,6 +1301,8 @@ private fun LiquidGlassChatBubble(
         }
         
         // 消息气泡
+        // 对长消息使用简化的液态玻璃效果以减少 GPU 负载
+        val isLongMessage = message.content.length > 1000
         Box(
             modifier = Modifier
                 .then(
@@ -1317,8 +1319,12 @@ private fun LiquidGlassChatBubble(
                     shape = { bubbleShape },
                     effects = {
                         vibrancy()
-                        blur(6f.dp.toPx()) // 稍微增加模糊度以提升文字可读性
-                        lens(12f.dp.toPx(), 24f.dp.toPx())
+                        // 长消息使用更小的 blur 半径，减少 GPU 负载
+                        blur(if (isLongMessage) 2f.dp.toPx() else 6f.dp.toPx())
+                        // 短消息才使用 lens 效果
+                        if (!isLongMessage) {
+                            lens(12f.dp.toPx(), 24f.dp.toPx())
+                        }
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
