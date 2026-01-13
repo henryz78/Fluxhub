@@ -230,6 +230,9 @@ fun ChatScreen(
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
             
+            // 发送后收起键盘
+            keyboardController?.hide()
+            
             // 如果正在编辑消息，调用编辑处理函数
             if (viewModel.isEditing()) {
                 viewModel.handleMessageEdit(textToSend)
@@ -1301,7 +1304,7 @@ private fun LiquidGlassChatBubble(
         }
         
         // 消息气泡
-        // 极简效果：只保留透明背景和边框，不使用 GPU 密集型效果
+        // 液态玻璃效果：轻微模糊 + 半透明背景，平衡性能和视觉
         Box(
             modifier = Modifier
                 .then(
@@ -1317,17 +1320,17 @@ private fun LiquidGlassChatBubble(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        // 不使用任何效果，最大化性能
+                        blur(2f.dp.toPx()) // 轻微模糊保持液态玻璃感
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(tintColor.copy(alpha = 0.45f))
+                        drawRect(tintColor.copy(alpha = 0.55f)) // 增加不透明度
                     }
                 )
                 .drawBehind {
                     // 背景兜底：即使 backdrop 在长消息下失效，这里也能保证气泡可见
                     drawRoundRect(
-                        color = tintColor.copy(alpha = 0.2f),
+                        color = tintColor.copy(alpha = 0.35f), // 增加兜底背景不透明度
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(
                             x = with(this) { 20.dp.toPx() },
                             y = with(this) { 20.dp.toPx() }
