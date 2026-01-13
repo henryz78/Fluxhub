@@ -242,7 +242,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
-<<<<<<< HEAD
     // ========== 用户认证 ==========
     private val adminSyncService = AdminSyncService(application)
     
@@ -254,12 +253,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var isCheckingAuth by mutableStateOf(false)
         private set
     
-=======
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
-
->>>>>>> main
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -1546,36 +1542,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "Non-streaming response raw body: $body") // CRITICAL LOG
                     
                     if (response.isSuccessful) {
-<<<<<<< HEAD
-                        val body = response.body?.string() ?: "{}"
-                        val chatResponse = json.decodeFromString(ChatResponse.serializer(), body)
-                        val choice = chatResponse.choices.firstOrNull()
-                        val content = choice?.message?.content?.toString() ?: "" // JsonElement to String might need care
-                        // 简单处理: 假设 content 是 JsonPrimitive string
-                        val contentStr = if (choice?.message?.content is JsonPrimitive) {
-                            choice.message.content.content
-                        } else {
-                            choice?.message?.content.toString()
-                        }
-                        
-                        withContext(Dispatchers.Main) {
-                            isLoading = false
-                            val index = messages.indexOfFirst { it.id == aiMessageId }
-                            if (index >= 0) {
-                                messages[index] = messages[index].copy(
-                                    content = contentStr,
-                                    isStreaming = false
-                                )
-                                messageDao.insertMessage(MessageEntity(
-                                    id = aiMessageId,
-                                    conversationId = conversationId,
-                                    role = "assistant",
-                                    content = contentStr,
-                                    model = model
-                                ))
-                                // 同步对话到后端
-                                syncCurrentConversationToAdmin()
-=======
                         try {
                             val responseJson = json.parseToJsonElement(body).jsonObject
                             
@@ -1586,7 +1552,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     ?: errorObj["code"]?.jsonPrimitive?.contentOrNull 
                                     ?: "Unknown API Error"
                                 throw Exception(errorMsg)
->>>>>>> main
                             }
                             
                             val choices = responseJson["choices"]?.jsonArray
