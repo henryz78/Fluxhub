@@ -521,17 +521,31 @@ private fun LiquidGlassChatContent(
             }
         }
         
-        // 自动滚动逻辑
-        LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
-            if (viewModel.messages.isNotEmpty()) {
-                val lastMessage = viewModel.messages.last()
-                // 只有当是流式输出或者用户刚发送消息（列表变长）时才自动滚动
-                // 避免查看历史消息时被强制滚动到底部
-                val shouldScroll = lastMessage.isStreaming || 
-                                 (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= viewModel.messages.size - 2
-                
-                if (shouldScroll) {
-                    listState.animateScrollToItem(viewModel.messages.size) // 滚动到底部（包括 spacer）
+        // 缓存过滤后的消息列表，避免每次重组都重新创建
+        val displayMessages = remember { derivedStateOf { 
+            viewModel.messages.filter { it.role != "system" }
+        } }
+        
+        // 参考 RikkaHub: 判断是否在底部的辅助函数
+        fun isAtBottom(): Boolean {
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            val lastItem = visibleItems.lastOrNull() ?: return false
+            // 如果最后一项是 spacer 或最后一条消息
+            if (lastItem.key == "scroll_bottom_spacer") return true
+            val lastMessageId = displayMessages.value.lastOrNull()?.id
+            return lastItem.key == lastMessageId && 
+                   (lastItem.offset + lastItem.size <= listState.layoutInfo.viewportEndOffset + lastItem.size * 0.15 + 32)
+        }
+        
+        // 参考 RikkaHub: 使用 snapshotFlow 监听可见项变化，只在加载中且在底部时自动滚动
+        val loadingState = viewModel.isLoading
+        LaunchedEffect(listState, loadingState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { _ ->
+                if (!listState.isScrollInProgress && loadingState) {
+                    if (isAtBottom()) {
+                        // 使用非动画滚动，减少性能开销
+                        listState.requestScrollToItem(displayMessages.value.size + 1)
+                    }
                 }
             }
         }
@@ -553,7 +567,7 @@ private fun LiquidGlassChatContent(
             // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
             val defaultModel = viewModel.model
             items(
-                items = viewModel.messages.filter { it.role != "system" }, 
+                items = displayMessages.value, 
                 key = { it.id },
                 contentType = { it.role } // 帮助 Compose 复用相同类型的组件
             ) { message ->
@@ -1514,6 +1528,7 @@ private fun LiquidGlassChatBubble(
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
+                backdrop = backdrop,
                 onRegenerate = if (isUser) null else onRegenerate,
                 onEdit = if (isUser) onEdit else null,
                 onDelete = { showDeleteDialog = true }

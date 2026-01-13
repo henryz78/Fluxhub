@@ -18,6 +18,8 @@ import androidx.compose.foundation.background
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.kyant.backdrop.Backdrop
+import com.liquidglass.fluxhub.components.LiquidButton
 
 /**
  * 消息头像组件
@@ -126,11 +128,13 @@ fun MessageAvatar(
 
 /**
  * 消息操作按钮 - 复制、重新生成、删除等
+ * 使用液态玻璃按钮样式
  */
 @Composable
 fun MessageActionButtons(
     content: String,
     isUser: Boolean,
+    backdrop: Backdrop,
     onRegenerate: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
@@ -149,13 +153,14 @@ fun MessageActionButtons(
     
     FlowRow(
         modifier = modifier.padding(top = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         itemVerticalAlignment = Alignment.CenterVertically
     ) {
         // 复制按钮
-        ActionButton(
+        LiquidActionButton(
             icon = if (showCopiedHint) Lucide.Check else Lucide.Copy,
             contentDescription = if (showCopiedHint) "已复制" else "复制",
+            backdrop = backdrop,
             onClick = {
                 scope.launch {
                     clipboardManager.setClipEntry(
@@ -168,54 +173,61 @@ fun MessageActionButtons(
         
         // AI 消息才显示重新生成
         if (!isUser && onRegenerate != null) {
-            ActionButton(
+            LiquidActionButton(
                 icon = Lucide.RefreshCw,
                 contentDescription = "重新生成",
+                backdrop = backdrop,
                 onClick = onRegenerate
             )
         }
         
         // 编辑按钮
         if (onEdit != null) {
-            ActionButton(
+            LiquidActionButton(
                 icon = Lucide.Pencil,
                 contentDescription = "编辑",
+                backdrop = backdrop,
                 onClick = onEdit
             )
         }
         
         // 删除按钮
         if (onDelete != null) {
-            ActionButton(
+            LiquidActionButton(
                 icon = Lucide.Trash2,
                 contentDescription = "删除",
-                tint = Color(0xFFFF453A).copy(alpha = 0.9f),
+                backdrop = backdrop,
+                tint = Color(0xFFFF453A).copy(alpha = 0.6f),
                 onClick = onDelete
             )
         }
     }
 }
 
+/**
+ * 单个液态玻璃操作按钮
+ */
 @Composable
-private fun ActionButton(
+private fun LiquidActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
-    tint: Color = Color.White.copy(alpha = 0.9f), // 提高对比度
+    backdrop: Backdrop,
+    tint: Color = Color.White.copy(alpha = 0.2f),
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.15f))
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = Modifier.size(28.dp),
+        isInteractive = true,
+        tint = tint,
+        padding = PaddingValues(0.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(14.dp),
-            tint = tint
+            tint = Color.White
         )
     }
 }
