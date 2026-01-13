@@ -206,27 +206,28 @@ fun MessageActionButtons(
 
 /**
  * 单个液态玻璃操作按钮
+ * 注意：isInteractive = false 以避免拖动时触发侧边栏
  */
 @Composable
 private fun LiquidActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     backdrop: Backdrop,
-    tint: Color = Color.White.copy(alpha = 0.2f),
+    tint: Color = Color.White.copy(alpha = 0.4f), // 加深颜色使按钮更明显
     onClick: () -> Unit
 ) {
     LiquidButton(
         onClick = onClick,
         backdrop = backdrop,
-        modifier = Modifier.size(28.dp),
-        isInteractive = true,
+        modifier = Modifier.size(24.dp), // 缩小按钮尺寸
+        isInteractive = false, // 禁用拖动交互，避免触发侧边栏
         tint = tint,
         padding = PaddingValues(0.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(12.dp), // 相应缩小图标
             tint = Color.White
         )
     }
