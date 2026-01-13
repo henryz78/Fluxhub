@@ -551,7 +551,6 @@ private fun LiquidGlassChatContent(
         }
 
         // Messages - 占据剩余空间
-        // 使用 beyondBoundsItemCount 预加载更多项，减少滚动时的卡顿
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -563,9 +562,7 @@ private fun LiquidGlassChatContent(
                 start = 8.dp, 
                 end = 8.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            // 预加载屏幕外的项，减少滚动时的卡顿
-            beyondBoundsItemCount = 3
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
             val defaultModel = viewModel.model
