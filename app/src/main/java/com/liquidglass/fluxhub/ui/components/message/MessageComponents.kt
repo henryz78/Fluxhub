@@ -2,6 +2,7 @@ package com.liquidglass.fluxhub.ui.components.message
 
 import android.content.ClipData
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -10,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
@@ -206,7 +208,7 @@ fun MessageActionButtons(
 
 /**
  * 单个液态玻璃操作按钮
- * 注意：isInteractive = false 以避免拖动时触发侧边栏
+ * 使用 pointerInput 消耗拖拽事件，防止触发侧边栏或滚动
  */
 @Composable
 private fun LiquidActionButton(
@@ -219,8 +221,13 @@ private fun LiquidActionButton(
     LiquidButton(
         onClick = onClick,
         backdrop = backdrop,
-        modifier = Modifier.size(24.dp), // 缩小按钮尺寸
-        isInteractive = false, // 禁用拖动交互，避免触发侧边栏
+        modifier = Modifier
+            .size(24.dp)
+            // 消耗拖拽事件，防止触发父组件的滑动或侧边栏
+            .pointerInput(Unit) {
+                detectDragGestures { _, _ -> }
+            },
+        isInteractive = true, // 恢复交互效果
         tint = tint,
         padding = PaddingValues(0.dp)
     ) {
