@@ -256,6 +256,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
+    /**
+     * 显示错误消息
+     */
+    private fun showErrorMessage(message: String) {
+        error = message
+        showError = true
+    }
+    
+    /**
+     * 清除错误状态
+     */
+    private fun clearError() {
+        error = null
+        showError = false
+    }
+    
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
