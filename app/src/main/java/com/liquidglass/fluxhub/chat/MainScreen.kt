@@ -62,6 +62,7 @@ import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
 
+// MainScreen - 主界面入口
 @Composable
 fun MainScreen(
     viewModel: ChatViewModel = viewModel()
