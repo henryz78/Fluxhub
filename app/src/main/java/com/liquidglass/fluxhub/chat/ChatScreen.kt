@@ -231,6 +231,9 @@ fun ChatScreen(
             val textToSend = inputText
             inputText = "" // 立即清空输入框，避免视觉延迟
             
+            // 发送后收起键盘
+            keyboardController?.hide()
+            
             // 如果正在编辑消息，调用编辑处理函数
             if (viewModel.isEditing()) {
                 viewModel.handleMessageEdit(textToSend)
@@ -522,17 +525,31 @@ private fun LiquidGlassChatContent(
             }
         }
         
-        // 自动滚动逻辑
-        LaunchedEffect(viewModel.messages.size, viewModel.messages.lastOrNull()?.content) {
-            if (viewModel.messages.isNotEmpty()) {
-                val lastMessage = viewModel.messages.last()
-                // 只有当是流式输出或者用户刚发送消息（列表变长）时才自动滚动
-                // 避免查看历史消息时被强制滚动到底部
-                val shouldScroll = lastMessage.isStreaming || 
-                                 (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= viewModel.messages.size - 2
-                
-                if (shouldScroll) {
-                    listState.animateScrollToItem(viewModel.messages.size) // 滚动到底部（包括 spacer）
+        // 缓存过滤后的消息列表，避免每次重组都重新创建
+        val displayMessages = remember { derivedStateOf { 
+            viewModel.messages.filter { it.role != "system" }
+        } }
+        
+        // 参考 RikkaHub: 判断是否在底部的辅助函数
+        fun isAtBottom(): Boolean {
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            val lastItem = visibleItems.lastOrNull() ?: return false
+            // 如果最后一项是 spacer 或最后一条消息
+            if (lastItem.key == "scroll_bottom_spacer") return true
+            val lastMessageId = displayMessages.value.lastOrNull()?.id
+            return lastItem.key == lastMessageId && 
+                   (lastItem.offset + lastItem.size <= listState.layoutInfo.viewportEndOffset + lastItem.size * 0.15 + 32)
+        }
+        
+        // 参考 RikkaHub: 使用 snapshotFlow 监听可见项变化，只在加载中且在底部时自动滚动
+        val loadingState = viewModel.isLoading
+        LaunchedEffect(listState, loadingState) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo }.collect { _ ->
+                if (!listState.isScrollInProgress && loadingState) {
+                    if (isAtBottom()) {
+                        // 使用非动画滚动，减少性能开销
+                        listState.requestScrollToItem(displayMessages.value.size + 1)
+                    }
                 }
             }
         }
@@ -554,7 +571,7 @@ private fun LiquidGlassChatContent(
             // 缓存 model 避免每个气泡读取 ViewModel 导致级联重组
             val defaultModel = viewModel.model
             items(
-                items = viewModel.messages.filter { it.role != "system" }, 
+                items = displayMessages.value, 
                 key = { it.id },
                 contentType = { it.role } // 帮助 Compose 复用相同类型的组件
             ) { message ->
@@ -1288,6 +1305,7 @@ private fun LiquidGlassChatBubble(
         }
         
         // 消息气泡
+        // 液态玻璃效果：轻微模糊 + 半透明背景，平衡性能和视觉
         Box(
             modifier = Modifier
                 .then(
@@ -1303,19 +1321,17 @@ private fun LiquidGlassChatBubble(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        vibrancy()
-                        blur(6f.dp.toPx()) // 稍微增加模糊度以提升文字可读性
-                        lens(12f.dp.toPx(), 24f.dp.toPx())
+                        blur(2f.dp.toPx()) // 轻微模糊保持液态玻璃感
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(tintColor.copy(alpha = 0.45f))
+                        drawRect(tintColor.copy(alpha = 0.55f)) // 增加不透明度
                     }
                 )
                 .drawBehind {
                     // 背景兜底：即使 backdrop 在长消息下失效，这里也能保证气泡可见
                     drawRoundRect(
-                        color = tintColor.copy(alpha = 0.2f),
+                        color = tintColor.copy(alpha = 0.35f), // 增加兜底背景不透明度
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(
                             x = with(this) { 20.dp.toPx() },
                             y = with(this) { 20.dp.toPx() }
@@ -1360,14 +1376,17 @@ private fun LiquidGlassChatBubble(
                         offset = androidx.compose.ui.geometry.Offset(0f, 1f)
                     ) else null
 
-                    // 解析并显示图片 (Vision 格式)
+                    // 解析并显示图片 (Vision 格式) - 使用 remember 缓存结果
                     val imageMatch = remember(message.content) {
-                        Regex("^!\\[image\\]\\((.*?)\\)").find(message.content)
+                        Regex("^!\\[image\\]\\((.+?)\\)").find(message.content)
                     }
                     val imageUrl = imageMatch?.groupValues?.get(1)
-                    val textContent = if (imageUrl != null) {
-                        message.content.substring(imageMatch.range.last + 1).trimStart()
-                    } else message.content
+                    // 缓存 textContent 避免每次重组时重新计算
+                    val textContent = remember(message.content, imageUrl) {
+                        if (imageUrl != null && imageMatch != null) {
+                            message.content.substring(imageMatch.range.last + 1).trimStart()
+                        } else message.content
+                    }
 
                     // 图片预览状态
                     var showImagePreview by remember { mutableStateOf(false) }
@@ -1515,6 +1534,7 @@ private fun LiquidGlassChatBubble(
             MessageActionButtons(
                 content = message.content,
                 isUser = isUser,
+                backdrop = backdrop,
                 onRegenerate = if (isUser) null else onRegenerate,
                 onEdit = if (isUser) onEdit else null,
                 onDelete = { showDeleteDialog = true }
@@ -1590,7 +1610,8 @@ private fun LiquidGlassChatInputBar(
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(Color.White.copy(alpha = 0.15f))
+                        // 增加 alpha 值使输入框在深色主题下更清晰
+                        drawRect(Color.White.copy(alpha = 0.25f))
                     }
                 )
                 .heightIn(min = 44.dp, max = 160.dp)
@@ -1603,7 +1624,7 @@ private fun LiquidGlassChatInputBar(
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
-                    enabled = !isLoading,
+                    enabled = true, // 始终启用，允许预先编辑下一条消息
                     textStyle = TextStyle(
                         color = Color.White,
                         fontSize = 15.sp,
@@ -2278,17 +2299,18 @@ private fun ToolboxListItem(
             ) {
                 Text(
                     text = value,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = Color.White, // 增加可见度
                     fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
                     style = TextStyle(
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
                     )
                 )
                 Icon(
                     imageVector = Lucide.ChevronRight,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.4f),
-                    modifier = Modifier.size(16.dp)
+                    tint = Color.White.copy(alpha = 0.8f), // 增加箭头可见度
+                    modifier = Modifier.size(18.dp) // 稍微增大箭头
                 )
             }
         }

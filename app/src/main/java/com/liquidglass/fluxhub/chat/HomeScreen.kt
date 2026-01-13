@@ -150,7 +150,7 @@ fun HomeScreen(
                         )
                     }
                     BasicText(
-                        text = "v1.0.3 · 2026.01.09",
+                        text = "v1.0.4 · 2026.01.13",
                         style = TextStyle(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -159,7 +159,7 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     BasicText(
-                        text = "• 性能优化：应用预热，启动更流畅\n• 交互改进：消息支持原生文本选择复制\n• 体验升级：AI回复时自动跟随滚动\n• 修复：非流式响应内容为空的问题\n• 界面优化：增强思考预算选项对比度\n• 工具箱：添加部分设置项的提示信息",
+                        text = "• 性能优化：页面预渲染，Tab 切换更流畅\n• 消息按钮：升级为液态玻璃效果\n• 滚动优化：使用 snapshotFlow 优化自动滚动\n• 深色主题：输入框在深色壁纸下更清晰\n• 交互改进：消息按钮支持拖动效果",
                         style = TextStyle(
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.9f),

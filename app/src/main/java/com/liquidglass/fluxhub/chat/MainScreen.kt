@@ -59,10 +59,8 @@ import androidx.compose.ui.draw.clip
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 
 @Composable
 fun MainScreen(
@@ -288,6 +286,8 @@ private fun AuthenticatedContent(
                 settingsSubPage = null
             }
             
+            // 使用 AnimatedContent 切换页面，只渲染当前选中的页面
+            // 避免不可见页面持续占用 GPU 资源
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
@@ -313,12 +313,10 @@ private fun AuthenticatedContent(
                             targetState = chatSubPage,
                             transitionSpec = {
                                 if (targetState != null) {
-                                    // 进入子页面
                                     (slideInHorizontally { it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { -it } + fadeOut()
                                     )
                                 } else {
-                                    // 返回聊天页
                                     (slideInHorizontally { -it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { it } + fadeOut()
                                     )
@@ -353,15 +351,11 @@ private fun AuthenticatedContent(
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                // 进入子页面：从右滑入，主页面往左滑出
-                                // 返回主页面：从左滑入，子页面往右滑出
                                 if (targetState != null) {
-                                    // 进入子页面
                                     (slideInHorizontally { it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { -it } + fadeOut()
                                     )
                                 } else {
-                                    // 返回主设置页
                                     (slideInHorizontally { -it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { it } + fadeOut()
                                     )
