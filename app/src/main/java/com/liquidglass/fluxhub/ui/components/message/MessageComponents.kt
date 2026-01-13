@@ -215,7 +215,7 @@ private fun LiquidActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     backdrop: Backdrop,
-    tint: Color = Color(0xFF007AFF).copy(alpha = 0.7f), // 使用蓝色，更明显
+    tint: Color = Color.White.copy(alpha = 0.6f), // 白色，透明度更高更明显
     onClick: () -> Unit
 ) {
     LiquidButton(

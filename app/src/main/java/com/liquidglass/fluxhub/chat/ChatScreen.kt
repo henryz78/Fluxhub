@@ -1301,8 +1301,7 @@ private fun LiquidGlassChatBubble(
         }
         
         // 消息气泡
-        // 对长消息使用简化的液态玻璃效果以减少 GPU 负载
-        val isLongMessage = message.content.length > 1000
+        // 简化液态玻璃效果：只保留 vibrancy 和轻微模糊，不使用 lens
         Box(
             modifier = Modifier
                 .then(
@@ -1319,12 +1318,7 @@ private fun LiquidGlassChatBubble(
                     shape = { bubbleShape },
                     effects = {
                         vibrancy()
-                        // 长消息使用更小的 blur 半径，减少 GPU 负载
-                        blur(if (isLongMessage) 2f.dp.toPx() else 6f.dp.toPx())
-                        // 短消息才使用 lens 效果
-                        if (!isLongMessage) {
-                            lens(12f.dp.toPx(), 24f.dp.toPx())
-                        }
+                        blur(2f.dp.toPx()) // 轻微模糊，减少 GPU 负载
                     },
                     highlight = { Highlight.Plain },
                     onDrawSurface = {
@@ -2302,17 +2296,18 @@ private fun ToolboxListItem(
             ) {
                 Text(
                     text = value,
-                    color = Color.White.copy(alpha = 0.7f),
+                    color = Color.White, // 增加可见度
                     fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
                     style = TextStyle(
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                        shadow = Shadow(color = Color.Black.copy(alpha = 0.6f), blurRadius = 4f)
                     )
                 )
                 Icon(
                     imageVector = Lucide.ChevronRight,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.4f),
-                    modifier = Modifier.size(16.dp)
+                    tint = Color.White.copy(alpha = 0.8f), // 增加箭头可见度
+                    modifier = Modifier.size(18.dp) // 稍微增大箭头
                 )
             }
         }
