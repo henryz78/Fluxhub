@@ -1,46 +1,37 @@
 package com.liquidglass.fluxhub.chat
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.composables.icons.lucide.*
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.MessageCircle
-import com.composables.icons.lucide.Sparkles
-import com.composables.icons.lucide.History
-import com.composables.icons.lucide.Zap
-import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.Bot
-import androidx.compose.foundation.clickable
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.liquidglass.fluxhub.components.LiquidButton
-import com.liquidglass.fluxhub.data.Personas
 import com.liquidglass.fluxhub.components.PersonaCard
-import com.composables.icons.lucide.BarChart2
-import com.composables.icons.lucide.Award
-import androidx.compose.material3.CircularProgressIndicator
-import java.util.Calendar
+import com.liquidglass.fluxhub.data.Personas
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 /**
@@ -85,7 +76,7 @@ fun HomeScreen(
             .padding(bottomPadding),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        // 1. 动态问候头部 & 日期 & 版本号 (Index 0)
+        // 1. 动态问候头部 & 日期 & 版本号
         item {
             Box(
                 modifier = Modifier
@@ -176,7 +167,7 @@ fun HomeScreen(
                                     blur(10.dp.toPx())
                                 },
                                 onDrawSurface = {
-                                    drawRect(Color(0xFF007AFF).copy(alpha = 0.85f)) // 蓝色主色调
+                                    drawRect(Color(0xFF007AFF).copy(alpha = 0.85f))
                                 }
                             )
                             .clickable { 
@@ -244,7 +235,7 @@ fun HomeScreen(
                             title = "随机一聊",
                             subtitle = "发现惊喜角色",
                             icon = Lucide.Sparkles,
-                            color = Color(0xFFAF52DE), // 紫色
+                            color = Color(0xFFAF52DE),
                             backdrop = backdrop,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             onClick = {
@@ -278,10 +269,10 @@ fun HomeScreen(
                                         blur(8.dp.toPx())
                                     },
                                     onDrawSurface = {
-                                        drawRect(Color(0xFF34C759).copy(alpha = 0.75f)) // 绿色
+                                        drawRect(Color(0xFF34C759).copy(alpha = 0.75f))
                                     }
                                 )
-                                .clickable { showStatsDialog = true } // 点击显示弹窗
+                                .clickable { showStatsDialog = true }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Row(
@@ -307,7 +298,7 @@ fun HomeScreen(
                                     )
                                 }
                                 Icon(
-                                    Lucide.BarChart2,
+                                    Lucide.BarChart,
                                     null,
                                     tint = Color.White.copy(alpha = 0.8f),
                                     modifier = Modifier.size(20.dp)
@@ -321,26 +312,7 @@ fun HomeScreen(
         
         item { Spacer(Modifier.height(24.dp)) }
 
-        // ... (Item 3, 4, 5 kept as is - just need to ensure end content matches) ...
-        // ... I'll rely on the StartLine/EndLine to cover the Grid replacement and just add the dialog code after loop ...
-        // Wait, replace_file_content replaces a contiguous block.
-        // I need to add the Dialog code.
-        // I can add it at the end of the LazyColumn block (inside HomeScreen function).
-        // My replacement range is 71-373 (the whole LazyColumn content roughly?).
-        // No, I should carefully target.
-        // I will replace 71 (LazyColumn start) to 250 (Grid end) to insert `showStatsDialog` state and updated Click listener.
-        // AND I need to append the Dialog composable at the END of HomeScreen (before the closing brace).
-        // Since I can't do two disjoint edits in `replace_file_content`, I should use `multi_replace_file_content` or just overwrite the clickable part AND add the dialog at end.
-        // Or I can put the Dialog INSIDE the LazyColumn?
-        // No, Dialogs should be creating a new Window, so putting it in LazyColumn logic is fine (it won't receive layout constraints from LazyColumn).
-        
-        // Let's replace the whole `HomeScreen` function content roughly, or use `multi_replace`.
-        // Better: Use `multi_replace_file_content`.
-        
-    }
-
-
-        // 3. 灵动角色 (Liquid Personas) 轮播 (尺寸缩小)
+        // 3. 灵动角色 (Liquid Personas) 轮播
         item {
             Column {
                 PaddingLabel(text = "灵动角色", icon = Lucide.Sparkles)
@@ -357,7 +329,7 @@ fun HomeScreen(
                                 viewModel.createNewConversation(persona.systemPrompt, persona.name)
                                 onNavigateToChat()
                             },
-                            modifier = Modifier.width(160.dp).height(100.dp) // 缩小尺寸
+                            modifier = Modifier.width(160.dp).height(100.dp)
                         )
                     }
                 }
@@ -370,7 +342,6 @@ fun HomeScreen(
             Column {
                 PaddingLabel(text = "探索更多", icon = Lucide.Zap)
                 
-                // 将提示词分组，每列2个，实现同步横向滚动
                 val prompts = listOf(
                     "帮我写一段 Python 代码", "解释量子纠缠",
                     "写一首关于春天的诗", "制定健身计划",
@@ -395,7 +366,7 @@ fun HomeScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        // 5. 最近会话 (移到底部)
+        // 5. 最近会话
         if (recentConversations.isNotEmpty()) {
             item {
                 Column {
@@ -439,7 +410,6 @@ fun HomeScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
-                                        // 简单的时间格式化
                                         val timeDiff = System.currentTimeMillis() - conversation.updatedAt
                                         val timeText = when {
                                             timeDiff < 60000 -> "刚刚"
@@ -476,6 +446,7 @@ fun HomeScreen(
         }
     }
 
+    // 统计弹窗
     if (showStatsDialog) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showStatsDialog = false }
@@ -570,7 +541,7 @@ fun HomeScreen(
                             StatCard(
                                 icon = Lucide.Bot,
                                 label = "当前大脑",
-                                value = viewModel.model.ifBlank { "AUTO" }.uppercase().take(6), // 截断避免过长
+                                value = viewModel.model.ifBlank { "AUTO" }.uppercase().take(6),
                                 backdrop = backdrop,
                                 modifier = Modifier.weight(1f)
                             )
@@ -598,6 +569,7 @@ fun HomeScreen(
         }
     }
 
+    // 更新日志弹窗
     if (showChangelogDialog) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showChangelogDialog = false }
@@ -695,7 +667,7 @@ private fun StatCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { blur(0f) }, // 内部不再模糊，依赖底板
+                effects = { blur(0f) },
                 onDrawSurface = { drawRect(Color.White.copy(0.08f)) }
             )
             .padding(12.dp)
