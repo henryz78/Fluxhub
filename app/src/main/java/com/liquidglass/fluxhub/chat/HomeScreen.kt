@@ -70,6 +70,8 @@ fun HomeScreen(
 
     // 统计弹窗状态
     var showStatsDialog by remember { mutableStateOf(false) }
+    // 更新日志弹窗状态
+    var showChangelogDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         state = listState,
@@ -78,44 +80,70 @@ fun HomeScreen(
             .padding(bottomPadding),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        // ... (Index 0: Greeting) ...
+        // 1. 动态问候头部 & 日期 & 版本号 (Index 0)
         item {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 32.dp)
             ) {
-                // ... (Header code) ...
-                BasicText(
-                    text = dateString.uppercase(),
-                    style = TextStyle(
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.6f),
-                        letterSpacing = 1.sp,
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // 日期小标题
+                    BasicText(
+                        text = dateString.uppercase(),
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.6f),
+                            letterSpacing = 1.sp,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                        )
                     )
-                )
-                Spacer(Modifier.height(8.dp))
-                BasicText(
-                    text = greeting,
-                    style = TextStyle(
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 8f, offset = Offset(0f, 4f))
+                    Spacer(Modifier.height(8.dp))
+                    // 大标题问候
+                    BasicText(
+                        text = greeting,
+                        style = TextStyle(
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 8f, offset = Offset(0f, 4f))
+                        )
                     )
-                )
-                BasicText(
-                    text = "准备好开始新的对话了吗？",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.8f),
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
-                    ),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                    BasicText(
+                        text = "准备好开始新的对话了吗？",
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White.copy(alpha = 0.8f),
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
+                        ),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                
+                // 版本号 (右上角)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { ContinuousRoundedRectangle(12.dp) },
+                            effects = { blur(10.dp.toPx()) },
+                            onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                        )
+                        .clickable { showChangelogDialog = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "v1.0.5",
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
             }
         }
         
@@ -543,6 +571,88 @@ fun HomeScreen(
                     
                     LiquidButton(
                         onClick = { showStatsDialog = false },
+                        backdrop = backdrop,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        isInteractive = true,
+                        tint = Color.White.copy(0.1f)
+                    ) {
+                        Text("关闭", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showChangelogDialog) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showChangelogDialog = false }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(28.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(20.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(0.15f))
+                        }
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Column {
+                        Text(
+                            "版本更新 v1.0.5",
+                            style = TextStyle(
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Text(
+                            "2026-01-13",
+                            style = TextStyle(
+                                color = Color.White.copy(0.5f),
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        val updates = listOf(
+                            "✨ 全新主页：随机一聊与数据仪表盘",
+                            "🎨 视觉升级：毛玻璃质感与动态背景",
+                            "💬 体验优化：聊天按钮尺寸与可见性调整",
+                            "⚡ 性能提升：列表滚动更流畅"
+                        )
+                        updates.forEach { update ->
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text(
+                                    "• ",
+                                    style = TextStyle(color = Color(0xFFAF52DE), fontWeight = FontWeight.Bold)
+                                )
+                                Text(
+                                    update,
+                                    style = TextStyle(
+                                        color = Color.White.copy(0.9f),
+                                        fontSize = 14.sp,
+                                        height = 20.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    
+                    LiquidButton(
+                        onClick = { showChangelogDialog = false },
                         backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         isInteractive = true,
