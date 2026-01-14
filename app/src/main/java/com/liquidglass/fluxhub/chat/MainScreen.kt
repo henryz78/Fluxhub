@@ -204,6 +204,10 @@ fun MainScreen(
                         backdrop = backdrop,
                         bottomPadding = PaddingValues(bottom = bottomPadding),
                         onNavigateToChat = { selectedTab = 1 },
+                        onNavigateToAssistantSelection = { 
+                            selectedTab = 1
+                            chatSubPage = "assistant_selection" 
+                        },
                         onQuickPrompt = { prompt ->
                             pendingPrompt = prompt
                             selectedTab = 1

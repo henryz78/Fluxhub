@@ -46,11 +46,16 @@ fun HomeScreen(
     backdrop: Backdrop,
     bottomPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToChat: () -> Unit,
+    onNavigateToAssistantSelection: () -> Unit,
     onQuickPrompt: (String) -> Unit = { },
     viewModel: ChatViewModel = viewModel()
 ) {
     // 最近对话
     val recentConversations = viewModel.conversations.take(5)
+    
+    // 列表状态 (用于滚动)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = rememberCoroutineScope()
     
     // 时间相关
     val calendar = remember { Calendar.getInstance() }
@@ -63,20 +68,24 @@ fun HomeScreen(
     val dateFormat = SimpleDateFormat("M月d日 EEEE", Locale.CHINA)
     val dateString = dateFormat.format(calendar.time)
 
+    // 统计弹窗状态
+    var showStatsDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .padding(bottomPadding),
         contentPadding = PaddingValues(bottom = 100.dp)
     ) {
-        // 1. 动态问候头部 & 日期
+        // ... (Index 0: Greeting) ...
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 32.dp)
             ) {
-                // 日期小标题
+                // ... (Header code) ...
                 BasicText(
                     text = dateString.uppercase(),
                     style = TextStyle(
@@ -88,7 +97,6 @@ fun HomeScreen(
                     )
                 )
                 Spacer(Modifier.height(8.dp))
-                // 大标题问候
                 BasicText(
                     text = greeting,
                     style = TextStyle(
@@ -122,7 +130,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // 主按钮：开启新对话 (占据一半宽度，高度较大)
+                    // 主按钮：开启新对话
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -154,7 +162,7 @@ fun HomeScreen(
                                     .drawBackdrop(
                                         backdrop = backdrop,
                                         shape = { androidx.compose.foundation.shape.CircleShape },
-                                        effects = { blur(0f) }, // clear
+                                        effects = { blur(0f) },
                                         onDrawSurface = { drawRect(Color.White.copy(alpha = 0.2f)) }
                                     ),
                                 contentAlignment = Alignment.Center
@@ -182,42 +190,87 @@ fun HomeScreen(
                         }
                     }
                     
-                    // 右侧两小块
+                    // 右侧两个小卡片
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .height(140.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // 助手中心
+                        // 随机一聊
                         QuickActionCard(
-                            title = "助手中心",
-                            icon = Lucide.Bot,
+                            title = "随机一聊",
+                            icon = Lucide.Dices,
                             color = Color(0xFFAF52DE), // 紫色
                             backdrop = backdrop,
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             onClick = {
-                                // 导航到助手选择 (通过 ChatTab 的子页面)
-                                viewModel.createNewConversation() // 先创建，然后... 
-                                // 这里简化逻辑，先去聊天页
+                                val randomPersona = Personas.all.random()
+                                viewModel.createNewConversation(randomPersona.systemPrompt, randomPersona.name)
                                 onNavigateToChat()
-                                // 实际上应该触发 onNavigateToAssistantSelection，但这里回调未传递
-                                // 暂由 ChatScreen 内部处理助手切换
                             }
                         )
                         
-                        // 快捷提示
-                        QuickActionCard(
-                            title = "灵动角色",
-                            icon = Lucide.Sparkles,
-                            color = Color(0xFFFF9500), // 橙色
-                            backdrop = backdrop,
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                            onClick = {
-                                // 同样，这里作为展示，简单跳到聊天
-                                onNavigateToChat() 
+                        // 今日统计
+                        val todayStart = remember {
+                            Calendar.getInstance().apply {
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+                        }
+                        val todayConversations = viewModel.conversations.count { it.createdAt >= todayStart }
+                        val totalConversations = viewModel.conversations.size
+                        
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { ContinuousRoundedRectangle(16.dp) },
+                                    effects = {
+                                        vibrancy()
+                                        blur(8.dp.toPx())
+                                    },
+                                    onDrawSurface = {
+                                        drawRect(Color(0xFF34C759).copy(alpha = 0.75f)) // 绿色
+                                    }
+                                )
+                                .clickable { showStatsDialog = true } // 点击显示弹窗
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "今日统计",
+                                        style = TextStyle(
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                    Text(
+                                        text = "今日 $todayConversations 次 · 共 $totalConversations",
+                                        style = TextStyle(
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 10.sp
+                                        )
+                                    )
+                                }
+                                Icon(
+                                    Lucide.BarChart3,
+                                    null,
+                                    tint = Color.White.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -225,7 +278,81 @@ fun HomeScreen(
         
         item { Spacer(Modifier.height(24.dp)) }
 
-        // 3. 最近会话 (横向卡片)
+        // ... (Item 3, 4, 5 kept as is - just need to ensure end content matches) ...
+        // ... I'll rely on the StartLine/EndLine to cover the Grid replacement and just add the dialog code after loop ...
+        // Wait, replace_file_content replaces a contiguous block.
+        // I need to add the Dialog code.
+        // I can add it at the end of the LazyColumn block (inside HomeScreen function).
+        // My replacement range is 71-373 (the whole LazyColumn content roughly?).
+        // No, I should carefully target.
+        // I will replace 71 (LazyColumn start) to 250 (Grid end) to insert `showStatsDialog` state and updated Click listener.
+        // AND I need to append the Dialog composable at the END of HomeScreen (before the closing brace).
+        // Since I can't do two disjoint edits in `replace_file_content`, I should use `multi_replace_file_content` or just overwrite the clickable part AND add the dialog at end.
+        // Or I can put the Dialog INSIDE the LazyColumn?
+        // No, Dialogs should be creating a new Window, so putting it in LazyColumn logic is fine (it won't receive layout constraints from LazyColumn).
+        
+        // Let's replace the whole `HomeScreen` function content roughly, or use `multi_replace`.
+        // Better: Use `multi_replace_file_content`.
+        
+    }
+
+
+        // 3. 灵动角色 (Liquid Personas) 轮播 (尺寸缩小)
+        item {
+            Column {
+                PaddingLabel(text = "灵动角色", icon = Lucide.Sparkles)
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp)
+                ) {
+                    items(Personas.all) { persona ->
+                        PersonaCard(
+                            persona = persona,
+                            backdrop = backdrop,
+                            onClick = {
+                                viewModel.createNewConversation(persona.systemPrompt, persona.name)
+                                onNavigateToChat()
+                            },
+                            modifier = Modifier.width(160.dp).height(100.dp) // 缩小尺寸
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // 4. 探索 (快捷提示词)
+        item {
+            Column {
+                PaddingLabel(text = "探索更多", icon = Lucide.Zap)
+                
+                // 将提示词分组，每列2个，实现同步横向滚动
+                val prompts = listOf(
+                    "帮我写一段 Python 代码", "解释量子纠缠",
+                    "写一首关于春天的诗", "制定健身计划",
+                    "翻译这段文字", "分析这个商业案例",
+                    "推荐一部科幻电影", "如何制作拿铁咖啡"
+                )
+                val promptPairs = prompts.chunked(2)
+                
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(promptPairs) { pair ->
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            pair.forEach { prompt ->
+                                QuickPromptChip(prompt, backdrop) { onQuickPrompt(prompt) }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // 5. 最近会话 (移到底部)
         if (recentConversations.isNotEmpty()) {
             item {
                 Column {
@@ -303,40 +430,173 @@ fun HomeScreen(
                     }
                 }
             }
-            item { Spacer(Modifier.height(24.dp)) }
         }
+    }
 
-        // 4. 探索 (快捷提示词)
-        item {
+    if (showStatsDialog) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showStatsDialog = false }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(28.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(20.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.White.copy(0.15f))
+                        }
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Text(
+                        "我的数据",
+                        style = TextStyle(
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    
+                    // 模拟能量环
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { 0.75f },
+                            modifier = Modifier.size(100.dp),
+                            color = Color(0xFF34C759),
+                            trackColor = Color.White.copy(alpha = 0.1f),
+                            strokeWidth = 8.dp,
+                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "75%",
+                                style = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                "今日算力",
+                                style = TextStyle(
+                                    color = Color.White.copy(0.6f),
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                    }
+                    
+                    val todayStart = remember {
+                        Calendar.getInstance().apply {
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                    }
+                    val todayCount = viewModel.conversations.count { it.createdAt >= todayStart }
+                    val totalCount = viewModel.conversations.size
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StatCard(
+                                icon = Lucide.MessageCircle,
+                                label = "总会话",
+                                value = "$totalCount",
+                                backdrop = backdrop,
+                                modifier = Modifier.weight(1f)
+                            )
+                            StatCard(
+                                icon = Lucide.Zap,
+                                label = "今日互动",
+                                value = "$todayCount",
+                                backdrop = backdrop,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StatCard(
+                                icon = Lucide.Bot,
+                                label = "当前大脑",
+                                value = viewModel.model.ifBlank { "AUTO" }.uppercase().take(6), // 截断避免过长
+                                backdrop = backdrop,
+                                modifier = Modifier.weight(1f)
+                            )
+                            StatCard(
+                                icon = Lucide.Trophy,
+                                label = "探索成就",
+                                value = "初级向导",
+                                backdrop = backdrop,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    
+                    LiquidButton(
+                        onClick = { showStatsDialog = false },
+                        backdrop = backdrop,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        isInteractive = true,
+                        tint = Color.White.copy(0.1f)
+                    ) {
+                        Text("关闭", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(80.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { ContinuousRoundedRectangle(16.dp) },
+                effects = { blur(0f) }, // 内部不再模糊，依赖底板
+                onDrawSurface = { drawRect(Color.White.copy(0.08f)) }
+            )
+            .padding(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(icon, null, tint = Color.White.copy(0.6f), modifier = Modifier.size(16.dp))
             Column {
-                PaddingLabel(text = "探索更多", icon = Lucide.Zap)
-                
-                // 瀑布流/网格布局 (简单模拟)
-                val prompts = listOf(
-                    "帮我写一段 Python 代码", "解释量子纠缠",
-                    "写一首关于春天的诗", "制定健身计划",
-                    "翻译这段文字", "分析这个商业案例"
+                Text(
+                    value,
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    maxLines = 1
                 )
-                
-                // 第一行
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(prompts.take(3)) { prompt ->
-                        QuickPromptChip(prompt, backdrop) { onQuickPrompt(prompt) }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                // 第二行
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(prompts.takeLast(3)) { prompt ->
-                        QuickPromptChip(prompt, backdrop) { onQuickPrompt(prompt) }
-                    }
-                }
+                Text(
+                    label,
+                    style = TextStyle(
+                        color = Color.White.copy(0.5f),
+                        fontSize = 10.sp
+                    )
+                )
             }
         }
     }
