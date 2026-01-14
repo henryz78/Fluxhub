@@ -92,9 +92,36 @@ fun MainScreen(
                 // 自定义壁纸
                 try {
                     val parsedUri = android.net.Uri.parse(uri)
-                    val stream = context.contentResolver.openInputStream(parsedUri)
-                    BitmapFactory.decodeStream(stream)
+                    
+                    // 第一步：获取图片尺寸（不加载到内存）
+                    val options = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, options)
+                    }
+                    
+                    // 第二步：计算采样率（目标尺寸最大2048像素，避免OOM）
+                    val targetSize = 2048
+                    var sampleSize = 1
+                    while (options.outWidth / sampleSize > targetSize || options.outHeight / sampleSize > targetSize) {
+                        sampleSize *= 2
+                    }
+                    
+                    // 第三步：使用采样率加载图片
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565 // 使用 RGB_565 节省内存
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, decodeOptions)
+                    } ?: BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                    
                 } catch (e: Exception) {
+                    android.util.Log.e("MainScreen", "Failed to load custom wallpaper: ${e.message}", e)
+                    BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                } catch (e: OutOfMemoryError) {
+                    android.util.Log.e("MainScreen", "OutOfMemory loading wallpaper", e)
                     BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
                 }
             }

@@ -1106,7 +1106,7 @@ private fun LiquidGlassChatContent(
                         }
                         viewModel.stopStreaming() 
                     },
-                    isLoading = viewModel.isLoading,
+                    isLoading = viewModel.isLoading || isStreaming, // 同时检查加载状态和流式状态
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
