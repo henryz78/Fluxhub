@@ -234,22 +234,6 @@ fun SettingsScreen(
                     )
                 }
             }
-            
-            // 关于
-            item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Info, null, tint = Color(0xFFAF52DE), modifier = Modifier.size(24.dp)) },
-                    title = "关于",
-                    subtitle = "FluxHub v1.0 · Liquid Glass",
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = { showAboutDialog = true }
-                )
-            }
-            
-            
-            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
