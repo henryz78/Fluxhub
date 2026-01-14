@@ -207,16 +207,8 @@ fun HomeScreen(
                                 Text(
                                     text = "开启探索旅程",
                                     style = TextStyle(
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                                Text(
-                                    text = "随时随地，即刻开聊",
-                                    style = TextStyle(
-                                        color = Color.White.copy(alpha = 0.6f),
-                                        fontSize = 11.sp
+                                        color = Color.White.copy(alpha = 0.8f),
+                                        fontSize = 13.sp
                                     )
                                 )
                             }
@@ -329,7 +321,7 @@ fun HomeScreen(
                                 viewModel.createNewConversation(persona.systemPrompt, persona.name)
                                 onNavigateToChat()
                             },
-                            modifier = Modifier.width(160.dp).height(100.dp)
+                            modifier = Modifier.width(200.dp).height(130.dp)
                         )
                     }
                 }
@@ -348,18 +340,13 @@ fun HomeScreen(
                     "翻译这段文字", "分析这个商业案例",
                     "推荐一部科幻电影", "如何制作拿铁咖啡"
                 )
-                val promptPairs = prompts.chunked(2)
                 
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(promptPairs) { pair ->
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pair.forEach { prompt ->
-                                QuickPromptChip(prompt, backdrop) { onQuickPrompt(prompt) }
-                            }
-                        }
+                    items(prompts) { prompt ->
+                        QuickPromptChip(prompt, backdrop) { onQuickPrompt(prompt) }
                     }
                 }
             }
@@ -481,34 +468,7 @@ fun HomeScreen(
                         )
                     )
                     
-                    // 模拟能量环
-                    Box(contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            progress = { 0.75f },
-                            modifier = Modifier.size(100.dp),
-                            color = Color(0xFF34C759),
-                            trackColor = Color.White.copy(alpha = 0.1f),
-                            strokeWidth = 8.dp,
-                        )
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "75%",
-                                style = TextStyle(
-                                    color = Color.White,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                "今日算力",
-                                style = TextStyle(
-                                    color = Color.White.copy(0.6f),
-                                    fontSize = 10.sp
-                                )
-                            )
-                        }
-                    }
-                    
+                    // 统计概览圆环（显示今日判比例）
                     val todayStart = remember {
                         Calendar.getInstance().apply {
                             set(Calendar.HOUR_OF_DAY, 0)
@@ -519,6 +479,34 @@ fun HomeScreen(
                     }
                     val todayCount = viewModel.conversations.count { it.createdAt >= todayStart }
                     val totalCount = viewModel.conversations.size
+                    val progressRatio = if (totalCount > 0) (todayCount.toFloat() / totalCount.coerceAtLeast(1)).coerceIn(0f, 1f) else 0f
+                    
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { progressRatio },
+                            modifier = Modifier.size(100.dp),
+                            color = Color(0xFF34C759),
+                            trackColor = Color.White.copy(alpha = 0.1f),
+                            strokeWidth = 8.dp,
+                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "$todayCount",
+                                style = TextStyle(
+                                    color = Color.White,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                            Text(
+                                "今日会话",
+                                style = TextStyle(
+                                    color = Color.White.copy(0.6f),
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+                    }
                     
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -560,9 +548,9 @@ fun HomeScreen(
                         backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         isInteractive = true,
-                        tint = Color.White.copy(0.1f)
+                        tint = Color(0xFF007AFF).copy(0.8f)
                     ) {
-                        Text("关闭", color = Color.White)
+                        Text("关闭", color = Color.White, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -643,9 +631,9 @@ fun HomeScreen(
                         backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         isInteractive = true,
-                        tint = Color.White.copy(0.1f)
+                        tint = Color(0xFF007AFF).copy(0.8f)
                     ) {
-                        Text("关闭", color = Color.White)
+                        Text("关闭", color = Color.White, fontWeight = FontWeight.Medium)
                     }
                 }
             }
