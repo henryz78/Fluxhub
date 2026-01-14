@@ -298,7 +298,7 @@ fun HomeScreen(
                                     )
                                 }
                                 Icon(
-                                    Lucide.BarChart,
+                                    Lucide.Zap,
                                     null,
                                     tint = Color.White.copy(alpha = 0.8f),
                                     modifier = Modifier.size(20.dp)
