@@ -29,7 +29,7 @@ import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 
 /**
- * 设置主页面 - 分类入口
+ * 设置主页面 - 分类入口 (重构版)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,67 +60,74 @@ fun SettingsScreen(
                         backdrop = backdrop,
                         shape = { ContinuousRoundedRectangle(24.dp) },
                         effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
-                        onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity + 0.1f)) }
                     )
                     .padding(24.dp)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        "💎",
-                        fontSize = 48.sp
-                    )
-                    Text(
-                        "FluxHub",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        style = TextStyle(
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                    // Logo 区域
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousRoundedRectangle(20.dp) },
+                                effects = { vibrancy(); blur(20.dp.toPx()) },
+                                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.2f)) }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("💎", fontSize = 42.sp)
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "FluxHub",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            style = TextStyle(
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
+                            )
                         )
-                    )
-                    Text(
-                        "v1.0 · Liquid Glass Edition",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
+                        Text(
+                            "v1.0.4 · Liquid Glass",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                     
-                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                     
                     Text(
                         "一款基于 Liquid Glass 设计语言的 AI 聊天应用，为您带来沉浸式的对话体验。",
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        style = TextStyle(lineHeight = 20.sp)
                     )
                     
-                    Spacer(Modifier.height(16.dp))
-                    
-                    Text(
-                        "由 Henry 制作 ❤️",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF007AFF)
-                    )
-                    
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(8.dp))
                     
                     LiquidButton(
                         onClick = { showAboutDialog = false },
                         backdrop = backdrop,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
+                            .height(48.dp),
+                        shape = { ContinuousRoundedRectangle(16.dp) },
                         isInteractive = true,
-                        tint = Color(0xFF007AFF).copy(alpha = 0.5f)
+                        tint = Color(0xFF007AFF)
                     ) {
                         Text(
-                            "好的",
+                            "关闭",
                             color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -134,94 +141,98 @@ fun SettingsScreen(
             .statusBarsPadding()
             .padding(bottomPadding)
     ) {
-        // Top Bar (only if not tab)
+        // App Bar / Title
         if (!isTab) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LiquidButton(
                     onClick = onBack,
                     backdrop = backdrop,
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(40.dp),
                     isInteractive = true,
                     padding = PaddingValues(0.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = Color.White)
                 }
-                
                 Spacer(Modifier.width(16.dp))
-                
-                Text(
-                    "设置",
-                    style = TextStyle(
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                    )
-                )
+                SettingsTitle("设置")
             }
         } else {
-            Text(
-                "设置",
-                style = TextStyle(
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                ),
-                modifier = Modifier.padding(24.dp)
-            )
+             Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
+                 SettingsTitle("设置")
+             }
         }
         
-        // 设置分类列表
+        // Settings List
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 助手管理
+            // Group 1: AI Config
             item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.User, null, tint = Color(0xFF007AFF), modifier = Modifier.size(24.dp)) },
-                    title = "助手管理",
-                    subtitle = "创建和管理 AI 助手",
-                    badge = if (viewModel.assistants.isNotEmpty()) "${viewModel.assistants.size}" else null,
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToAssistants
-                )
+                SettingsGroup(title = "智能配置") {
+                    SettingsCategoryItem(
+                        icon = Lucide.User,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFF007AFF), // Blue
+                        title = "助手管理",
+                        subtitle = "管理您的 AI 角色与预设",
+                        badge = if (viewModel.assistants.isNotEmpty()) "${viewModel.assistants.size}" else null,
+                        backdrop = backdrop,
+                        isFirst = true,
+                        onClick = onNavigateToAssistants
+                    )
+                    SettingsCategoryItem(
+                        icon = Lucide.Key,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFFFF9500), // Orange
+                        title = "服务商管理",
+                        subtitle = "配置 API Key 与模型端点",
+                        badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
+                        backdrop = backdrop,
+                        isLast = true,
+                        onClick = onNavigateToProviders
+                    )
+                }
             }
             
-            // 服务商管理
+            // Group 2: Appearance
             item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Key, null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp)) },
-                    title = "服务商管理",
-                    subtitle = viewModel.currentProvider?.name ?: "未配置",
-                    badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToProviders
-                )
+                SettingsGroup(title = "个性化") {
+                    SettingsCategoryItem(
+                        icon = Lucide.Palette,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFF34C759), // Green
+                        title = "显示设置",
+                        subtitle = "壁纸、毛玻璃效果强度",
+                        backdrop = backdrop,
+                        isFirst = true,
+                        isLast = true,
+                        onClick = onNavigateToDisplay
+                    )
+                }
             }
-            
-            // 显示设置
+
+            // Group 3: About
             item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Palette, null, tint = Color(0xFF34C759), modifier = Modifier.size(24.dp)) },
-                    title = "显示设置",
-                    subtitle = "主题、壁纸与效果",
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToDisplay
-                )
+                SettingsGroup(title = "其他") {
+                    SettingsCategoryItem(
+                        icon = Lucide.Info,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFFAF52DE), // Purple
+                        title = "关于 FluxHub",
+                        subtitle = "版本与开发者信息",
+                        backdrop = backdrop,
+                        isFirst = true,
+                        isLast = true,
+                        onClick = { showAboutDialog = true }
+                    )
+                }
             }
             
             // 关于
@@ -244,87 +255,153 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsCategoryCard(
-    icon: @Composable () -> Unit,
+private fun SettingsTitle(text: String) {
+    Text(
+        text = text,
+        style = TextStyle(
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 8f)
+        )
+    )
+}
+
+@Composable
+private fun SettingsGroup(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = title.uppercase(),
+            style = TextStyle(
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
+            ),
+            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+        )
+        content()
+    }
+}
+
+@Composable
+private fun SettingsCategoryItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    iconBgColor: Color,
     title: String,
     subtitle: String,
     badge: String? = null,
     backdrop: Backdrop,
-    glassOpacity: Float = 0.1f,
-    glassBlur: Float = 16f,
+    isFirst: Boolean = false,
+    isLast: Boolean = false,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle(16.dp) },
-                effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
-                onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
-            )
-            .clickable { onClick() }
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+    val shape = when {
+        isFirst && isLast -> ContinuousRoundedRectangle(20.dp)
+        isFirst -> androidx.compose.foundation.shape.RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+        isLast -> androidx.compose.foundation.shape.RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+        else -> androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+    }
+    
+    val bottomSpacer = if (isLast) 0.dp else 1.dp
+
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { shape },
+                    effects = { vibrancy(); blur(20.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                )
+                .clickable { onClick() }
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            // Icon
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(12.dp) },
-                        effects = { vibrancy() },
-                        onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
-                    ),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                icon()
-            }
-            
-            Spacer(Modifier.width(16.dp))
-            
-            // Text
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White,
-                        shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
+                // Colored Icon Container
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .drawBackdrop(
+                            backdrop = backdrop,
+                            shape = { ContinuousRoundedRectangle(10.dp) },
+                            effects = { blur(0f) }, // Solid color usually
+                            onDrawSurface = { drawRect(iconBgColor) }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = iconColor, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(16.dp))
+                
+                // Texts
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
+                        )
                     )
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f)
+                    Text(
+                        text = subtitle,
+                        style = TextStyle(
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    )
+                }
+                
+                // Badge
+                if (badge != null) {
+                    Box(
+                        modifier = Modifier
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { androidx.compose.foundation.shape.CircleShape },
+                                effects = { vibrancy() },
+                                onDrawSurface = { drawRect(Color.Red) }
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = badge,
+                            style = TextStyle(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                
+                // Chevron
+                Icon(
+                    Lucide.ChevronRight,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            
-            // Badge
-            if (badge != null) {
-                Text(
-                    text = badge,
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF34C759)
-                    ),
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-            }
-            
-            // Arrow
-            Icon(
-                Lucide.ChevronRight,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.4f),
-                modifier = Modifier.size(20.dp)
-            )
+        }
+        
+        if (!isLast) {
+             Spacer(Modifier.height(2.dp))
         }
     }
 }

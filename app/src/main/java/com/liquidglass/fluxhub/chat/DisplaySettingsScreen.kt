@@ -135,9 +135,9 @@ fun DisplaySettingsScreen(
                     // 壁纸1: wallpaper_liquid
                     PresetWallpaperItem(
                         resourceId = com.liquidglass.fluxhub.R.drawable.wallpaper_liquid,
-                        isSelected = wallpaperUri == "preset:wallpaper_liquid",
+                        isSelected = wallpaperUri == null || wallpaperUri == "preset:wallpaper_liquid",
                         onClick = {
-                            viewModel.updateWallpaperUri("preset:wallpaper_liquid")
+                            viewModel.updateWallpaperUri(null) // 使用 null 表示默认壁纸
                         }
                     )
                     

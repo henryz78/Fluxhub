@@ -70,6 +70,15 @@ fun MainScreen(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     
+    // 等待核心配置加载完成，防止壁纸闪烁
+    // 在配置加载完成前不渲染任何内容，配合 Window 背景色实现平滑过渡
+    if (!viewModel.isSettingsInitialized) {
+        return
+    }
+
+    // 默认打开首页 (Tab 0)
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
     val backgroundBitmap = remember(viewModel.wallpaperUri) {
         val uri = viewModel.wallpaperUri
         when {
@@ -91,9 +100,36 @@ fun MainScreen(
                 // 自定义壁纸
                 try {
                     val parsedUri = android.net.Uri.parse(uri)
-                    val stream = context.contentResolver.openInputStream(parsedUri)
-                    BitmapFactory.decodeStream(stream)
+                    
+                    // 第一步：获取图片尺寸（不加载到内存）
+                    val options = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, options)
+                    }
+                    
+                    // 第二步：计算采样率（目标尺寸最大2048像素，避免OOM）
+                    val targetSize = 2048
+                    var sampleSize = 1
+                    while (options.outWidth / sampleSize > targetSize || options.outHeight / sampleSize > targetSize) {
+                        sampleSize *= 2
+                    }
+                    
+                    // 第三步：使用采样率加载图片
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565 // 使用 RGB_565 节省内存
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, decodeOptions)
+                    } ?: BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                    
                 } catch (e: Exception) {
+                    android.util.Log.e("MainScreen", "Failed to load custom wallpaper: ${e.message}", e)
+                    BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                } catch (e: OutOfMemoryError) {
+                    android.util.Log.e("MainScreen", "OutOfMemory loading wallpaper", e)
                     BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
                 }
             }
@@ -304,6 +340,10 @@ private fun AuthenticatedContent(
                         backdrop = backdrop,
                         bottomPadding = PaddingValues(bottom = bottomPadding),
                         onNavigateToChat = { selectedTab = 1 },
+                        onNavigateToAssistantSelection = { 
+                            selectedTab = 1
+                            chatSubPage = "assistant_selection" 
+                        },
                         onQuickPrompt = { prompt ->
                             pendingPrompt = prompt
                             selectedTab = 1

@@ -150,6 +150,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var showError by mutableStateOf(false)
         private set
     
+    // 设置是否初始化完成 (用于防止壁纸闪烁)
+    var isSettingsInitialized by mutableStateOf(false)
+        private set
+    
     // 配置（从当前 Provider 或 DataStore 加载）
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
@@ -480,58 +484,72 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private fun loadSettings() {
         viewModelScope.launch {
-            settingsRepository.apiKey.collect { 
-                // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
-                if (currentProvider == null) {
-                    apiKey = it 
-                    if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+            // 预加载关键视觉配置，防止 UI 闪烁 (FOUC)
+            // 读取 wallaperUri 和 agreementAccepted 的初始值
+            try {
+                wallpaperUri = settingsRepository.wallpaperUri.first()
+                agreementAccepted = settingsRepository.agreementAccepted.first()
+                isSettingsInitialized = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to preload settings", e)
+                isSettingsInitialized = true // 即使失败也允许渲染
+            }
+
+            // 启动实时监听
+            launch {
+                settingsRepository.apiKey.collect { 
+                    // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
+                    if (currentProvider == null) {
+                        apiKey = it 
+                        if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                    }
                 }
             }
-        }
-        viewModelScope.launch {
-            settingsRepository.baseUrl.collect { 
-                if (currentProvider == null) {
-                    baseUrl = it
-                    if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+            launch {
+                settingsRepository.baseUrl.collect { 
+                    if (currentProvider == null) {
+                        baseUrl = it
+                        if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                    }
                 }
             }
-        }
-        viewModelScope.launch {
-            settingsRepository.model.collect { model = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.themeMode.collect { themeMode = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.wallpaperUri.collect { wallpaperUri = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.glassOpacity.collect { glassOpacity = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.glassBlur.collect { glassBlur = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.agreementAccepted.collect { agreementAccepted = it }
-        }
-        // 加载工具箱配置项
-        viewModelScope.launch {
-            settingsRepository.thinkingBudget.collect { thinkingBudget = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.searchProvider.collect { searchProvider = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.streamEnabled.collect { streamEnabled = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.contextSize.collect { contextSize = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+            launch {
+                settingsRepository.model.collect { model = it }
+            }
+            launch {
+                settingsRepository.themeMode.collect { themeMode = it }
+            }
+            launch {
+                settingsRepository.wallpaperUri.collect { wallpaperUri = it }
+            }
+            launch {
+                settingsRepository.glassOpacity.collect { glassOpacity = it }
+            }
+            launch {
+                settingsRepository.glassBlur.collect { glassBlur = it }
+            }
+            launch {
+                settingsRepository.agreementAccepted.collect { agreementAccepted = it }
+            }
+            // 加载工具箱配置项
+            launch {
+                settingsRepository.thinkingBudget.collect { thinkingBudget = it }
+            }
+            launch {
+                settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
+            }
+            launch {
+                settingsRepository.searchProvider.collect { searchProvider = it }
+            }
+            launch {
+                settingsRepository.streamEnabled.collect { streamEnabled = it }
+            }
+            launch {
+                settingsRepository.contextSize.collect { contextSize = it }
+            }
+            launch {
+                settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+            }
         }
     }
     

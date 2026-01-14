@@ -1108,6 +1108,7 @@ private fun LiquidGlassChatContent(
                         viewModel.stopStreaming() 
                     },
                     isLoading = viewModel.isLoading,
+                    isStreaming = viewModel.messages.any { it.isStreaming },
                     backdrop = backdrop,
                     onInteractionChanged = onInteractionChanged,
                     onPickImage = {
@@ -1550,6 +1551,7 @@ private fun LiquidGlassChatInputBar(
     onSend: () -> Unit,
     onStop: () -> Unit,
     isLoading: Boolean,
+    isStreaming: Boolean = false,
     backdrop: Backdrop,
     onInteractionChanged: (Boolean) -> Unit = {},
     onPickImage: () -> Unit = {},
@@ -1674,17 +1676,18 @@ private fun LiquidGlassChatInputBar(
         }
             
         // 发送/停止按钮
+        val isGenerating = isLoading || isStreaming
         LiquidButton(
-            onClick = if (isLoading) onStop else onSend,
+            onClick = if (isGenerating) onStop else onSend,
             backdrop = backdrop,
             modifier = Modifier.size(44.dp),
-            isInteractive = isLoading || text.isNotBlank(),
+            isInteractive = isGenerating || text.isNotBlank(),
             onPressed = onInteractionChanged,
-            tint = if (isLoading) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
+            tint = if (isGenerating) Color(0xFFFF3B30) else if (text.isNotBlank()) Color(0xFF007AFF) else Color.Gray.copy(alpha = 0.5f)
         ) {
             Icon(
-                imageVector = if (isLoading) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
-                contentDescription = if (isLoading) "停止" else "发送",
+                imageVector = if (isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
+                contentDescription = if (isGenerating) "停止" else "发送",
                 tint = Color.White,
                 modifier = Modifier.size(30.dp)
             )
