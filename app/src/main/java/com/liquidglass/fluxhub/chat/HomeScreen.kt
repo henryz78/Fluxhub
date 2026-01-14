@@ -271,11 +271,20 @@ fun HomeScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
+                                Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "立即开始",
+                                    text = "开启探索旅程",
                                     style = TextStyle(
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 12.sp
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                                Text(
+                                    text = "随时随地，即刻开聊",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 11.sp
                                     )
                                 )
                             }
@@ -292,6 +301,7 @@ fun HomeScreen(
                         // 随机角色 (随机从灵动角色库中选择)
                         QuickActionCard(
                             title = "随机一聊",
+                            subtitle = "发现惊喜角色",
                             icon = Lucide.Sparkles,
                             color = Color(0xFFAF52DE),
                             backdrop = backdrop,
@@ -758,6 +768,7 @@ private fun StatCard(
 @Composable
 private fun QuickActionCard(
     title: String,
+    subtitle: String? = null,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
     backdrop: Backdrop,
@@ -795,6 +806,18 @@ private fun QuickActionCard(
                     fontWeight = FontWeight.Medium
                 )
             )
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = TextStyle(
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 10.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -984,11 +1007,20 @@ private fun QuickPromptChip(text: String, backdrop: Backdrop, onClick: () -> Uni
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
+                                Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "立即开始",
+                                    text = "开启探索旅程",
                                     style = TextStyle(
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 12.sp
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                )
+                                Text(
+                                    text = "随时随地，即刻开聊",
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 11.sp
                                     )
                                 )
                             }
@@ -1005,7 +1037,8 @@ private fun QuickPromptChip(text: String, backdrop: Backdrop, onClick: () -> Uni
                         // 随机一聊
                         QuickActionCard(
                             title = "随机一聊",
-                            icon = Lucide.Dices,
+                            subtitle = "发现惊喜角色",
+                            icon = Lucide.Sparkles,
                             color = Color(0xFFAF52DE), // 紫色
                             backdrop = backdrop,
                             modifier = Modifier.weight(1f).fillMaxWidth(),

@@ -68,6 +68,13 @@ fun MainScreen(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    
+    // 等待核心配置加载完成，防止壁纸闪烁
+    // 在配置加载完成前不渲染任何内容，配合 Window 背景色实现平滑过渡
+    if (!viewModel.isSettingsInitialized) {
+        return
+    }
+
     // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
     
