@@ -37,6 +37,7 @@ import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 @Composable
 fun DisplaySettingsScreen(
@@ -50,6 +51,12 @@ fun DisplaySettingsScreen(
     val wallpaperUri = viewModel.wallpaperUri
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
+    
+    // 动态字体样式
+    val textStyles = GlassTextStyles.create(
+        colorMode = viewModel.textColorMode,
+        shadowEnabled = viewModel.textShadowEnabled
+    )
     
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -90,12 +97,7 @@ fun DisplaySettingsScreen(
             
             Text(
                 "显示设置",
-                style = TextStyle(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                )
+                style = textStyles.title.copy(fontSize = 24.sp)
             )
         }
         

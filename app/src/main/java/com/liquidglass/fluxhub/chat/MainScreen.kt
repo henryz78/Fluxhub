@@ -377,7 +377,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "首页",
-                                style = GlassTypography.navLabelStyle(selectedTab == 0)
+                                style = textStyles.navLabelStyle(selectedTab == 0)
                             )
                         }
                     }
@@ -406,7 +406,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "对话",
-                                style = GlassTypography.navLabelStyle(selectedTab == 1)
+                                style = textStyles.navLabelStyle(selectedTab == 1)
                             )
                         }
                     }
@@ -434,7 +434,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "设置",
-                                style = GlassTypography.navLabelStyle(selectedTab == 2)
+                                style = textStyles.navLabelStyle(selectedTab == 2)
                             )
                         }
                     }
