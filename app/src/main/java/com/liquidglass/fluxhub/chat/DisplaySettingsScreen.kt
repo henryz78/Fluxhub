@@ -251,6 +251,135 @@ fun DisplaySettingsScreen(
                 )
             }
         }
+        
+        Spacer(Modifier.height(24.dp))
+        
+        // Text Style Config
+        Text(
+            "字体样式",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Column {
+                // 字体颜色选择
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "字体颜色",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "根据壁纸选择合适的文字颜色",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 白色按钮
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(
+                                    width = if (viewModel.textColorMode == "white") 3.dp else 1.dp,
+                                    color = if (viewModel.textColorMode == "white") Color(0xFF007AFF) else Color.Black.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                                .clickable { viewModel.updateTextColorMode("white") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (viewModel.textColorMode == "white") {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        
+                        // 黑色按钮
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                                .border(
+                                    width = if (viewModel.textColorMode == "black") 3.dp else 1.dp,
+                                    color = if (viewModel.textColorMode == "black") Color(0xFF007AFF) else Color.White.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                                .clickable { viewModel.updateTextColorMode("black") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (viewModel.textColorMode == "black") {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // 阴影开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "文字阴影",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "增强文字在复杂背景下的可读性",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    com.liquidglass.fluxhub.components.LiquidToggle(
+                        selected = { viewModel.textShadowEnabled },
+                        onSelect = { viewModel.updateTextShadowEnabled(it) },
+                        backdrop = backdrop
+                    )
+                }
+            }
+        }
     }
 }
 

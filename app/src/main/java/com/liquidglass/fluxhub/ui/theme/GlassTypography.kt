@@ -2,7 +2,6 @@ package com.liquidglass.fluxhub.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
@@ -11,24 +10,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * 统一的毛玻璃字体样式系统
+ * 动态字体样式生成器
  * 
- * 使用双层阴影技术确保文字在任何壁纸背景下都清晰可见：
- * - 深色阴影（黑色）：在浅色壁纸上提供对比度
- * - 通过增强的模糊半径确保阴影均匀分布
- * 
- * 使用方法：
- * Text(text = "标题", style = GlassTypography.title)
- * BasicText(text = "正文", style = GlassTypography.body)
+ * 根据用户设置动态生成字体样式：
+ * - textColorMode: "white" 或 "black"
+ * - textShadowEnabled: 是否启用阴影
  */
 object GlassTypography {
     
-    // ============== 标题样式 ==============
-    
     /**
-     * 超大标题 - 用于主页问候等
-     * 36sp, Bold, 强阴影
+     * 根据设置生成所有样式
      */
+    fun create(
+        colorMode: String = "white",
+        shadowEnabled: Boolean = true
+    ): GlassTextStyles {
+        val baseColor = if (colorMode == "black") Color.Black else Color.White
+        val shadowColor = if (colorMode == "black") Color.White else Color.Black
+        
+        return GlassTextStyles(
+            baseColor = baseColor,
+            shadowColor = shadowColor,
+            shadowEnabled = shadowEnabled
+        )
+    }
+    
+    // ============== 兼容旧代码的默认样式 ==============
+    // 这些属性保持向后兼容，使用默认的白色+阴影配置
+    
     val displayLarge = TextStyle(
         fontSize = 36.sp,
         fontWeight = FontWeight.Bold,
@@ -40,10 +49,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 大标题 - 用于页面标题
-     * 32sp, Bold
-     */
     val title = TextStyle(
         fontSize = 32.sp,
         fontWeight = FontWeight.Bold,
@@ -55,10 +60,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 中等标题 - 用于卡片标题、对话标题等
-     * 18sp, Medium
-     */
     val titleMedium = TextStyle(
         fontSize = 18.sp,
         fontWeight = FontWeight.Medium,
@@ -70,10 +71,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 小标题 - 用于列表项标题
-     * 16sp, Medium
-     */
     val titleSmall = TextStyle(
         fontSize = 16.sp,
         fontWeight = FontWeight.Medium,
@@ -85,12 +82,6 @@ object GlassTypography {
         )
     )
     
-    // ============== 正文样式 ==============
-    
-    /**
-     * 正文 - 主要内容文字
-     * 14sp, Normal
-     */
     val body = TextStyle(
         fontSize = 14.sp,
         fontWeight = FontWeight.Normal,
@@ -101,10 +92,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 正文（强调）- 重要的正文内容
-     * 14sp, Medium
-     */
     val bodyMedium = TextStyle(
         fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
@@ -115,10 +102,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 正文（大）- 对话内容等
-     * 16sp, Normal
-     */
     val bodyLarge = TextStyle(
         fontSize = 16.sp,
         fontWeight = FontWeight.Normal,
@@ -129,12 +112,6 @@ object GlassTypography {
         )
     )
     
-    // ============== 辅助样式 ==============
-    
-    /**
-     * 标签 - 用于分组标题、标签等
-     * 13sp, SemiBold, 带字间距
-     */
     val label = TextStyle(
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
@@ -146,10 +123,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 副标题/描述 - 用于次要信息
-     * 12sp, Normal, 稍透明
-     */
     val caption = TextStyle(
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal,
@@ -160,10 +133,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 小字 - 用于提示、时间戳等
-     * 11sp, Normal
-     */
     val small = TextStyle(
         fontSize = 11.sp,
         fontWeight = FontWeight.Normal,
@@ -174,10 +143,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 超小字 - 用于版本号等
-     * 10sp, Normal
-     */
     val tiny = TextStyle(
         fontSize = 10.sp,
         fontWeight = FontWeight.Normal,
@@ -188,12 +153,6 @@ object GlassTypography {
         )
     )
     
-    // ============== 按钮样式 ==============
-    
-    /**
-     * 按钮文字
-     * 15sp, Bold
-     */
     val button = TextStyle(
         fontSize = 15.sp,
         fontWeight = FontWeight.Bold,
@@ -204,10 +163,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 小按钮文字
-     * 13sp, Medium
-     */
     val buttonSmall = TextStyle(
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
@@ -218,12 +173,6 @@ object GlassTypography {
         )
     )
     
-    // ============== 导航栏样式 ==============
-    
-    /**
-     * 底部导航栏文字
-     * 10sp, 带阴影确保可见
-     */
     val navLabel = TextStyle(
         fontSize = 10.sp,
         fontWeight = FontWeight.Normal,
@@ -235,9 +184,6 @@ object GlassTypography {
         )
     )
     
-    /**
-     * 底部导航栏文字（选中状态）
-     */
     val navLabelSelected = TextStyle(
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
@@ -251,7 +197,118 @@ object GlassTypography {
 }
 
 /**
- * 工具函数：根据选中状态返回对应的导航栏样式
+ * 动态生成的字体样式集合
+ */
+data class GlassTextStyles(
+    val baseColor: Color,
+    val shadowColor: Color,
+    val shadowEnabled: Boolean
+) {
+    private fun shadow(alpha: Float, blurRadius: Float, offset: Offset = Offset.Zero): Shadow? {
+        return if (shadowEnabled) {
+            Shadow(color = shadowColor.copy(alpha = alpha), blurRadius = blurRadius, offset = offset)
+        } else null
+    }
+    
+    val displayLarge: TextStyle get() = TextStyle(
+        fontSize = 36.sp,
+        fontWeight = FontWeight.Bold,
+        color = baseColor,
+        shadow = shadow(0.6f, 12f, Offset(0f, 2f))
+    )
+    
+    val title: TextStyle get() = TextStyle(
+        fontSize = 32.sp,
+        fontWeight = FontWeight.Bold,
+        color = baseColor,
+        shadow = shadow(0.6f, 10f, Offset(0f, 2f))
+    )
+    
+    val titleMedium: TextStyle get() = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Medium,
+        color = baseColor,
+        shadow = shadow(0.5f, 6f, Offset(0f, 1f))
+    )
+    
+    val titleSmall: TextStyle get() = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Medium,
+        color = baseColor,
+        shadow = shadow(0.5f, 5f, Offset(0f, 1f))
+    )
+    
+    val body: TextStyle get() = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Normal,
+        color = baseColor,
+        shadow = shadow(0.5f, 4f)
+    )
+    
+    val bodyMedium: TextStyle get() = TextStyle(
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = baseColor,
+        shadow = shadow(0.5f, 4f)
+    )
+    
+    val bodyLarge: TextStyle get() = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Normal,
+        color = baseColor,
+        shadow = shadow(0.5f, 4f)
+    )
+    
+    val label: TextStyle get() = TextStyle(
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = baseColor.copy(alpha = 0.9f),
+        letterSpacing = 1.sp,
+        shadow = shadow(0.5f, 4f)
+    )
+    
+    val caption: TextStyle get() = TextStyle(
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Normal,
+        color = baseColor.copy(alpha = 0.8f),
+        shadow = shadow(0.4f, 3f)
+    )
+    
+    val small: TextStyle get() = TextStyle(
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Normal,
+        color = baseColor.copy(alpha = 0.7f),
+        shadow = shadow(0.4f, 3f)
+    )
+    
+    val button: TextStyle get() = TextStyle(
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = baseColor,
+        shadow = shadow(0.4f, 3f)
+    )
+    
+    fun navLabelStyle(isSelected: Boolean): TextStyle {
+        return if (isSelected) {
+            TextStyle(
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF007AFF),
+                shadow = shadow(0.4f, 4f, Offset(1f, 1f))
+            )
+        } else {
+            TextStyle(
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.Gray,
+                shadow = shadow(0.4f, 4f, Offset(1f, 1f))
+            )
+        }
+    }
+}
+
+/**
+ * 工具函数：根据选中状态返回对应的导航栏样式（向后兼容）
  */
 fun GlassTypography.navLabelStyle(isSelected: Boolean): TextStyle {
     return if (isSelected) navLabelSelected else navLabel.copy(color = Color.Gray)

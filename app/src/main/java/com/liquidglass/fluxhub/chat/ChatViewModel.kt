@@ -232,6 +232,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
+    // ========== 字体样式配置 ==========
+    var textColorMode by mutableStateOf("white") // white, black
+        private set
+    var textShadowEnabled by mutableStateOf(true)
+        private set
+    
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -322,12 +328,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
             }
+            // 加载字体样式配置
+            launch {
+                settingsRepository.textColorMode.collect { textColorMode = it }
+            }
+            launch {
+                settingsRepository.textShadowEnabled.collect { textShadowEnabled = it }
+            }
         }
     }
     
     fun updateHapticFeedbackEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setHapticFeedbackEnabled(enabled)
+        }
+    }
+    
+    fun updateTextColorMode(mode: String) {
+        viewModelScope.launch {
+            settingsRepository.setTextColorMode(mode)
+        }
+    }
+    
+    fun updateTextShadowEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setTextShadowEnabled(enabled)
         }
     }
     

@@ -34,6 +34,10 @@ class SettingsRepository(private val context: Context) {
         private val STREAM_ENABLED = booleanPreferencesKey("stream_enabled")
         private val CONTEXT_SIZE = intPreferencesKey("context_size")
         private val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
+        
+        // 字体样式配置
+        private val TEXT_COLOR_MODE = stringPreferencesKey("text_color_mode") // white, black
+        private val TEXT_SHADOW_ENABLED = booleanPreferencesKey("text_shadow_enabled")
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -193,6 +197,28 @@ class SettingsRepository(private val context: Context) {
     suspend fun setContextSize(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
+        }
+    }
+    
+    // ========== 字体样式配置 ==========
+    
+    val textColorMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_COLOR_MODE] ?: "white" // 默认白色字体
+    }
+    
+    val textShadowEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_SHADOW_ENABLED] ?: true // 默认开启阴影
+    }
+    
+    suspend fun setTextColorMode(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_COLOR_MODE] = value
+        }
+    }
+    
+    suspend fun setTextShadowEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_SHADOW_ENABLED] = value
         }
     }
 }
