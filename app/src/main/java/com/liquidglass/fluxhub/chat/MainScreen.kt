@@ -63,8 +63,6 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
 import com.liquidglass.fluxhub.ui.theme.GlassTypography
 import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
-import com.liquidglass.fluxhub.ui.theme.LocalGlassTextStyles
-import androidx.compose.runtime.CompositionLocalProvider
 
 @Composable
 fun MainScreen(
@@ -180,10 +178,8 @@ fun MainScreen(
             shadowEnabled = viewModel.textShadowEnabled
         )
         
-        // 使用 CompositionLocalProvider 提供动态字体样式
-        CompositionLocalProvider(LocalGlassTextStyles provides textStyles) {
-            // 内容区域
-            Box(modifier = Modifier.fillMaxSize()) {
+        // 内容区域
+        Box(modifier = Modifier.fillMaxSize()) {
             // 使用 WindowInsets 计算底部 Padding，实现与键盘的完美物理同步
             // 当键盘高度 < 80dp 时，Padding 补偿剩余高度
             // 当键盘高度 >= 80dp 时，Padding 为 0 (由内部 imePadding 接管)
@@ -457,7 +453,7 @@ fun MainScreen(
                 }
             )
         }
-    } // CompositionLocalProvider
+    }
 }
 
 @Composable
