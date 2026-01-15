@@ -61,6 +61,8 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 // MainScreen - 主界面入口
 @Composable
@@ -299,6 +301,12 @@ private fun AuthenticatedContent(
             )
         }
         
+        // 创建动态字体样式
+        val textStyles = GlassTextStyles.create(
+            colorMode = viewModel.textColorMode,
+            shadowEnabled = viewModel.textShadowEnabled
+        )
+        
         // 内容区域
         Box(modifier = Modifier.fillMaxSize()) {
             // 使用 WindowInsets 计算底部 Padding，实现与键盘的完美物理同步
@@ -472,6 +480,7 @@ private fun AuthenticatedContent(
                     },
                     backdrop = backdrop,
                     tabsCount = 3,
+                    glassColor = viewModel.glassColor,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Tab 0: Home
@@ -498,12 +507,7 @@ private fun AuthenticatedContent(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "首页",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 0)
                             )
                         }
                     }
@@ -532,12 +536,7 @@ private fun AuthenticatedContent(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "对话",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 1)
                             )
                         }
                     }
@@ -565,12 +564,7 @@ private fun AuthenticatedContent(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "设置",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 2)
                             )
                         }
                     }

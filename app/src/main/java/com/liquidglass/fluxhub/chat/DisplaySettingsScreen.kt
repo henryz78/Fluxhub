@@ -37,6 +37,7 @@ import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.components.LiquidSlider
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 @Composable
 fun DisplaySettingsScreen(
@@ -50,6 +51,12 @@ fun DisplaySettingsScreen(
     val wallpaperUri = viewModel.wallpaperUri
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
+    
+    // 动态字体样式
+    val textStyles = GlassTextStyles.create(
+        colorMode = viewModel.textColorMode,
+        shadowEnabled = viewModel.textShadowEnabled
+    )
     
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -90,12 +97,7 @@ fun DisplaySettingsScreen(
             
             Text(
                 "显示设置",
-                style = TextStyle(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-                )
+                style = textStyles.title.copy(fontSize = 24.sp)
             )
         }
         
@@ -198,6 +200,80 @@ fun DisplaySettingsScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+        
+        // Glass Color Config
+        Text(
+            "液态玻璃颜色",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    "选择毛玻璃色调",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                
+                // 颜色选项
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 默认（白色）
+                    ColorOption(
+                        color = Color.White,
+                        label = "默认",
+                        isSelected = viewModel.glassColor == "default",
+                        onClick = { viewModel.updateGlassColor("default") }
+                    )
+                    // 蓝色
+                    ColorOption(
+                        color = Color(0xFF007AFF),
+                        label = "蓝",
+                        isSelected = viewModel.glassColor == "007AFF",
+                        onClick = { viewModel.updateGlassColor("007AFF") }
+                    )
+                    // 紫色
+                    ColorOption(
+                        color = Color(0xFFAF52DE),
+                        label = "紫",
+                        isSelected = viewModel.glassColor == "AF52DE",
+                        onClick = { viewModel.updateGlassColor("AF52DE") }
+                    )
+                    // 绿色
+                    ColorOption(
+                        color = Color(0xFF34C759),
+                        label = "绿",
+                        isSelected = viewModel.glassColor == "34C759",
+                        onClick = { viewModel.updateGlassColor("34C759") }
+                    )
+                    // 橙色
+                    ColorOption(
+                        color = Color(0xFFFF9500),
+                        label = "橙",
+                        isSelected = viewModel.glassColor == "FF9500",
+                        onClick = { viewModel.updateGlassColor("FF9500") }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
 
         // Interaction Config
         Text(
@@ -251,6 +327,135 @@ fun DisplaySettingsScreen(
                 )
             }
         }
+        
+        Spacer(Modifier.height(24.dp))
+        
+        // Text Style Config
+        Text(
+            "字体样式",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Column {
+                // 字体颜色选择
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "字体颜色",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "根据壁纸选择合适的文字颜色",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 白色按钮
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .border(
+                                    width = if (viewModel.textColorMode == "white") 3.dp else 1.dp,
+                                    color = if (viewModel.textColorMode == "white") Color(0xFF007AFF) else Color.Black.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                                .clickable { viewModel.updateTextColorMode("white") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (viewModel.textColorMode == "white") {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        
+                        // 黑色按钮
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                                .border(
+                                    width = if (viewModel.textColorMode == "black") 3.dp else 1.dp,
+                                    color = if (viewModel.textColorMode == "black") Color(0xFF007AFF) else Color.White.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                                .clickable { viewModel.updateTextColorMode("black") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (viewModel.textColorMode == "black") {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // 阴影开关
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "文字阴影",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "增强文字在复杂背景下的可读性",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                    
+                    com.liquidglass.fluxhub.components.LiquidToggle(
+                        selected = { viewModel.textShadowEnabled },
+                        onSelect = { viewModel.updateTextShadowEnabled(it) },
+                        backdrop = backdrop
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -293,5 +498,45 @@ private fun PresetWallpaperItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ColorOption(
+    color: Color,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(color)
+                .border(
+                    width = if (isSelected) 3.dp else 1.dp,
+                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.3f),
+                    shape = CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "已选择",
+                    tint = if (color == Color.White) Color.Black else Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f))
+        )
     }
 }

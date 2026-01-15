@@ -33,6 +33,8 @@ import com.liquidglass.fluxhub.data.Personas
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 /**
  * 首页 - 增强版
@@ -46,6 +48,12 @@ fun HomeScreen(
     onQuickPrompt: (String) -> Unit = { },
     viewModel: ChatViewModel = viewModel()
 ) {
+    // 动态字体样式
+    val textStyles = GlassTextStyles.create(
+        colorMode = viewModel.textColorMode,
+        shadowEnabled = viewModel.textShadowEnabled
+    )
+    
     // 最近对话
     val recentConversations = viewModel.conversations.take(5)
     
@@ -87,33 +95,17 @@ fun HomeScreen(
                     // 日期小标题
                     BasicText(
                         text = dateString.uppercase(),
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.6f),
-                            letterSpacing = 1.sp,
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
-                        )
+                        style = textStyles.label
                     )
                     Spacer(Modifier.height(8.dp))
                     // 大标题问候
                     BasicText(
                         text = greeting,
-                        style = TextStyle(
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 8f, offset = Offset(0f, 4f))
-                        )
+                        style = textStyles.displayLarge
                     )
                     BasicText(
                         text = "准备好开始新的对话了吗？",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.8f),
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
-                        ),
+                        style = textStyles.bodyLarge.copy(color = textStyles.baseColor.copy(alpha = 0.8f)),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -265,35 +257,36 @@ fun HomeScreen(
                                     }
                                 )
                                 .clickable { showStatsDialog = true }
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = "今日统计",
                                         style = TextStyle(
                                             color = Color.White,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     )
                                     Text(
-                                        text = "今日 $todayConversations 次 · 共 $totalConversations",
+                                        text = "今日$todayConversations · 共$totalConversations",
                                         style = TextStyle(
                                             color = Color.White.copy(alpha = 0.8f),
-                                            fontSize = 10.sp
-                                        )
+                                            fontSize = 9.sp
+                                        ),
+                                        maxLines = 1
                                     )
                                 }
                                 Icon(
                                     Lucide.Zap,
                                     null,
                                     tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -701,7 +694,7 @@ private fun QuickActionCard(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle(20.dp) },
+                shape = { ContinuousRoundedRectangle(16.dp) },
                 effects = {
                     vibrancy()
                     blur(8.dp.toPx())
@@ -711,34 +704,37 @@ private fun QuickActionCard(
                 }
             )
             .clickable(onClick = onClick)
-            .padding(16.dp)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Column(
+        // 水平布局：图标在左，文字在右
+        Row(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
         ) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = title,
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            )
-            if (subtitle != null) {
-                Spacer(Modifier.height(2.dp))
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = subtitle,
+                    text = title,
                     style = TextStyle(
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 10.sp
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1
                 )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = TextStyle(
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 9.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -759,12 +755,7 @@ private fun PaddingLabel(text: String, icon: androidx.compose.ui.graphics.vector
         Spacer(Modifier.width(8.dp))
         BasicText(
             text = text,
-            style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.9f),
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-            )
+            style = GlassTypography.bodyMedium
         )
     }
 }

@@ -39,6 +39,13 @@ class SettingsRepository(private val context: Context) {
         private val USER_ID = stringPreferencesKey("user_id")
         private val USERNAME = stringPreferencesKey("username")
         private val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
+        
+        // 字体样式配置
+        private val TEXT_COLOR_MODE = stringPreferencesKey("text_color_mode") // white, black
+        private val TEXT_SHADOW_ENABLED = booleanPreferencesKey("text_shadow_enabled")
+        
+        // 液态玻璃颜色
+        private val GLASS_COLOR = stringPreferencesKey("glass_color") // hex color or "default"
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -73,6 +80,7 @@ class SettingsRepository(private val context: Context) {
         preferences[GLASS_BLUR] ?: 16f
     }
     
+<<<<<<< HEAD
     // 用户认证存储
     val authToken: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[AUTH_TOKEN]
@@ -84,6 +92,10 @@ class SettingsRepository(private val context: Context) {
     
     val username: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[USERNAME]
+=======
+    val glassColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_COLOR] ?: "default" // default = 白色半透明
+>>>>>>> main
     }
     
     suspend fun setApiKey(value: String) {
@@ -139,6 +151,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGlassBlur(value: Float) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_BLUR] = value
+        }
+    }
+    
+    suspend fun setGlassColor(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASS_COLOR] = value
         }
     }
 
@@ -229,6 +247,28 @@ class SettingsRepository(private val context: Context) {
     suspend fun setContextSize(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
+        }
+    }
+    
+    // ========== 字体样式配置 ==========
+    
+    val textColorMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_COLOR_MODE] ?: "white" // 默认白色字体
+    }
+    
+    val textShadowEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_SHADOW_ENABLED] ?: true // 默认开启阴影
+    }
+    
+    suspend fun setTextColorMode(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_COLOR_MODE] = value
+        }
+    }
+    
+    suspend fun setTextShadowEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_SHADOW_ENABLED] = value
         }
     }
 }
