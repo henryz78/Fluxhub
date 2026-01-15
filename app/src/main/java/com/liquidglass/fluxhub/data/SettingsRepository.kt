@@ -80,7 +80,10 @@ class SettingsRepository(private val context: Context) {
         preferences[GLASS_BLUR] ?: 16f
     }
     
-<<<<<<< HEAD
+    val glassColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_COLOR] ?: "default" // default = 白色半透明
+    }
+    
     // 用户认证存储
     val authToken: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[AUTH_TOKEN]
@@ -92,10 +95,6 @@ class SettingsRepository(private val context: Context) {
     
     val username: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[USERNAME]
-=======
-    val glassColor: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[GLASS_COLOR] ?: "default" // default = 白色半透明
->>>>>>> main
     }
     
     suspend fun setApiKey(value: String) {

@@ -263,16 +263,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
-<<<<<<< HEAD
-=======
     // ========== 字体样式配置 ==========
     var textColorMode by mutableStateOf("white") // white, black
         private set
     var textShadowEnabled by mutableStateOf(true)
         private set
-    
-
->>>>>>> main
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
