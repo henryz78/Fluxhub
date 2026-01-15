@@ -33,7 +33,8 @@ import com.liquidglass.fluxhub.data.Personas
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.liquidglass.fluxhub.ui.theme.LocalGlassTextStyles\r\nimport com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.LocalGlassTextStyles
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
 
 /**
  * 首页 - 增强版
