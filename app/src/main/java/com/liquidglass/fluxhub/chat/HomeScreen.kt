@@ -33,7 +33,7 @@ import com.liquidglass.fluxhub.data.Personas
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.LocalGlassTextStyles
 
 /**
  * 首页 - 增强版
@@ -86,19 +86,20 @@ fun HomeScreen(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     // 日期小标题
+                    val textStyles = LocalGlassTextStyles.current
                     BasicText(
                         text = dateString.uppercase(),
-                        style = GlassTypography.label
+                        style = textStyles.label
                     )
                     Spacer(Modifier.height(8.dp))
                     // 大标题问候
                     BasicText(
                         text = greeting,
-                        style = GlassTypography.displayLarge
+                        style = textStyles.displayLarge
                     )
                     BasicText(
                         text = "准备好开始新的对话了吗？",
-                        style = GlassTypography.bodyLarge.copy(color = Color.White.copy(alpha = 0.8f)),
+                        style = textStyles.bodyLarge.copy(color = textStyles.baseColor.copy(alpha = 0.8f)),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
