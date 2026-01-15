@@ -33,6 +33,7 @@ import com.liquidglass.fluxhub.data.Personas
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
 
 /**
  * 首页 - 增强版
@@ -87,33 +88,17 @@ fun HomeScreen(
                     // 日期小标题
                     BasicText(
                         text = dateString.uppercase(),
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.6f),
-                            letterSpacing = 1.sp,
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 2f)
-                        )
+                        style = GlassTypography.label
                     )
                     Spacer(Modifier.height(8.dp))
                     // 大标题问候
                     BasicText(
                         text = greeting,
-                        style = TextStyle(
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 8f, offset = Offset(0f, 4f))
-                        )
+                        style = GlassTypography.displayLarge
                     )
                     BasicText(
                         text = "准备好开始新的对话了吗？",
-                        style = TextStyle(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.8f),
-                            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
-                        ),
+                        style = GlassTypography.bodyLarge.copy(color = Color.White.copy(alpha = 0.8f)),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -759,12 +744,7 @@ private fun PaddingLabel(text: String, icon: androidx.compose.ui.graphics.vector
         Spacer(Modifier.width(8.dp))
         BasicText(
             text = text,
-            style = TextStyle(
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.9f),
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-            )
+            style = GlassTypography.bodyMedium
         )
     }
 }

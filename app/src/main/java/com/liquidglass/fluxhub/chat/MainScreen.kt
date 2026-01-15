@@ -61,6 +61,8 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.navLabelStyle
 
 @Composable
 fun MainScreen(
@@ -369,12 +371,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "首页",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = GlassTypography.navLabelStyle(selectedTab == 0)
                             )
                         }
                     }
@@ -403,12 +400,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "对话",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = GlassTypography.navLabelStyle(selectedTab == 1)
                             )
                         }
                     }
@@ -436,12 +428,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "设置",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = GlassTypography.navLabelStyle(selectedTab == 2)
                             )
                         }
                     }

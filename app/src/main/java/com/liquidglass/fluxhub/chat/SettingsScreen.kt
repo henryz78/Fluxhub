@@ -27,6 +27,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
 
 /**
  * 设置主页面 - 分类入口 (重构版)
@@ -242,12 +243,7 @@ fun SettingsScreen(
 private fun SettingsTitle(text: String) {
     Text(
         text = text,
-        style = TextStyle(
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 8f)
-        )
+        style = GlassTypography.title
     )
 }
 
@@ -261,13 +257,7 @@ private fun SettingsGroup(
     ) {
         Text(
             text = title.uppercase(),
-            style = TextStyle(
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White.copy(alpha = 0.9f),
-                letterSpacing = 1.sp,
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
-            ),
+            style = GlassTypography.label,
             modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
         )
         content()
