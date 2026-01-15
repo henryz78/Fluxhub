@@ -351,6 +351,7 @@ fun MainScreen(
                     },
                     backdrop = backdrop,
                     tabsCount = 3,
+                    glassColor = viewModel.glassColor,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Tab 0: Home
