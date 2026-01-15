@@ -28,6 +28,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
 import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 /**
  * 设置主页面 - 分类入口 (重构版)
@@ -46,6 +47,12 @@ fun SettingsScreen(
 ) {
     val glassOpacity = viewModel.glassOpacity
     val glassBlur = viewModel.glassBlur
+    
+    // 动态字体样式
+    val textStyles = GlassTextStyles.create(
+        colorMode = viewModel.textColorMode,
+        shadowEnabled = viewModel.textShadowEnabled
+    )
     
     // About Dialog State
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -160,11 +167,11 @@ fun SettingsScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = Color.White)
                 }
                 Spacer(Modifier.width(16.dp))
-                SettingsTitle("设置")
+                SettingsTitle("设置", textStyles)
             }
         } else {
              Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
-                 SettingsTitle("设置")
+                 SettingsTitle("设置", textStyles)
              }
         }
         
@@ -176,7 +183,7 @@ fun SettingsScreen(
         ) {
             // Group 1: AI Config
             item {
-                SettingsGroup(title = "智能配置") {
+                SettingsGroup(title = "智能配置", textStyles = textStyles) {
                     SettingsCategoryItem(
                         icon = Lucide.User,
                         iconColor = Color.White,
@@ -204,7 +211,7 @@ fun SettingsScreen(
             
             // Group 2: Appearance
             item {
-                SettingsGroup(title = "个性化") {
+                SettingsGroup(title = "个性化", textStyles = textStyles) {
                     SettingsCategoryItem(
                         icon = Lucide.Palette,
                         iconColor = Color.White,
@@ -221,7 +228,7 @@ fun SettingsScreen(
 
             // Group 3: About
             item {
-                SettingsGroup(title = "其他") {
+                SettingsGroup(title = "其他", textStyles = textStyles) {
                     SettingsCategoryItem(
                         icon = Lucide.Info,
                         iconColor = Color.White,
@@ -240,16 +247,17 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsTitle(text: String) {
+private fun SettingsTitle(text: String, textStyles: GlassTextStyles) {
     Text(
         text = text,
-        style = GlassTypography.title
+        style = textStyles.title
     )
 }
 
 @Composable
 private fun SettingsGroup(
     title: String,
+    textStyles: GlassTextStyles,
     content: @Composable () -> Unit
 ) {
     Column(
@@ -257,7 +265,7 @@ private fun SettingsGroup(
     ) {
         Text(
             text = title.uppercase(),
-            style = GlassTypography.label,
+            style = textStyles.label,
             modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
         )
         content()
