@@ -95,7 +95,7 @@ fun SettingsScreen(
                             )
                         )
                         Text(
-                            "v1.0.4 · Liquid Glass",
+                            "v1.0.5 · Liquid Glass",
                             fontSize = 13.sp,
                             color = Color.White.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Medium
@@ -264,9 +264,9 @@ private fun SettingsGroup(
             style = TextStyle(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White.copy(alpha = 0.5f),
+                color = Color.White.copy(alpha = 0.9f),
                 letterSpacing = 1.sp,
-                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 2f)
+                shadow = Shadow(color = Color.Black.copy(alpha = 0.5f), blurRadius = 4f)
             ),
             modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
         )
