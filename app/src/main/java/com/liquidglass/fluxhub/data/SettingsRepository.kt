@@ -38,6 +38,9 @@ class SettingsRepository(private val context: Context) {
         // 字体样式配置
         private val TEXT_COLOR_MODE = stringPreferencesKey("text_color_mode") // white, black
         private val TEXT_SHADOW_ENABLED = booleanPreferencesKey("text_shadow_enabled")
+        
+        // 液态玻璃颜色
+        private val GLASS_COLOR = stringPreferencesKey("glass_color") // hex color or "default"
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -70,6 +73,10 @@ class SettingsRepository(private val context: Context) {
 
     val glassBlur: Flow<Float> = context.dataStore.data.map { preferences ->
         preferences[GLASS_BLUR] ?: 16f
+    }
+    
+    val glassColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_COLOR] ?: "default" // default = 白色半透明
     }
     
     suspend fun setApiKey(value: String) {
@@ -125,6 +132,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGlassBlur(value: Float) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_BLUR] = value
+        }
+    }
+    
+    suspend fun setGlassColor(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASS_COLOR] = value
         }
     }
 

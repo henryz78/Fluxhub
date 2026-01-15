@@ -200,6 +200,80 @@ fun DisplaySettingsScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+        
+        // Glass Color Config
+        Text(
+            "液态玻璃颜色",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
+        )
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousRoundedRectangle(16.dp) },
+                    effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                    onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity)) }
+                )
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    "选择毛玻璃色调",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                
+                // 颜色选项
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // 默认（白色）
+                    ColorOption(
+                        color = Color.White,
+                        label = "默认",
+                        isSelected = viewModel.glassColor == "default",
+                        onClick = { viewModel.updateGlassColor("default") }
+                    )
+                    // 蓝色
+                    ColorOption(
+                        color = Color(0xFF007AFF),
+                        label = "蓝",
+                        isSelected = viewModel.glassColor == "007AFF",
+                        onClick = { viewModel.updateGlassColor("007AFF") }
+                    )
+                    // 紫色
+                    ColorOption(
+                        color = Color(0xFFAF52DE),
+                        label = "紫",
+                        isSelected = viewModel.glassColor == "AF52DE",
+                        onClick = { viewModel.updateGlassColor("AF52DE") }
+                    )
+                    // 绿色
+                    ColorOption(
+                        color = Color(0xFF34C759),
+                        label = "绿",
+                        isSelected = viewModel.glassColor == "34C759",
+                        onClick = { viewModel.updateGlassColor("34C759") }
+                    )
+                    // 橙色
+                    ColorOption(
+                        color = Color(0xFFFF9500),
+                        label = "橙",
+                        isSelected = viewModel.glassColor == "FF9500",
+                        onClick = { viewModel.updateGlassColor("FF9500") }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
 
         // Interaction Config
         Text(
@@ -424,5 +498,45 @@ private fun PresetWallpaperItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ColorOption(
+    color: Color,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(color)
+                .border(
+                    width = if (isSelected) 3.dp else 1.dp,
+                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.3f),
+                    shape = CircleShape
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "已选择",
+                    tint = if (color == Color.White) Color.Black else Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            style = TextStyle(fontSize = 10.sp, color = Color.White.copy(alpha = 0.7f))
+        )
     }
 }

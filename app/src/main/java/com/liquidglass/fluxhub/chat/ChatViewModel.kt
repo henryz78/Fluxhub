@@ -196,6 +196,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var glassBlur by mutableStateOf(16f)
         private set
     
+    var glassColor by mutableStateOf("default") // default, 或十六进制颜色如 "FF007AFF"
+        private set
+    
     // 当前助手
     var currentAssistant by mutableStateOf<AssistantEntity?>(null)
         private set
@@ -307,6 +310,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 settingsRepository.glassBlur.collect { glassBlur = it }
             }
             launch {
+                settingsRepository.glassColor.collect { glassColor = it }
+            }
+            launch {
                 settingsRepository.agreementAccepted.collect { agreementAccepted = it }
             }
             // 加载工具箱配置项
@@ -353,6 +359,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun updateTextShadowEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setTextShadowEnabled(enabled)
+        }
+    }
+    
+    fun updateGlassColor(color: String) {
+        viewModelScope.launch {
+            settingsRepository.setGlassColor(color)
         }
     }
     
