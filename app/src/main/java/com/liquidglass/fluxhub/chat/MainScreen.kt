@@ -62,8 +62,7 @@ import com.kyant.backdrop.effects.blur
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
 import com.liquidglass.fluxhub.ui.theme.GlassTypography
-import com.liquidglass.fluxhub.ui.theme.LocalGlassTextStyles
-import com.liquidglass.fluxhub.ui.theme.ProvideGlassTextStyles
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 @Composable
 fun MainScreen(
@@ -173,13 +172,14 @@ fun MainScreen(
             )
         }
         
-        // 包裹动态字体样式提供器
-        ProvideGlassTextStyles(
+        // 创建动态字体样式
+        val textStyles = GlassTextStyles.create(
             colorMode = viewModel.textColorMode,
             shadowEnabled = viewModel.textShadowEnabled
-        ) {
-            // 内容区域
-            Box(modifier = Modifier.fillMaxSize()) {
+        )
+        
+        // 内容区域
+        Box(modifier = Modifier.fillMaxSize()) {
             // 使用 WindowInsets 计算底部 Padding，实现与键盘的完美物理同步
             // 当键盘高度 < 80dp 时，Padding 补偿剩余高度
             // 当键盘高度 >= 80dp 时，Padding 为 0 (由内部 imePadding 接管)
