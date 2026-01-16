@@ -209,26 +209,62 @@ fun MainScreen(
             }
             is AuthState.Blocked -> {
                 // 显示被封禁界面
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    // 壁纸背景
+                    if (backgroundBitmap != null) {
+                        Image(
+                            bitmap = backgroundBitmap.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .layerBackdrop(backdrop)
+                                .fillMaxSize()
+                        )
+                    }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(32.dp)
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp)
                     ) {
                         androidx.compose.material3.Text("⛔", fontSize = 64.sp)
                         Spacer(Modifier.height(16.dp))
                         androidx.compose.material3.Text(
                             targetState.message,
                             color = Color.White,
-                            fontSize = 18.sp
+                            fontSize = 18.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        Spacer(Modifier.height(24.dp))
-                        androidx.compose.material3.TextButton(
-                            onClick = { viewModel.logout() }
+                        Spacer(Modifier.height(8.dp))
+                        androidx.compose.material3.Text(
+                            "请联系管理员解决",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(Modifier.height(32.dp))
+                        // 刷新按钮（液态玻璃样式）
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .backdrop(backdrop)
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .clickable { viewModel.checkAuth() }
+                                .padding(horizontal = 32.dp, vertical = 14.dp)
                         ) {
-                            androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30))
+                            androidx.compose.material3.Text("刷新状态", color = Color.White, fontSize = 16.sp)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        // 切换账号按钮（液态玻璃样式）
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .backdrop(backdrop)
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .clickable { viewModel.logout() }
+                                .padding(horizontal = 32.dp, vertical = 14.dp)
+                        ) {
+                            androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30), fontSize = 16.sp)
                         }
                     }
                 }

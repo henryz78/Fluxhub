@@ -523,12 +523,19 @@ fun ExpiredScreen(
             
             Spacer(Modifier.height(24.dp))
             
-            // 退出登录
-            TextButton(onClick = onLogout) {
+            // 退出登录（液态玻璃样式）
+            LiquidButton(
+                onClick = onLogout,
+                backdrop = backdrop,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                isInteractive = true,
+                tint = Color(0xFFFF3B30)
+            ) {
                 Text(
                     "切换账号",
-                    color = Color(0xFFFF3B30),
-                    fontSize = 14.sp
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
