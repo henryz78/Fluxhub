@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
+import com.liquidglass.fluxhub.data.DataRepository
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.AssistantEntity
 import com.liquidglass.fluxhub.data.ProviderEntity
@@ -137,8 +138,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val assistantDao = database.assistantDao()
     private val providerDao = database.providerDao()
     private val settingsRepository = SettingsRepository(application)
+    private val dataRepository = DataRepository(application)
     
-    val messages = mutableStateListOf<UiMessage>()
+    // UI State
+    var messages = mutableStateListOf<UiMessage>()
     val availableModels = mutableStateListOf<String>()
     val assistants = mutableStateListOf<AssistantEntity>()
     val providers = mutableStateListOf<ProviderEntity>()
@@ -158,6 +161,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
+    var defaultModel by mutableStateOf("") // 全局默认模型
     
     // 请求参数 (现在从当前助手读取)
     var temperature by mutableStateOf(0.7f)
@@ -290,7 +294,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startConversationsCollection()
         startAssistantsCollection()
         startProvidersCollection()
-        loadOrCreateConversation()
+        // 应用启动时总是创建新对话，避免加载历史消息导致的切换卡顿
+        // 用户仍可通过侧边栏切换到历史对话
+        createNewConversation()
         checkAuth()
     }
     
@@ -509,6 +515,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 wallpaperUri = settingsRepository.wallpaperUri.first()
                 agreementAccepted = settingsRepository.agreementAccepted.first()
+                defaultModel = settingsRepository.defaultModel.first() // 预加载默认模型
                 isSettingsInitialized = true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to preload settings", e)
@@ -535,6 +542,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             launch {
                 settingsRepository.model.collect { model = it }
+            }
+            launch {
+                settingsRepository.defaultModel.collect { defaultModel = it }
             }
             launch {
                 settingsRepository.themeMode.collect { themeMode = it }
@@ -604,6 +614,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun updateGlassColor(color: String) {
         viewModelScope.launch {
             settingsRepository.setGlassColor(color)
+        }
+    }
+    
+    fun updateDefaultModel(value: String) {
+        defaultModel = value
+        viewModelScope.launch {
+            settingsRepository.setDefaultModel(value)
+        }
+    }
+    
+    fun updateGlassBlur(blur: Float) {
+        glassBlur = blur
+        viewModelScope.launch {
+            settingsRepository.setGlassBlur(blur)
+        }
+    }
+    
+    fun exportData(onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = dataRepository.exportData()
+                onResult(json)
+            } catch (e: Exception) {
+                onResult(null)
+            }
+        }
+    }
+    
+    fun importData(uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = dataRepository.importData(uri)
+            if (success) {
+                // 重新加载数据
+                currentConversationId?.let { switchConversation(it) }
+            }
+            onResult(success)
+        }
+    }
+    
+    fun updateGlassOpacity(opacity: Float) {
+        glassOpacity = opacity
+        viewModelScope.launch {
+            settingsRepository.setGlassOpacity(opacity)
         }
     }
     
@@ -754,6 +807,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentConversationId = newId
         currentConversationTitle = title
         messages.clear()
+        
+        // 应用默认模型 (如果有)
+        if (defaultModel.isNotBlank()) {
+            model = defaultModel
+        }
         
         // 标记为临时会话
         transientConversationIds.add(newId)
@@ -1359,19 +1417,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateGlassOpacity(value: Float) {
-        glassOpacity = value
-        viewModelScope.launch {
-            settingsRepository.setGlassOpacity(value)
-        }
-    }
+    
+    // ========== 工具箱配置项更新方法 ==========
 
-    fun updateGlassBlur(value: Float) {
-        glassBlur = value
-        viewModelScope.launch {
-            settingsRepository.setGlassBlur(value)
-        }
-    }
     
     // ========== 工具箱配置项更新方法 ==========
     
@@ -2011,22 +2059,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val errorDetail = "请求失败: $errorMsg"
                     showErrorMessage(errorDetail)
                     
-                    // 将错误信息写入气泡，而不是移除
+                    // 仅当消息为空时才显示错误占位符，否则保留已有内容
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
-                        messages[index] = messages[index].copy(
-                            content = "⚠️ $errorDetail",
-                            isStreaming = false
-                        )
+                        val currentMsg = messages[index]
+                        if (currentMsg.content.isBlank()) {
+                            messages[index] = currentMsg.copy(
+                                content = "⚠️ 加载失败", // 简单提示，详细看弹窗
+                                isStreaming = false
+                            )
+                        } else {
+                            messages[index] = currentMsg.copy(isStreaming = false)
+                        }
                     }
                 }
+
+
+                }
             }
-        }
-        
-                // 使用 EventSources 创建 SSE 连接
-                currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
-                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
-            } catch (e: Exception) {
+            
+            // 使用 EventSources 创建 SSE 连接
+            currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+            Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
+        } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 isLoading = false
                 val errorMsg = "初始化流式请求失败: ${e.message}"

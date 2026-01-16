@@ -124,7 +124,7 @@ fun HomeScreen(
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "v1.0.5",
+                        text = "v1.0.6",
                         style = TextStyle(
                             color = Color.White.copy(alpha = 0.8f),
                             fontSize = 12.sp,
@@ -578,7 +578,7 @@ fun HomeScreen(
                 ) {
                     Column {
                         Text(
-                            "版本更新 v1.0.5",
+                            "版本更新 v1.0.6",
                             style = TextStyle(
                                 color = Color.White,
                                 fontSize = 18.sp,
@@ -586,7 +586,7 @@ fun HomeScreen(
                             )
                         )
                         Text(
-                            "2026-01-13",
+                            "2026-01-16",
                             style = TextStyle(
                                 color = Color.White.copy(0.5f),
                                 fontSize = 12.sp
@@ -596,10 +596,10 @@ fun HomeScreen(
                     
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         val updates = listOf(
-                            "✨ 全新主页：随机一聊与数据仪表盘",
-                            "🎨 视觉升级：毛玻璃质感与动态背景",
-                            "💬 体验优化：聊天按钮尺寸与可见性调整",
-                            "⚡ 性能提升：列表滚动更流畅"
+                            "✨ 优化显示设置：移除模糊强度设置项",
+                            "🎨 增强气泡效果：液态玻璃视觉更明显",
+                            "⚡ 性能提升：启动时创建空白对话，减少切换卡顿",
+                            "🔧 界面优化：更新底部栏毛玻璃色调设置标签"
                         )
                         updates.forEach { update ->
                             Row(verticalAlignment = Alignment.Top) {

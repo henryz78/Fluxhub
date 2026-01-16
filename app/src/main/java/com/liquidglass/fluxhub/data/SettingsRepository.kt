@@ -20,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         private val API_KEY = stringPreferencesKey("api_key")
         private val BASE_URL = stringPreferencesKey("base_url")
         private val MODEL = stringPreferencesKey("model")
+        private val DEFAULT_MODEL = stringPreferencesKey("default_model")
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
         private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
@@ -58,6 +59,10 @@ class SettingsRepository(private val context: Context) {
     
     val model: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[MODEL] ?: ""
+    }
+    
+    val defaultModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_MODEL] ?: ""
     }
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -108,10 +113,15 @@ class SettingsRepository(private val context: Context) {
             preferences[BASE_URL] = value
         }
     }
-    
     suspend fun setModel(value: String) {
         context.dataStore.edit { preferences ->
             preferences[MODEL] = value
+        }
+    }
+    
+    suspend fun setDefaultModel(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_MODEL] = value
         }
     }
     
@@ -152,12 +162,13 @@ class SettingsRepository(private val context: Context) {
             preferences[GLASS_BLUR] = value
         }
     }
-    
+
     suspend fun setGlassColor(value: String) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_COLOR] = value
         }
     }
+
 
     val agreementAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[AGREEMENT_ACCEPTED] ?: false

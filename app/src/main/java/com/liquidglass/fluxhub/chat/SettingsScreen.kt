@@ -21,6 +21,13 @@ import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Zap
+import com.composables.icons.lucide.Save
+import com.composables.icons.lucide.Check
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -54,95 +61,42 @@ fun SettingsScreen(
         shadowEnabled = viewModel.textShadowEnabled
     )
     
-    // About Dialog State
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showModelDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
     
-    // About Dialog
-    if (showAboutDialog) {
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showAboutDialog = false }
-        ) {
-            Box(
-                modifier = Modifier
-                    .drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { ContinuousRoundedRectangle(24.dp) },
-                        effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
-                        onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity + 0.1f)) }
-                    )
-                    .padding(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Logo 区域
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .drawBackdrop(
-                                backdrop = backdrop,
-                                shape = { ContinuousRoundedRectangle(20.dp) },
-                                effects = { vibrancy(); blur(20.dp.toPx()) },
-                                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.2f)) }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("💎", fontSize = 42.sp)
-                    }
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "FluxHub",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            style = TextStyle(
-                                shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
-                            )
-                        )
-                        Text(
-                            "v1.0.5 · Liquid Glass",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
-                    
-                    Text(
-                        "一款基于 Liquid Glass 设计语言的 AI 聊天应用，为您带来沉浸式的对话体验。",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        style = TextStyle(lineHeight = 20.sp)
-                    )
-                    
-                    Spacer(Modifier.height(8.dp))
-                    
-                    LiquidButton(
-                        onClick = { showAboutDialog = false },
-                        backdrop = backdrop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = { ContinuousRoundedRectangle(16.dp) },
-                        isInteractive = true,
-                        tint = Color(0xFF007AFF)
-                    ) {
-                        Text(
-                            "关闭",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+    // 备份相关 Launcher
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    fun saveToFile(uri: android.net.Uri, content: String) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { 
+                it.write(content.toByteArray()) 
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { 
+             viewModel.exportData { json ->
+                 if (json != null) {
+                     saveToFile(it, json)
+                 }
+             }
         }
     }
     
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.importData(it) { success -> /* Toast? */ } }
+    }
+    
+    // Main Content
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -203,13 +157,39 @@ fun SettingsScreen(
                         subtitle = "配置 API Key 与模型端点",
                         badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
                         backdrop = backdrop,
-                        isLast = true,
                         onClick = onNavigateToProviders
+                    )
+                    SettingsCategoryItem(
+                        icon = Lucide.Zap,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFFFF2D55), // Pink
+                        title = "默认模型",
+                        subtitle = if (viewModel.defaultModel.isNotBlank()) viewModel.defaultModel else "使用当前配置",
+                        backdrop = backdrop,
+                        isLast = true,
+                        onClick = { showModelDialog = true }
                     )
                 }
             }
             
-            // Group 2: Appearance
+            // Group 2: Data & Storage
+            item {
+                SettingsGroup(title = "数据与存储", textStyles = textStyles) {
+                    SettingsCategoryItem(
+                        icon = Lucide.Save,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFF5856D6), // Indigo
+                        title = "数据备份与恢复",
+                        subtitle = "导出或导入聊天记录",
+                        backdrop = backdrop,
+                        isFirst = true,
+                        isLast = true,
+                        onClick = { showBackupDialog = true }
+                    )
+                }
+            }
+            
+            // Group 3: Appearance
             item {
                 SettingsGroup(title = "个性化", textStyles = textStyles) {
                     SettingsCategoryItem(
@@ -226,7 +206,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Group 3: About
+            // Group 4: About
             item {
                 SettingsGroup(title = "其他", textStyles = textStyles) {
                     SettingsCategoryItem(
@@ -240,6 +220,202 @@ fun SettingsScreen(
                         isLast = true,
                         onClick = { showAboutDialog = true }
                     )
+                }
+            }
+        }
+    }
+    
+    // Dialogs (Overlays)
+    
+    // About Dialog
+    if (showAboutDialog) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showAboutDialog = false }
+        ) {
+            Box(
+                modifier = Modifier
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(24.dp) },
+                        effects = { vibrancy(); blur(glassBlur.dp.toPx()) },
+                        onDrawSurface = { drawRect(Color.White.copy(alpha = glassOpacity + 0.1f)) }
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Logo 区域
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { ContinuousRoundedRectangle(20.dp) },
+                                effects = { vibrancy(); blur(20.dp.toPx()) },
+                                onDrawSurface = { drawRect(Color.White.copy(alpha = 0.2f)) }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("💎", fontSize = 42.sp)
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "FluxHub",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            style = TextStyle(
+                                shadow = Shadow(color = Color.Black.copy(alpha = 0.3f), blurRadius = 4f)
+                            )
+                        )
+                        Text(
+                            "v1.0.6 · Liquid Glass",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    
+                    Text(
+                        "一款基于 Liquid Glass 设计语言的 AI 聊天应用，为您带来沉浸式的对话体验。",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.8f),
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        style = TextStyle(lineHeight = 20.sp)
+                    )
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    LiquidButton(
+                        onClick = { showAboutDialog = false },
+                        backdrop = backdrop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = { ContinuousRoundedRectangle(16.dp) },
+                        isInteractive = true,
+                        tint = Color(0xFF007AFF)
+                    ) {
+                        Text(
+                            "关闭",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    // Model Selection Dialog
+    if (showModelDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showModelDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(24.dp) },
+                        effects = { vibrancy(); blur(16.dp.toPx()) },
+                        onDrawSurface = { drawRect(Color.White.copy(0.1f)) }
+                    )
+                    .padding(24.dp)
+            ) {
+                Column {
+                    Text("默认模型", style = textStyles.titleMedium, color = Color.White)
+                    Spacer(Modifier.height(16.dp))
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(viewModel.availableModels.size) { index ->
+                            val model = viewModel.availableModels[index]
+                            val isSelected = model == viewModel.defaultModel
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { 
+                                        viewModel.updateDefaultModel(model)
+                                        showModelDialog = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(model, color = Color.White, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                if (isSelected) Icon(Lucide.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                            HorizontalDivider(color = Color.White.copy(0.1f))
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    LiquidButton(onClick = { showModelDialog = false }, backdrop = backdrop, modifier = Modifier.fillMaxWidth().height(48.dp), isInteractive = true) {
+                        Text("关闭", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Backup Dialog
+    if (showBackupDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showBackupDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousRoundedRectangle(24.dp) },
+                        effects = { vibrancy(); blur(16.dp.toPx()) },
+                        onDrawSurface = { drawRect(Color.White.copy(0.1f)) }
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("数据备份", style = textStyles.titleMedium, color = Color.White)
+                    Spacer(Modifier.height(8.dp))
+                    Text("备份或恢复所有聊天记录和设置。", style = textStyles.bodyMedium, color = Color.White.copy(0.7f))
+                    Spacer(Modifier.height(24.dp))
+                    
+                    LiquidButton(
+                        onClick = { 
+                            createDocumentLauncher.launch("fluxhub_backup_${System.currentTimeMillis()}.json")
+                            showBackupDialog = false
+                        }, 
+                        backdrop = backdrop, 
+                        modifier = Modifier.fillMaxWidth().height(48.dp), 
+                        isInteractive = true,
+                        tint = Color(0xFF34C759)
+                    ) {
+                        Icon(Lucide.Save, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("导出备份", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Spacer(Modifier.height(16.dp))
+                    
+                    LiquidButton(
+                        onClick = { 
+                            importLauncher.launch("application/json")
+                            showBackupDialog = false
+                        }, 
+                        backdrop = backdrop, 
+                        modifier = Modifier.fillMaxWidth().height(48.dp), 
+                        isInteractive = true,
+                        tint = Color(0xFF007AFF)
+                    ) {
+                        Icon(Lucide.Zap, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("导入恢复", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Spacer(Modifier.height(16.dp))
+                    Text("导入将覆盖现有数据", style = textStyles.caption, color = Color.White.copy(0.4f))
                 }
             }
         }

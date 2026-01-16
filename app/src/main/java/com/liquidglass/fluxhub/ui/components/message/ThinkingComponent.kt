@@ -2,17 +2,24 @@ package com.liquidglass.fluxhub.ui.components.message
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,17 +71,21 @@ fun ThinkingComponent(
         }
     }
     
-    // Shimmer 动画
-    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
-    val shimmerAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmer_alpha"
-    )
+    // Shimmer 动画 (仅在思考时运行)
+    val shimmerAlpha = if (isThinking) {
+        val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+        infiniteTransition.animateFloat(
+            initialValue = 0.4f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(800, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "shimmer_alpha"
+        ).value
+    } else {
+        0.6f
+    }
     
     // 格式化时长
     val durationText = remember(duration) {
@@ -88,19 +99,16 @@ fun ThinkingComponent(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { RoundedCornerShape(16.dp) },
-                effects = {
-                    vibrancy()
-                    blur(2.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.08f))
-                }
+            .background(
+                color = Color(0xFFE3F2FD), // Light Blue
+                shape = RoundedCornerShape(16.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = Color(0xFF2196F3).copy(alpha = 0.3f), // Blue border
+                shape = RoundedCornerShape(16.dp)
             )
             .padding(12.dp)
-            // 移除 animateContentSize() 以减少卡顿
     ) {
         Row(
             modifier = Modifier
@@ -118,15 +126,15 @@ fun ThinkingComponent(
                     contentDescription = null,
                     modifier = Modifier
                         .size(14.dp)
-                        .alpha(if (isThinking) shimmerAlpha else 0.6f),
-                    tint = Color(0xFFFFD700)
+                        .alpha(shimmerAlpha),
+                    tint = Color(0xFF1976D2) // Dark Blue
                 )
                 
                 Text(
                     text = if (isThinking) "思考中..." else "已思考",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = if (isThinking) shimmerAlpha else 0.6f),
+                    color = Color.Black.copy(alpha = shimmerAlpha),
                     letterSpacing = 0.5.sp
                 )
                 
@@ -135,7 +143,7 @@ fun ThinkingComponent(
                         text = durationText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = if (isThinking) shimmerAlpha * 0.7f else 0.5f)
+                        color = Color.Black.copy(alpha = if (isThinking) shimmerAlpha * 0.7f else 0.5f)
                     )
                 }
             }
@@ -144,7 +152,7 @@ fun ThinkingComponent(
                 imageVector = if (expanded) Lucide.ChevronUp else Lucide.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 modifier = Modifier.size(14.dp),
-                tint = Color.White.copy(alpha = 0.4f)
+                tint = Color.Black.copy(alpha = 0.4f)
             )
         }
 
@@ -152,25 +160,42 @@ fun ThinkingComponent(
         if (expanded) {
             val scrollState = rememberScrollState()
             
-            // 自动滚动到底部 (当仍在思考/生成时)
+            // 内部自动滚动 (仅当 Thinking 在进行时)
             LaunchedEffect(content.length, isThinking) {
                 if (isThinking) {
                     scrollState.animateScrollTo(scrollState.maxValue)
                 }
             }
-
+            
+            // 阻止嵌套滚动传播到父容器 (LazyColumn)
+            val nestedScrollConnection = remember {
+                object : NestedScrollConnection {
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource
+                    ): Offset {
+                        // 消费所有剩余的滚动量，防止传播给父级
+                        return available
+                    }
+                }
+            }
+            
             Column {
                 Spacer(Modifier.height(10.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // 恢复最大高度限制，形成嵌套滚动
                         .heightIn(max = 240.dp)
+                        .nestedScroll(nestedScrollConnection)
                         .verticalScroll(scrollState)
+                        .graphicsLayer() // 开启硬件加速图层，优化滚动性能
                 ) {
                     MarkdownBlock(
                         content = content,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = Color(0xFF333333).copy(alpha = 0.8f),
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic

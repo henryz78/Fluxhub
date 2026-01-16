@@ -57,6 +57,8 @@ private suspend inline fun AwaitPointerEventScope.drag(
             return change
         }
         onDrag(change)
+        // 消费事件，阻止父级滚动
+        change.consume()
         pointer = change.id
     }
 }

@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -77,6 +79,7 @@ fun DisplaySettingsScreen(
             .statusBarsPadding()
             .padding(bottomPadding)
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         // Top Bar
         Row(
@@ -223,7 +226,7 @@ fun DisplaySettingsScreen(
         ) {
             Column {
                 Text(
-                    "选择毛玻璃色调",
+                    "选择底部栏的毛玻璃色调",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.7f)
                 )
@@ -270,6 +273,25 @@ fun DisplaySettingsScreen(
                         onClick = { viewModel.updateGlassColor("FF9500") }
                     )
                 }
+
+                Spacer(Modifier.height(24.dp))
+                
+                // 不透明度 (Opacity)
+                Text(
+                    "不透明度",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                
+                LiquidSlider(
+                    value = { glassOpacity },
+                    onValueChange = { viewModel.updateGlassOpacity(it) },
+                    valueRange = 0f..1f,
+                    visibilityThreshold = 0.01f,
+                    backdrop = backdrop,
+                    modifier = Modifier.height(32.dp)
+                )
             }
         }
 

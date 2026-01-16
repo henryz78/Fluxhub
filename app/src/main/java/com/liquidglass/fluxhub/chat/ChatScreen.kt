@@ -214,14 +214,20 @@ fun ChatScreen(
     
 
     // 强制跟随流式内容长度变化
-    LaunchedEffect(loadingState) {
+    // 强制跟随流式内容变化
+    LaunchedEffect(messagesSnapshot.size, loadingState) {
         if (loadingState) {
-            snapshotFlow { messagesSnapshot.lastOrNull()?.content?.length ?: 0 }.collect {
-                // 增加小延迟确保内容渲染后滚动
-                if (!listState.isScrollInProgress && !isRecentScroll && listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
-                    listState.requestScrollToItem(messagesSnapshot.size)
+            // 当由流式传输触发重组时
+            snapshotFlow { messagesSnapshot.lastOrNull() }
+                .collect { lastMsg ->
+                    // 如果最后一两条是正在生成的消息，且当前没在手动滚动，就滚到底部
+                    if (!listState.isScrollInProgress && !isRecentScroll) {
+                         // 检查是否应该滚动：如果已经在底部或者刚开始生成
+                         if (listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
+                             listState.scrollToItem(messagesSnapshot.size)
+                         }
+                    }
                 }
-            }
         }
     }
     
@@ -280,20 +286,55 @@ fun ChatScreen(
             gesturesEnabled = !isInteractingWithButtons,
             modifier = Modifier.fillMaxSize()
         ) {
-            LiquidGlassChatContent(
-                viewModel = viewModel,
-                inputText = inputText,
-                onInputTextChange = { inputText = it },
-                listState = listState,
-                onNavigateToSettings = onNavigateToSettings,
-                onOpenDrawer = { scope.launch { drawerState.open() } },
-                onSend = onSendMessage,
-                backdrop = backdrop,
-                bottomPadding = bottomPadding,
-                scope = scope,
-                onInteractionChanged = { isInteractingWithButtons = it },
-                onImageSelected = { viewModel.selectedImageUri = it }
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                LiquidGlassChatContent(
+                    viewModel = viewModel,
+                    inputText = inputText,
+                    onInputTextChange = { inputText = it },
+                    listState = listState,
+                    onNavigateToSettings = onNavigateToSettings,
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                    onSend = onSendMessage,
+                    backdrop = backdrop,
+                    bottomPadding = bottomPadding,
+                    scope = scope,
+                    onInteractionChanged = { isInteractingWithButtons = it },
+                    onImageSelected = { viewModel.selectedImageUri = it }
+                )
+                
+                // Error message with animation (Overlay)
+                AnimatedVisibility(
+                    visible = viewModel.showError,
+                    enter = fadeIn() + slideInVertically { -it }, // Slide from top
+                    exit = fadeOut() + slideOutVertically { -it },
+                    modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 16.dp)
+                ) {
+                    viewModel.error?.let { errorMsg ->
+                        Box(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { ContinuousCapsule },
+                                    effects = {
+                                        vibrancy()
+                                        blur(4f.dp.toPx())
+                                    },
+                                    onDrawSurface = {
+                                        drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
+                                    }
+                                )
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
+                        ) {
+                            BasicText(
+                                text = errorMsg,
+                                style = TextStyle(Color.White, 14.sp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -939,37 +980,7 @@ private fun LiquidGlassChatContent(
             }
         }
         
-        // Error message with animation
-        AnimatedVisibility(
-            visible = viewModel.showError,
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it }
-        ) {
-            viewModel.error?.let { errorMsg ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { ContinuousCapsule },
-                            effects = {
-                                vibrancy()
-                                blur(4f.dp.toPx())
-                            },
-                            onDrawSurface = {
-                                drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
-                            }
-                        )
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
-                ) {
-                    BasicText(
-                        text = errorMsg,
-                        style = TextStyle(Color.White, 14.sp)
-                    )
-                }
-            }
-        }
+
         
         // Input with glass effect
         Box(
@@ -1282,6 +1293,7 @@ private fun LiquidGlassChatBubble(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer { } // 启用硬件加速渲染层
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
@@ -1322,11 +1334,11 @@ private fun LiquidGlassChatBubble(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        blur(2f.dp.toPx()) // 轻微模糊保持液态玻璃感
+                        vibrancy() // 添加液态玻璃特有的色彩活力效果
+                        blur(8f.dp.toPx()) // 增加模糊强度，让毛玻璃更明显
                     },
-                    highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(tintColor.copy(alpha = 0.55f)) // 增加不透明度
+                        drawRect(tintColor.copy(alpha = 0.45f)) // 稍微降低不透明度，让模糊效果更明显
                     }
                 )
                 .drawBehind {
