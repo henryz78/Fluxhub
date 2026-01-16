@@ -123,7 +123,12 @@ class AdminSyncService(private val context: Context) {
             attempts++
             try {
                 val body = json.encodeToString(
-                    LoginRequest(username = username, password = password)
+                    LoginRequest(
+                        username = username,
+                        password = password,
+                        deviceName = android.os.Build.MANUFACTURER,
+                        deviceModel = android.os.Build.MODEL
+                    )
                 )
                 
                 val request = Request.Builder()
@@ -358,7 +363,9 @@ data class RegisterRequest(
 @Serializable
 data class LoginRequest(
     val username: String,
-    val password: String
+    val password: String,
+    val deviceName: String? = null,
+    val deviceModel: String? = null
 )
 
 @Serializable
