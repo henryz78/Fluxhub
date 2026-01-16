@@ -375,7 +375,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun setDefaultModel(value: String) {
+    fun updateDefaultModel(value: String) {
         defaultModel = value
         viewModelScope.launch {
             settingsRepository.setDefaultModel(value)

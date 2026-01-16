@@ -339,7 +339,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { 
-                                        viewModel.setDefaultModel(model)
+                                        viewModel.updateDefaultModel(model)
                                         showModelDialog = false
                                     }
                                     .padding(vertical = 12.dp),
