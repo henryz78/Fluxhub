@@ -264,7 +264,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startConversationsCollection()
         startAssistantsCollection()
         startProvidersCollection()
-        loadOrCreateConversation()
+        // 应用启动时总是创建新对话，避免加载历史消息导致的切换卡顿
+        // 用户仍可通过侧边栏切换到历史对话
+        createNewConversation()
     }
     
     private fun loadSettings() {

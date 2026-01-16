@@ -1333,11 +1333,11 @@ private fun LiquidGlassChatBubble(
                     backdrop = backdrop,
                     shape = { bubbleShape },
                     effects = {
-                        blur(2f.dp.toPx()) // 轻微模糊保持液态玻璃感
+                        vibrancy() // 添加液态玻璃特有的色彩活力效果
+                        blur(8f.dp.toPx()) // 增加模糊强度，让毛玻璃更明显
                     },
-                    highlight = { Highlight.Plain },
                     onDrawSurface = {
-                        drawRect(tintColor.copy(alpha = 0.55f)) // 增加不透明度
+                        drawRect(tintColor.copy(alpha = 0.45f)) // 稍微降低不透明度，让模糊效果更明显
                     }
                 )
                 .drawBehind {
