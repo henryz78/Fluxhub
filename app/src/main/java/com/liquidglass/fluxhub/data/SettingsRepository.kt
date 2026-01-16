@@ -20,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         private val API_KEY = stringPreferencesKey("api_key")
         private val BASE_URL = stringPreferencesKey("base_url")
         private val MODEL = stringPreferencesKey("model")
+        private val DEFAULT_MODEL = stringPreferencesKey("default_model")
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
         private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
@@ -43,6 +44,13 @@ class SettingsRepository(private val context: Context) {
         
         // 触感反馈
         private val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
+        
+        // 字体样式配置
+        private val TEXT_COLOR_MODE = stringPreferencesKey("text_color_mode") // white, black
+        private val TEXT_SHADOW_ENABLED = booleanPreferencesKey("text_shadow_enabled")
+        
+        // 液态玻璃颜色
+        private val GLASS_COLOR = stringPreferencesKey("glass_color") // hex color or "default"
     }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
@@ -55,6 +63,10 @@ class SettingsRepository(private val context: Context) {
     
     val model: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[MODEL] ?: ""
+    }
+    
+    val defaultModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_MODEL] ?: ""
     }
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -77,6 +89,10 @@ class SettingsRepository(private val context: Context) {
         preferences[GLASS_BLUR] ?: 16f
     }
     
+    val glassColor: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[GLASS_COLOR] ?: "default" // default = 白色半透明
+    }
+    
     suspend fun setApiKey(value: String) {
         context.dataStore.edit { preferences ->
             preferences[API_KEY] = value
@@ -88,10 +104,15 @@ class SettingsRepository(private val context: Context) {
             preferences[BASE_URL] = value
         }
     }
-    
     suspend fun setModel(value: String) {
         context.dataStore.edit { preferences ->
             preferences[MODEL] = value
+        }
+    }
+    
+    suspend fun setDefaultModel(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_MODEL] = value
         }
     }
     
@@ -132,6 +153,13 @@ class SettingsRepository(private val context: Context) {
             preferences[GLASS_BLUR] = value
         }
     }
+
+    suspend fun setGlassColor(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[GLASS_COLOR] = value
+        }
+    }
+
 
     val agreementAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[AGREEMENT_ACCEPTED] ?: false
@@ -254,6 +282,28 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowElapsedTime(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[SHOW_ELAPSED_TIME] = value
+        }
+    }
+    
+    // ========== 字体样式配置 ==========
+    
+    val textColorMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_COLOR_MODE] ?: "white" // 默认白色字体
+    }
+    
+    val textShadowEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[TEXT_SHADOW_ENABLED] ?: true // 默认开启阴影
+    }
+    
+    suspend fun setTextColorMode(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_COLOR_MODE] = value
+        }
+    }
+    
+    suspend fun setTextShadowEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TEXT_SHADOW_ENABLED] = value
         }
     }
 }

@@ -572,8 +572,8 @@ private fun CodeBlock(
     }
     
     val lineCount = code.lines().size
-    val isLongCode = lineCount > 15
-    var isExpanded by remember { mutableStateOf(!isLongCode) }
+    val isLongCode = lineCount > 5 // 超过 5 行就视为长代码
+    var isExpanded by remember { mutableStateOf(false) } // 默认折叠
 
     Column(
         modifier = modifier

@@ -2,7 +2,9 @@ package com.liquidglass.fluxhub.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "messages")
 data class MessageEntity(
     @PrimaryKey
@@ -15,6 +17,7 @@ data class MessageEntity(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Serializable
 @Entity(tableName = "conversations")
 data class ConversationEntity(
     @PrimaryKey
@@ -28,6 +31,7 @@ data class ConversationEntity(
 /**
  * 助手实体 - 每个助手有独立的提示词和参数配置
  */
+@Serializable
 @Entity(tableName = "assistants")
 data class AssistantEntity(
     @PrimaryKey
@@ -46,6 +50,7 @@ data class AssistantEntity(
 /**
  * 服务商实体 - 支持多个 API Provider
  */
+@Serializable
 @Entity(tableName = "providers")
 data class ProviderEntity(
     @PrimaryKey

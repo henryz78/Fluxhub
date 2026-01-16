@@ -59,10 +59,10 @@ import androidx.compose.ui.draw.clip
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
+import com.liquidglass.fluxhub.ui.theme.GlassTypography
+import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 
 @Composable
 fun MainScreen(
@@ -70,6 +70,13 @@ fun MainScreen(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    
+    // 等待核心配置加载完成，防止壁纸闪烁
+    // 在配置加载完成前不渲染任何内容，配合 Window 背景色实现平滑过渡
+    if (!viewModel.isSettingsInitialized) {
+        return
+    }
+
     // 默认打开首页 (Tab 0)
     var selectedTab by remember { mutableIntStateOf(0) }
     
@@ -94,9 +101,36 @@ fun MainScreen(
                 // 自定义壁纸
                 try {
                     val parsedUri = android.net.Uri.parse(uri)
-                    val stream = context.contentResolver.openInputStream(parsedUri)
-                    BitmapFactory.decodeStream(stream)
+                    
+                    // 第一步：获取图片尺寸（不加载到内存）
+                    val options = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, options)
+                    }
+                    
+                    // 第二步：计算采样率（目标尺寸最大2048像素，避免OOM）
+                    val targetSize = 2048
+                    var sampleSize = 1
+                    while (options.outWidth / sampleSize > targetSize || options.outHeight / sampleSize > targetSize) {
+                        sampleSize *= 2
+                    }
+                    
+                    // 第三步：使用采样率加载图片
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                        inPreferredConfig = android.graphics.Bitmap.Config.RGB_565 // 使用 RGB_565 节省内存
+                    }
+                    context.contentResolver.openInputStream(parsedUri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, decodeOptions)
+                    } ?: BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                    
                 } catch (e: Exception) {
+                    android.util.Log.e("MainScreen", "Failed to load custom wallpaper: ${e.message}", e)
+                    BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
+                } catch (e: OutOfMemoryError) {
+                    android.util.Log.e("MainScreen", "OutOfMemory loading wallpaper", e)
                     BitmapFactory.decodeResource(context.resources, R.drawable.wallpaper_liquid)
                 }
             }
@@ -138,6 +172,12 @@ fun MainScreen(
             )
         }
         
+        // 创建动态字体样式
+        val textStyles = GlassTextStyles.create(
+            colorMode = viewModel.textColorMode,
+            shadowEnabled = viewModel.textShadowEnabled
+        )
+        
         // 内容区域
         Box(modifier = Modifier.fillMaxSize()) {
             // 使用 WindowInsets 计算底部 Padding，实现与键盘的完美物理同步
@@ -163,6 +203,8 @@ fun MainScreen(
                 settingsSubPage = null
             }
             
+            // 使用 AnimatedContent 切换页面，只渲染当前选中的页面
+            // 避免不可见页面持续占用 GPU 资源
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
@@ -177,6 +219,10 @@ fun MainScreen(
                         backdrop = backdrop,
                         bottomPadding = PaddingValues(bottom = bottomPadding),
                         onNavigateToChat = { selectedTab = 1 },
+                        onNavigateToAssistantSelection = { 
+                            selectedTab = 1
+                            chatSubPage = "assistant_selection" 
+                        },
                         onQuickPrompt = { prompt ->
                             pendingPrompt = prompt
                             selectedTab = 1
@@ -188,12 +234,10 @@ fun MainScreen(
                             targetState = chatSubPage,
                             transitionSpec = {
                                 if (targetState != null) {
-                                    // 进入子页面
                                     (slideInHorizontally { it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { -it } + fadeOut()
                                     )
                                 } else {
-                                    // 返回聊天页
                                     (slideInHorizontally { -it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { it } + fadeOut()
                                     )
@@ -228,15 +272,11 @@ fun MainScreen(
                         AnimatedContent(
                             targetState = settingsSubPage,
                             transitionSpec = {
-                                // 进入子页面：从右滑入，主页面往左滑出
-                                // 返回主页面：从左滑入，子页面往右滑出
                                 if (targetState != null) {
-                                    // 进入子页面
                                     (slideInHorizontally { it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { -it } + fadeOut()
                                     )
                                 } else {
-                                    // 返回主设置页
                                     (slideInHorizontally { -it } + fadeIn()).togetherWith(
                                         slideOutHorizontally { it } + fadeOut()
                                     )
@@ -318,6 +358,7 @@ fun MainScreen(
                     },
                     backdrop = backdrop,
                     tabsCount = 3,
+                    glassColor = viewModel.glassColor,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Tab 0: Home
@@ -344,12 +385,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "首页",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 0) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 0)
                             )
                         }
                     }
@@ -378,12 +414,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "对话",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 1) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 1)
                             )
                         }
                     }
@@ -411,12 +442,7 @@ fun MainScreen(
                             Spacer(Modifier.height(2.dp))
                             BasicText(
                                 text = "设置",
-                                style = TextStyle(
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == 2) Color(0xFF007AFF) else Color.Gray,
-                                    shadow = Shadow(color = Color.Black.copy(alpha = 0.2f), blurRadius = 4f, offset = Offset(1f, 1f))
-                                )
+                                style = textStyles.navLabelStyle(selectedTab == 2)
                             )
                         }
                     }

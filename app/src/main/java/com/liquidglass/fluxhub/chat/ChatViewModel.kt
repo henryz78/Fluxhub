@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
+import com.liquidglass.fluxhub.data.DataRepository
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.AssistantEntity
 import com.liquidglass.fluxhub.data.ProviderEntity
@@ -121,8 +122,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val assistantDao = database.assistantDao()
     private val providerDao = database.providerDao()
     private val settingsRepository = SettingsRepository(application)
+    private val dataRepository = DataRepository(application)
     
-    val messages = mutableStateListOf<UiMessage>()
+    // UI State
+    var messages = mutableStateListOf<UiMessage>()
     val availableModels = mutableStateListOf<String>()
     val assistants = mutableStateListOf<AssistantEntity>()
     val providers = mutableStateListOf<ProviderEntity>()
@@ -136,10 +139,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var showError by mutableStateOf(false)
         private set
     
+    // 设置是否初始化完成 (用于防止壁纸闪烁)
+    var isSettingsInitialized by mutableStateOf(false)
+        private set
+    
     // 配置（从当前 Provider 或 DataStore 加载）
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
+    var defaultModel by mutableStateOf("") // 全局默认模型
     
     // 请求参数 (现在从当前助手读取)
     var temperature by mutableStateOf(0.7f)
@@ -200,6 +208,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var glassBlur by mutableStateOf(16f)
         private set
     
+    var glassColor by mutableStateOf("default") // default, 或十六进制颜色如 "FF007AFF"
+        private set
+    
     // 当前助手
     var currentAssistant by mutableStateOf<AssistantEntity?>(null)
         private set
@@ -248,6 +259,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 触感反馈
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
+    
+    // ========== 字体样式配置 ==========
+    var textColorMode by mutableStateOf("white") // white, black
+        private set
+    var textShadowEnabled by mutableStateOf(true)
+        private set
 
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
@@ -267,80 +284,110 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         startConversationsCollection()
         startAssistantsCollection()
         startProvidersCollection()
-        loadOrCreateConversation()
+        // 应用启动时总是创建新对话，避免加载历史消息导致的切换卡顿
+        // 用户仍可通过侧边栏切换到历史对话
+        createNewConversation()
     }
     
     private fun loadSettings() {
         viewModelScope.launch {
-            settingsRepository.apiKey.collect { 
-                // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
-                if (currentProvider == null) {
-                    apiKey = it 
-                    if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+            // 预加载关键视觉配置，防止 UI 闪烁 (FOUC)
+            // 读取 wallaperUri 和 agreementAccepted 的初始值
+            try {
+                wallpaperUri = settingsRepository.wallpaperUri.first()
+                agreementAccepted = settingsRepository.agreementAccepted.first()
+                defaultModel = settingsRepository.defaultModel.first() // 预加载默认模型
+                isSettingsInitialized = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to preload settings", e)
+                isSettingsInitialized = true // 即使失败也允许渲染
+            }
+
+            // 启动实时监听
+            launch {
+                settingsRepository.apiKey.collect { 
+                    // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
+                    if (currentProvider == null) {
+                        apiKey = it 
+                        if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
+                    }
                 }
             }
-        }
-        viewModelScope.launch {
-            settingsRepository.baseUrl.collect { 
-                if (currentProvider == null) {
-                    baseUrl = it
-                    if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+            launch {
+                settingsRepository.baseUrl.collect { 
+                    if (currentProvider == null) {
+                        baseUrl = it
+                        if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
+                    }
                 }
             }
-        }
-        viewModelScope.launch {
-            settingsRepository.model.collect { model = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.themeMode.collect { themeMode = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.wallpaperUri.collect { wallpaperUri = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.glassOpacity.collect { glassOpacity = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.glassBlur.collect { glassBlur = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.agreementAccepted.collect { agreementAccepted = it }
-        }
-        // 加载工具箱配置项
-        viewModelScope.launch {
-            settingsRepository.thinkingBudget.collect { thinkingBudget = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.searchProvider.collect { searchProvider = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.streamEnabled.collect { streamEnabled = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.contextSize.collect { contextSize = it }
-        }
-        // 加载灵动岛配置项
-        viewModelScope.launch {
-            settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.loginNotificationMode.collect { loginNotificationMode = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.dynamicIslandDuration.collect { dynamicIslandDuration = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.showTokenCount.collect { showTokenCount = it }
-        }
-        viewModelScope.launch {
-            settingsRepository.showElapsedTime.collect { showElapsedTime = it }
-        }
-        // 触感反馈
-        viewModelScope.launch {
-            settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+            launch {
+                settingsRepository.model.collect { model = it }
+            }
+            launch {
+                settingsRepository.defaultModel.collect { defaultModel = it }
+            }
+            launch {
+                settingsRepository.themeMode.collect { themeMode = it }
+            }
+            launch {
+                settingsRepository.wallpaperUri.collect { wallpaperUri = it }
+            }
+            launch {
+                settingsRepository.glassOpacity.collect { glassOpacity = it }
+            }
+            launch {
+                settingsRepository.glassBlur.collect { glassBlur = it }
+            }
+            launch {
+                settingsRepository.glassColor.collect { glassColor = it }
+            }
+            launch {
+                settingsRepository.agreementAccepted.collect { agreementAccepted = it }
+            }
+            // 加载工具箱配置项
+            launch {
+                settingsRepository.thinkingBudget.collect { thinkingBudget = it }
+            }
+            launch {
+                settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
+            }
+            launch {
+                settingsRepository.searchProvider.collect { searchProvider = it }
+            }
+            launch {
+                settingsRepository.streamEnabled.collect { streamEnabled = it }
+            }
+            launch {
+                settingsRepository.contextSize.collect { contextSize = it }
+            }
+            // 加载灵动岛配置项
+            launch {
+                settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
+            }
+            launch {
+                settingsRepository.loginNotificationMode.collect { loginNotificationMode = it }
+            }
+            launch {
+                settingsRepository.dynamicIslandDuration.collect { dynamicIslandDuration = it }
+            }
+            launch {
+                settingsRepository.showTokenCount.collect { showTokenCount = it }
+            }
+            launch {
+                settingsRepository.showElapsedTime.collect { showElapsedTime = it }
+            }
+            // 触感反馈
+            launch {
+                settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
+            }
+            // 加载字体样式配置
+            launch {
+                settingsRepository.textColorMode.collect { textColorMode = it }
+            }
+            launch {
+                settingsRepository.textShadowEnabled.collect { textShadowEnabled = it }
+            }
         }
     }
     
@@ -348,6 +395,67 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         hapticFeedbackEnabled = enabled
         viewModelScope.launch {
             settingsRepository.setHapticFeedbackEnabled(enabled)
+        }
+    }
+    
+    fun updateTextColorMode(mode: String) {
+        viewModelScope.launch {
+            settingsRepository.setTextColorMode(mode)
+        }
+    }
+    
+    fun updateTextShadowEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setTextShadowEnabled(enabled)
+        }
+    }
+    
+    fun updateGlassColor(color: String) {
+        viewModelScope.launch {
+            settingsRepository.setGlassColor(color)
+        }
+    }
+    
+    fun updateDefaultModel(value: String) {
+        defaultModel = value
+        viewModelScope.launch {
+            settingsRepository.setDefaultModel(value)
+        }
+    }
+    
+    fun updateGlassBlur(blur: Float) {
+        glassBlur = blur
+        viewModelScope.launch {
+            settingsRepository.setGlassBlur(blur)
+        }
+    }
+    
+    fun exportData(onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = dataRepository.exportData()
+                onResult(json)
+            } catch (e: Exception) {
+                onResult(null)
+            }
+        }
+    }
+    
+    fun importData(uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = dataRepository.importData(uri)
+            if (success) {
+                // 重新加载数据
+                currentConversationId?.let { switchConversation(it) }
+            }
+            onResult(success)
+        }
+    }
+    
+    fun updateGlassOpacity(opacity: Float) {
+        glassOpacity = opacity
+        viewModelScope.launch {
+            settingsRepository.setGlassOpacity(opacity)
         }
     }
     
@@ -498,6 +606,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentConversationId = newId
         currentConversationTitle = title
         messages.clear()
+        
+        // 应用默认模型 (如果有)
+        if (defaultModel.isNotBlank()) {
+            model = defaultModel
+        }
         
         // 标记为临时会话
         transientConversationIds.add(newId)
@@ -1138,19 +1251,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateGlassOpacity(value: Float) {
-        glassOpacity = value
-        viewModelScope.launch {
-            settingsRepository.setGlassOpacity(value)
-        }
-    }
+    
+    // ========== 工具箱配置项更新方法 ==========
 
-    fun updateGlassBlur(value: Float) {
-        glassBlur = value
-        viewModelScope.launch {
-            settingsRepository.setGlassBlur(value)
-        }
-    }
     
     // ========== 工具箱配置项更新方法 ==========
     
@@ -1823,22 +1926,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val errorDetail = "请求失败: $errorMsg"
                     showErrorMessage(errorDetail)
                     
-                    // 将错误信息写入气泡，而不是移除
+                    // 仅当消息为空时才显示错误占位符，否则保留已有内容
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
-                        messages[index] = messages[index].copy(
-                            content = "⚠️ $errorDetail",
-                            isStreaming = false
-                        )
+                        val currentMsg = messages[index]
+                        if (currentMsg.content.isBlank()) {
+                            messages[index] = currentMsg.copy(
+                                content = "⚠️ 加载失败", // 简单提示，详细看弹窗
+                                isStreaming = false
+                            )
+                        } else {
+                            messages[index] = currentMsg.copy(isStreaming = false)
+                        }
                     }
                 }
+
+
+                }
             }
-        }
-        
-                // 使用 EventSources 创建 SSE 连接
-                currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
-                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
-            } catch (e: Exception) {
+            
+            // 使用 EventSources 创建 SSE 连接
+            currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+            Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
+        } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 isLoading = false
                 val errorMsg = "初始化流式请求失败: ${e.message}"
