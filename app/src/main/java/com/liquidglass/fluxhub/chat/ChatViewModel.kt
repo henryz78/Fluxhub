@@ -1152,19 +1152,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateGlassOpacity(value: Float) {
-        glassOpacity = value
-        viewModelScope.launch {
-            settingsRepository.setGlassOpacity(value)
-        }
-    }
+    
+    // ========== 工具箱配置项更新方法 ==========
 
-    fun updateGlassBlur(value: Float) {
-        glassBlur = value
-        viewModelScope.launch {
-            settingsRepository.setGlassBlur(value)
-        }
-    }
     
     // ========== 工具箱配置项更新方法 ==========
     
@@ -1809,15 +1799,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
-                    }
+import com.liquidglass.fluxhub.data.DataRepository
+
+// ... imports ...
+
                 }
             }
-        }
-        
-                // 使用 EventSources 创建 SSE 连接
-                currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
-                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
-            } catch (e: Exception) {
+            
+            // 使用 EventSources 创建 SSE 连接
+            currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
+            Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
+        } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 isLoading = false
                 val errorMsg = "初始化流式请求失败: ${e.message}"

@@ -285,20 +285,55 @@ fun ChatScreen(
             gesturesEnabled = !isInteractingWithButtons,
             modifier = Modifier.fillMaxSize()
         ) {
-            LiquidGlassChatContent(
-                viewModel = viewModel,
-                inputText = inputText,
-                onInputTextChange = { inputText = it },
-                listState = listState,
-                onNavigateToSettings = onNavigateToSettings,
-                onOpenDrawer = { scope.launch { drawerState.open() } },
-                onSend = onSendMessage,
-                backdrop = backdrop,
-                bottomPadding = bottomPadding,
-                scope = scope,
-                onInteractionChanged = { isInteractingWithButtons = it },
-                onImageSelected = { viewModel.selectedImageUri = it }
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                LiquidGlassChatContent(
+                    viewModel = viewModel,
+                    inputText = inputText,
+                    onInputTextChange = { inputText = it },
+                    listState = listState,
+                    onNavigateToSettings = onNavigateToSettings,
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                    onSend = onSendMessage,
+                    backdrop = backdrop,
+                    bottomPadding = bottomPadding,
+                    scope = scope,
+                    onInteractionChanged = { isInteractingWithButtons = it },
+                    onImageSelected = { viewModel.selectedImageUri = it }
+                )
+                
+                // Error message with animation (Overlay)
+                AnimatedVisibility(
+                    visible = viewModel.showError,
+                    enter = fadeIn() + slideInVertically { -it }, // Slide from top
+                    exit = fadeOut() + slideOutVertically { -it },
+                    modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 16.dp)
+                ) {
+                    viewModel.error?.let { errorMsg ->
+                        Box(
+                            modifier = Modifier
+                                .wrapContentSize()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { ContinuousCapsule },
+                                    effects = {
+                                        vibrancy()
+                                        blur(4f.dp.toPx())
+                                    },
+                                    onDrawSurface = {
+                                        drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
+                                    }
+                                )
+                                .padding(horizontal = 20.dp, vertical = 12.dp)
+                        ) {
+                            BasicText(
+                                text = errorMsg,
+                                style = TextStyle(Color.White, 14.sp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -944,38 +979,7 @@ private fun LiquidGlassChatContent(
             }
         }
         
-        // Error message with animation
-        AnimatedVisibility(
-            visible = viewModel.showError,
-            enter = fadeIn() + slideInVertically { -it }, // Slide from top
-            exit = fadeOut() + slideOutVertically { -it },
-            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 16.dp)
-        ) {
-            viewModel.error?.let { errorMsg ->
-                Box(
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .drawBackdrop(
-                            backdrop = backdrop,
-                            shape = { ContinuousCapsule },
-                            effects = {
-                                vibrancy()
-                                blur(4f.dp.toPx())
-                            },
-                            onDrawSurface = {
-                                drawRect(Color(0xFFFF3B30).copy(alpha = 0.3f))
-                            }
-                        )
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
-                ) {
-                    BasicText(
-                        text = errorMsg,
-                        style = TextStyle(Color.White, 14.sp)
-                    )
-                }
-            }
-        }
+
         
         // Input with glass effect
         Box(

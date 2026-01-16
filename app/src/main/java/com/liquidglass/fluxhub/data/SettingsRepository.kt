@@ -95,7 +95,7 @@ class SettingsRepository(private val context: Context) {
             preferences[BASE_URL] = value
         }
     }
-    
+    suspend fun setModel(value: String) {
         context.dataStore.edit { preferences ->
             preferences[MODEL] = value
         }
@@ -144,31 +144,12 @@ class SettingsRepository(private val context: Context) {
             preferences[GLASS_BLUR] = value
         }
     }
-    
-        }
-    }
 
     suspend fun setGlassColor(value: String) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_COLOR] = value
         }
     }
-    
-    // ========== Default Model ==========
-    
-    companion object {
-        // ... (existing keys)
-    }
-
-    // Since I cannot edit Companion Object easily without potentially breaking context if not careful, I will check where Companion Object is.
-    // It is at the top. I will add the key there in a separate edit or just use a string literal if acceptable? No, better to add to companion object if possible.
-    // Actually, I can just add a property `val defaultModel` and `setDefaultModel`. The key can be defined locally or added to companion object.
-    
-    // Let's modify the file in chunks.
-    // Chunk 1: Add Key to Companion Object.
-    // Chunk 2: Add Flow and Setter.
-    
-    // I will restart this ReplaceFileContent with correct targeting.
 
 
     val agreementAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
