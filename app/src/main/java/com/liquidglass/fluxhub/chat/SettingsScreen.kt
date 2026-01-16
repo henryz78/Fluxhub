@@ -329,7 +329,7 @@ fun SettingsScreen(
                     .padding(24.dp)
             ) {
                 Column {
-                    Text("默认模型", style = textStyles.titleLarge, color = Color.White)
+                    Text("默认模型", style = textStyles.titleMedium, color = Color.White)
                     Spacer(Modifier.height(16.dp))
                     LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                         items(viewModel.availableModels.size) { index ->
@@ -377,7 +377,7 @@ fun SettingsScreen(
                     .padding(24.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("数据备份", style = textStyles.titleLarge, color = Color.White)
+                    Text("数据备份", style = textStyles.titleMedium, color = Color.White)
                     Spacer(Modifier.height(8.dp))
                     Text("备份或恢复所有聊天记录和设置。", style = textStyles.bodyMedium, color = Color.White.copy(0.7f))
                     Spacer(Modifier.height(24.dp))
@@ -415,7 +415,7 @@ fun SettingsScreen(
                     }
                     
                     Spacer(Modifier.height(16.dp))
-                    Text("导入将覆盖现有数据", style = textStyles.bodySmall, color = Color.White.copy(0.4f))
+                    Text("导入将覆盖现有数据", style = textStyles.caption, color = Color.White.copy(0.4f))
                 }
             }
         }
