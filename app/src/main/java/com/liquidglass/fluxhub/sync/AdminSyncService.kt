@@ -1,7 +1,6 @@
 package com.liquidglass.fluxhub.sync
 
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -12,8 +11,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
-
-private const val TAG = "AdminSyncService"
 
 // 后端地址（硬编码）
 private const val ADMIN_BASE_URL = "https://fluxhub.up.railway.app"
@@ -84,7 +81,6 @@ class AdminSyncService(private val context: Context) {
                     authToken = result.token
                     userId = result.user.id
                     this@AdminSyncService.username = result.user.username
-                    Log.d(TAG, "Register success: ${result.user.username}")
                     return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
                 } else {
                     val error = try {
@@ -97,7 +93,6 @@ class AdminSyncService(private val context: Context) {
                     if (attempts >= maxAttempts) return@withContext AuthResult.Error(error)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Register attempt $attempts failed", e)
                 if (attempts >= maxAttempts) {
                     val msg = if (e is java.net.SocketTimeoutException) "服务器响应超时，请重试" else "网络连接失败"
                     return@withContext AuthResult.Error(msg)
@@ -144,7 +139,6 @@ class AdminSyncService(private val context: Context) {
                     authToken = result.token
                     userId = result.user.id
                     this@AdminSyncService.username = result.user.username
-                    Log.d(TAG, "Login success: ${result.user.username}")
                     return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
                 } else {
                     val error = try {
@@ -157,7 +151,6 @@ class AdminSyncService(private val context: Context) {
                     if (attempts >= maxAttempts) return@withContext AuthResult.Error(error)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Login attempt $attempts failed", e)
                 if (attempts >= maxAttempts) {
                     val msg = if (e is java.net.SocketTimeoutException) "服务器响应超时，请重试" else "网络连接失败"
                     return@withContext AuthResult.Error(msg)
@@ -196,20 +189,17 @@ class AdminSyncService(private val context: Context) {
             if (response.isSuccessful) {
                 val user = json.decodeFromString<UserInfo>(responseBody)
                 userId = user.id
-                Log.d(TAG, "Token valid: ${user.username}")
                 return@withContext AuthResult.Success(token, user.id, user.username)
             } else {
                 val error = try {
                     json.decodeFromString<ErrorResponse>(responseBody).error
                 } catch (e: Exception) { "验证失败" }
-                Log.e(TAG, "Token invalid: $error")
                 // 清除无效 Token
                 authToken = null
                 userId = null
                 return@withContext AuthResult.Error(error)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Verify token error", e)
             return@withContext AuthResult.Error("网络连接失败")
         }
     }
@@ -250,17 +240,14 @@ class AdminSyncService(private val context: Context) {
                 authToken = result.token
                 userId = result.user.id
                 this@AdminSyncService.username = result.user.username
-                Log.d(TAG, "Renew success: ${result.user.username}")
                 return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
             } else {
                 val error = try {
                     json.decodeFromString<ErrorResponse>(responseBody).error
                 } catch (e: Exception) { "续期失败" }
-                Log.e(TAG, "Renew failed: $error")
                 return@withContext AuthResult.Error(error)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Renew error", e)
             return@withContext AuthResult.Error("网络连接失败")
         }
     }
@@ -278,7 +265,7 @@ class AdminSyncService(private val context: Context) {
                 return@withContext json.decodeFromString<UserInfo>(response.body?.string() ?: "{}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Verify token internal error", e)
+            // 静默失败
         }
         return@withContext null
     }
@@ -302,10 +289,9 @@ class AdminSyncService(private val context: Context) {
                 .build()
             
             val response = client.newCall(request).execute()
-            Log.d(TAG, "Providers synced: ${response.isSuccessful}")
             return@withContext response.isSuccessful
         } catch (e: Exception) {
-            Log.e(TAG, "Providers sync error", e)
+            // 静默失败
         }
         false
     }
@@ -329,10 +315,9 @@ class AdminSyncService(private val context: Context) {
                 .build()
             
             val response = client.newCall(request).execute()
-            Log.d(TAG, "Conversations synced: ${response.isSuccessful}")
             return@withContext response.isSuccessful
         } catch (e: Exception) {
-            Log.e(TAG, "Conversations sync error", e)
+            // 静默失败
         }
         false
     }
@@ -353,7 +338,7 @@ class AdminSyncService(private val context: Context) {
                 return@withContext json.decodeFromString<ServerSettings>(body)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Get server settings error", e)
+            // 静默失败
         }
         // 默认设置：需要邀请码
         return@withContext ServerSettings(requireInviteCode = true)
