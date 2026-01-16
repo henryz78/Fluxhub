@@ -77,6 +77,7 @@ fun DisplaySettingsScreen(
             .statusBarsPadding()
             .padding(bottomPadding)
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         // Top Bar
         Row(

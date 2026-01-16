@@ -215,7 +215,10 @@ fun ChatScreen(
     // 强制跟随流式内容长度变化
     LaunchedEffect(loadingState) {
         if (loadingState) {
-            snapshotFlow { messagesSnapshot.lastOrNull()?.content?.length ?: 0 }.collect {
+            snapshotFlow { 
+                val lastMsg = messagesSnapshot.lastOrNull()
+                (lastMsg?.content?.length ?: 0) + (lastMsg?.thinkingContent?.length ?: 0)
+            }.collect {
                 // 增加小延迟确保内容渲染后滚动
                 if (!listState.isScrollInProgress && !isRecentScroll && listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
                     listState.requestScrollToItem(messagesSnapshot.size)

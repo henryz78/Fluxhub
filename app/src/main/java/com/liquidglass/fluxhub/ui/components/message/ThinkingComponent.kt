@@ -88,19 +88,16 @@ fun ThinkingComponent(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { RoundedCornerShape(16.dp) },
-                effects = {
-                    vibrancy()
-                    blur(2.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(Color.White.copy(alpha = 0.08f))
-                }
+            .background(
+                color = Color(0xFFE3F2FD), // Light Blue
+                shape = RoundedCornerShape(16.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = Color(0xFF2196F3).copy(alpha = 0.3f), // Blue border
+                shape = RoundedCornerShape(16.dp)
             )
             .padding(12.dp)
-            // 移除 animateContentSize() 以减少卡顿
     ) {
         Row(
             modifier = Modifier
@@ -119,14 +116,14 @@ fun ThinkingComponent(
                     modifier = Modifier
                         .size(14.dp)
                         .alpha(if (isThinking) shimmerAlpha else 0.6f),
-                    tint = Color(0xFFFFD700)
+                    tint = Color(0xFF1976D2) // Dark Blue
                 )
                 
                 Text(
                     text = if (isThinking) "思考中..." else "已思考",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = if (isThinking) shimmerAlpha else 0.6f),
+                    color = Color.Black.copy(alpha = if (isThinking) shimmerAlpha else 0.6f),
                     letterSpacing = 0.5.sp
                 )
                 
@@ -135,7 +132,7 @@ fun ThinkingComponent(
                         text = durationText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = if (isThinking) shimmerAlpha * 0.7f else 0.5f)
+                        color = Color.Black.copy(alpha = if (isThinking) shimmerAlpha * 0.7f else 0.5f)
                     )
                 }
             }
@@ -144,7 +141,7 @@ fun ThinkingComponent(
                 imageVector = if (expanded) Lucide.ChevronUp else Lucide.ChevronDown,
                 contentDescription = if (expanded) "收起" else "展开",
                 modifier = Modifier.size(14.dp),
-                tint = Color.White.copy(alpha = 0.4f)
+                tint = Color.Black.copy(alpha = 0.4f)
             )
         }
 
@@ -170,7 +167,7 @@ fun ThinkingComponent(
                     MarkdownBlock(
                         content = content,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = Color(0xFF333333).copy(alpha = 0.8f),
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
