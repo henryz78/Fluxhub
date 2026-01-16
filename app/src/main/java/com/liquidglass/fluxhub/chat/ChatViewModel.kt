@@ -274,6 +274,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 wallpaperUri = settingsRepository.wallpaperUri.first()
                 agreementAccepted = settingsRepository.agreementAccepted.first()
+                defaultModel = settingsRepository.defaultModel.first() // 预加载默认模型
                 isSettingsInitialized = true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to preload settings", e)
