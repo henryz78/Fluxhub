@@ -1292,6 +1292,7 @@ private fun LiquidGlassChatBubble(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer { } // 启用硬件加速渲染层
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
