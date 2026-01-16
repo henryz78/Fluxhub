@@ -25,6 +25,15 @@ interface MessageDao {
     
     @Query("SELECT * FROM messages WHERE id = :messageId")
     suspend fun getMessage(messageId: String): MessageEntity?
+    
+    @Query("SELECT * FROM messages")
+    suspend fun getAllMessagesSync(): List<MessageEntity>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessages(messages: List<MessageEntity>)
+    
+    @Query("DELETE FROM messages")
+    suspend fun deleteAllMessages()
 }
 
 @Dao
@@ -49,6 +58,15 @@ interface ConversationDao {
     
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun deleteConversation(id: String)
+    
+    @Query("SELECT * FROM conversations")
+    suspend fun getAllConversationsSync(): List<ConversationEntity>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertConversations(conversations: List<ConversationEntity>)
+    
+    @Query("DELETE FROM conversations")
+    suspend fun deleteAllConversations()
 }
 
 @Dao
@@ -73,6 +91,15 @@ interface AssistantDao {
     
     @Query("UPDATE assistants SET isDefault = 0")
     suspend fun clearDefaultAssistant()
+    
+    @Query("SELECT * FROM assistants")
+    suspend fun getAllAssistantsSync(): List<AssistantEntity>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAssistants(assistants: List<AssistantEntity>)
+    
+    @Query("DELETE FROM assistants")
+    suspend fun deleteAllAssistants()
 }
 
 @Dao
@@ -100,4 +127,13 @@ interface ProviderDao {
     
     @Query("UPDATE providers SET isActive = 1 WHERE id = :id")
     suspend fun activateProvider(id: String)
+    
+    @Query("SELECT * FROM providers")
+    suspend fun getAllProvidersSync(): List<ProviderEntity>
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProviders(providers: List<ProviderEntity>)
+    
+    @Query("DELETE FROM providers")
+    suspend fun deleteAllProviders()
 }

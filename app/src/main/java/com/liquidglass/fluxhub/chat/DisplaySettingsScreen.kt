@@ -273,6 +273,44 @@ fun DisplaySettingsScreen(
                         onClick = { viewModel.updateGlassColor("FF9500") }
                     )
                 }
+
+                Spacer(Modifier.height(24.dp))
+                
+                // 毛玻璃强度 (Blur)
+                Text(
+                    "模糊强度",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                
+                LiquidSlider(
+                    value = { glassBlur },
+                    onValueChange = { viewModel.updateGlassBlur(it) },
+                    valueRange = 0f..50f,
+                    visibilityThreshold = 0.1f,
+                    backdrop = backdrop,
+                    modifier = Modifier.height(32.dp)
+                )
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // 不透明度 (Opacity)
+                Text(
+                    "不透明度",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                
+                LiquidSlider(
+                    value = { glassOpacity },
+                    onValueChange = { viewModel.updateGlassOpacity(it) },
+                    valueRange = 0f..1f,
+                    visibilityThreshold = 0.01f,
+                    backdrop = backdrop,
+                    modifier = Modifier.height(32.dp)
+                )
             }
         }
 

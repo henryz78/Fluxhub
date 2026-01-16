@@ -20,6 +20,7 @@ class SettingsRepository(private val context: Context) {
         private val API_KEY = stringPreferencesKey("api_key")
         private val BASE_URL = stringPreferencesKey("base_url")
         private val MODEL = stringPreferencesKey("model")
+        private val DEFAULT_MODEL = stringPreferencesKey("default_model")
         private val CURRENT_CONVERSATION_ID = stringPreferencesKey("current_conversation_id")
         private val THEME_MODE = stringPreferencesKey("theme_mode") // system, light, dark
         private val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
@@ -53,6 +54,10 @@ class SettingsRepository(private val context: Context) {
     
     val model: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[MODEL] ?: ""
+    }
+    
+    val defaultModel: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[DEFAULT_MODEL] ?: ""
     }
     
     val currentConversationId: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -91,9 +96,14 @@ class SettingsRepository(private val context: Context) {
         }
     }
     
-    suspend fun setModel(value: String) {
         context.dataStore.edit { preferences ->
             preferences[MODEL] = value
+        }
+    }
+    
+    suspend fun setDefaultModel(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_MODEL] = value
         }
     }
     
@@ -135,11 +145,31 @@ class SettingsRepository(private val context: Context) {
         }
     }
     
+        }
+    }
+
     suspend fun setGlassColor(value: String) {
         context.dataStore.edit { preferences ->
             preferences[GLASS_COLOR] = value
         }
     }
+    
+    // ========== Default Model ==========
+    
+    companion object {
+        // ... (existing keys)
+    }
+
+    // Since I cannot edit Companion Object easily without potentially breaking context if not careful, I will check where Companion Object is.
+    // It is at the top. I will add the key there in a separate edit or just use a string literal if acceptable? No, better to add to companion object if possible.
+    // Actually, I can just add a property `val defaultModel` and `setDefaultModel`. The key can be defined locally or added to companion object.
+    
+    // Let's modify the file in chunks.
+    // Chunk 1: Add Key to Companion Object.
+    // Chunk 2: Add Flow and Setter.
+    
+    // I will restart this ReplaceFileContent with correct targeting.
+
 
     val agreementAccepted: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[AGREEMENT_ACCEPTED] ?: false

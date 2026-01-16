@@ -213,17 +213,20 @@ fun ChatScreen(
     
 
     // 强制跟随流式内容长度变化
-    LaunchedEffect(loadingState) {
+    // 强制跟随流式内容变化
+    LaunchedEffect(messagesSnapshot.size, loadingState) {
         if (loadingState) {
-            snapshotFlow { 
-                val lastMsg = messagesSnapshot.lastOrNull()
-                (lastMsg?.content?.length ?: 0) + (lastMsg?.thinkingContent?.length ?: 0)
-            }.collect {
-                // 增加小延迟确保内容渲染后滚动
-                if (!listState.isScrollInProgress && !isRecentScroll && listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
-                    listState.requestScrollToItem(messagesSnapshot.size)
+            // 当由流式传输触发重组时
+            snapshotFlow { messagesSnapshot.lastOrNull() }
+                .collect { lastMsg ->
+                    // 如果最后一两条是正在生成的消息，且当前没在手动滚动，就滚到底部
+                    if (!listState.isScrollInProgress && !isRecentScroll) {
+                         // 检查是否应该滚动：如果已经在底部或者刚开始生成
+                         if (listState.layoutInfo.visibleItemsInfo.isAtBottom()) {
+                             listState.scrollToItem(messagesSnapshot.size)
+                         }
+                    }
                 }
-            }
         }
     }
     
@@ -944,13 +947,14 @@ private fun LiquidGlassChatContent(
         // Error message with animation
         AnimatedVisibility(
             visible = viewModel.showError,
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it }
+            enter = fadeIn() + slideInVertically { -it }, // Slide from top
+            exit = fadeOut() + slideOutVertically { -it },
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 16.dp)
         ) {
             viewModel.error?.let { errorMsg ->
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .wrapContentSize()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .drawBackdrop(
                             backdrop = backdrop,

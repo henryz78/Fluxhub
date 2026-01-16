@@ -21,6 +21,13 @@ import com.composables.icons.lucide.Key
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Info
 import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Zap
+import com.composables.icons.lucide.Save
+import com.composables.icons.lucide.Check
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -203,8 +210,34 @@ fun SettingsScreen(
                         subtitle = "配置 API Key 与模型端点",
                         badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
                         backdrop = backdrop,
-                        isLast = true,
                         onClick = onNavigateToProviders
+                    )
+                    SettingsCategoryItem(
+                        icon = Lucide.Zap,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFFFF2D55), // Pink
+                        title = "默认模型",
+                        subtitle = if (viewModel.defaultModel.isNotBlank()) viewModel.defaultModel else "使用当前配置",
+                        backdrop = backdrop,
+                        isLast = true,
+                        onClick = { showModelDialog = true }
+                    )
+                }
+            }
+            
+            // Group 2: Data & Storage
+            item {
+                SettingsGroup(title = "数据与存储", textStyles = textStyles) {
+                    SettingsCategoryItem(
+                        icon = Lucide.Save,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFF5856D6), // Indigo
+                        title = "数据备份与恢复",
+                        subtitle = "导出或导入聊天记录",
+                        backdrop = backdrop,
+                        isFirst = true,
+                        isLast = true,
+                        onClick = { showBackupDialog = true }
                     )
                 }
             }

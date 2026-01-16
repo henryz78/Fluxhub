@@ -120,8 +120,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val assistantDao = database.assistantDao()
     private val providerDao = database.providerDao()
     private val settingsRepository = SettingsRepository(application)
+    private val dataRepository = DataRepository(application)
     
-    val messages = mutableStateListOf<UiMessage>()
+    // UI State
+    var messages = mutableStateListOf<UiMessage>()
     val availableModels = mutableStateListOf<String>()
     val assistants = mutableStateListOf<AssistantEntity>()
     val providers = mutableStateListOf<ProviderEntity>()
@@ -141,6 +143,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var apiKey by mutableStateOf("")
     var baseUrl by mutableStateOf("https://api.openai.com/v1")
     var model by mutableStateOf("") // 默认为空，用户需要选择
+    var defaultModel by mutableStateOf("") // 全局默认模型
     
     // 请求参数 (现在从当前助手读取)
     var temperature by mutableStateOf(0.7f)
@@ -298,6 +301,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 settingsRepository.model.collect { model = it }
             }
             launch {
+                settingsRepository.defaultModel.collect { defaultModel = it }
+            }
+            launch {
                 settingsRepository.themeMode.collect { themeMode = it }
             }
             launch {
@@ -365,6 +371,49 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun updateGlassColor(color: String) {
         viewModelScope.launch {
             settingsRepository.setGlassColor(color)
+        }
+    }
+    
+    fun setDefaultModel(value: String) {
+        defaultModel = value
+        viewModelScope.launch {
+            settingsRepository.setDefaultModel(value)
+        }
+    }
+    
+    fun updateGlassBlur(blur: Float) {
+        glassBlur = blur
+        viewModelScope.launch {
+            settingsRepository.setGlassBlur(blur)
+        }
+    }
+    
+    fun exportData(onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = dataRepository.exportData()
+                onResult(json)
+            } catch (e: Exception) {
+                onResult(null)
+            }
+        }
+    }
+    
+    fun importData(uri: android.net.Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = dataRepository.importData(uri)
+            if (success) {
+                // 重新加载数据
+                switchConversation(currentConversationId)
+            }
+            onResult(success)
+        }
+    }
+    
+    fun updateGlassOpacity(opacity: Float) {
+        glassOpacity = opacity
+        viewModelScope.launch {
+            settingsRepository.setGlassOpacity(opacity)
         }
     }
     
@@ -515,6 +564,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentConversationId = newId
         currentConversationTitle = title
         messages.clear()
+        
+        // 应用默认模型 (如果有)
+        if (defaultModel.isNotBlank()) {
+            model = defaultModel
+        }
         
         // 标记为临时会话
         transientConversationIds.add(newId)
@@ -1741,13 +1795,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val errorDetail = "请求失败: $errorMsg"
                     showErrorMessage(errorDetail)
                     
-                    // 将错误信息写入气泡，而不是移除
+                    // 仅当消息为空时才显示错误占位符，否则保留已有内容
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
-                        messages[index] = messages[index].copy(
-                            content = "⚠️ $errorDetail",
-                            isStreaming = false
-                        )
+                        val currentMsg = messages[index]
+                        if (currentMsg.content.isBlank()) {
+                            messages[index] = currentMsg.copy(
+                                content = "⚠️ 加载失败", // 简单提示，详细看弹窗
+                                isStreaming = false
+                            )
+                        } else {
+                            messages[index] = currentMsg.copy(isStreaming = false)
+                        }
+                    }
+                }
                     }
                 }
             }
