@@ -249,8 +249,15 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .drawBackdrop(backdrop)
-                                .background(Color.White.copy(alpha = 0.15f))
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { RoundedCornerShape(16.dp) },
+                                    effects = { 
+                                        vibrancy()
+                                        blur(20.dp.toPx())
+                                    },
+                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
+                                )
                                 .clickable { viewModel.checkAuth() }
                                 .padding(horizontal = 32.dp, vertical = 14.dp)
                         ) {
@@ -261,8 +268,15 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .drawBackdrop(backdrop)
-                                .background(Color.White.copy(alpha = 0.1f))
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { RoundedCornerShape(16.dp) },
+                                    effects = { 
+                                        vibrancy()
+                                        blur(20.dp.toPx())
+                                    },
+                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
+                                )
                                 .clickable { viewModel.logout() }
                                 .padding(horizontal = 32.dp, vertical = 14.dp)
                         ) {
