@@ -419,64 +419,6 @@ fun SettingsScreen(
                     Text("导入将覆盖现有数据", style = textStyles.caption, color = Color.White.copy(0.4f))
                 }
             }
-<<<<<<< HEAD
-            
-            // 服务商管理
-            item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Key, null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp)) },
-                    title = "服务商管理",
-                    subtitle = viewModel.currentProvider?.name ?: "未配置",
-                    badge = if (viewModel.providers.isNotEmpty()) "${viewModel.providers.size}" else null,
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToProviders
-                )
-            }
-            
-            // 显示设置
-            item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Palette, null, tint = Color(0xFF34C759), modifier = Modifier.size(24.dp)) },
-                    title = "显示设置",
-                    subtitle = "主题、壁纸与效果",
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToDisplay
-                )
-            }
-            
-            // 灵动岛设置
-            item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.ChevronRight, null, tint = Color(0xFF5856D6), modifier = Modifier.size(24.dp)) },
-                    title = "灵动岛设置",
-                    subtitle = "状态通知与动画效果",
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = onNavigateToDynamicIsland
-                )
-            }
-            
-            // 关于
-            item {
-                SettingsCategoryCard(
-                    icon = { Icon(Lucide.Info, null, tint = Color(0xFFAF52DE), modifier = Modifier.size(24.dp)) },
-                    title = "关于",
-                    subtitle = "FluxHub v1.0 · Liquid Glass",
-                    backdrop = backdrop,
-                    glassOpacity = glassOpacity,
-                    glassBlur = glassBlur,
-                    onClick = { showAboutDialog = true }
-                )
-            }
-            
-            item { Spacer(Modifier.height(24.dp)) }
-=======
->>>>>>> main
         }
     }
 }
