@@ -12,6 +12,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import androidx.room.withTransaction
 
 @Serializable
 data class BackupData(
@@ -83,7 +84,7 @@ class DataRepository(private val context: Context) {
             // 简单起见，且为了避免冲突，通常建议"覆盖"或"清理后导入"。
             // 这里采用清除旧数据策略，确保一致性)
             
-            database.runInTransaction {
+            database.withTransaction {
                 // 清理
                 database.messageDao().deleteAllMessages()
                 database.conversationDao().deleteAllConversations()

@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.liquidglass.fluxhub.data.AppDatabase
 import com.liquidglass.fluxhub.data.ConversationEntity
+import com.liquidglass.fluxhub.data.DataRepository
 import com.liquidglass.fluxhub.data.MessageEntity
 import com.liquidglass.fluxhub.data.AssistantEntity
 import com.liquidglass.fluxhub.data.ProviderEntity
@@ -404,7 +405,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val success = dataRepository.importData(uri)
             if (success) {
                 // 重新加载数据
-                switchConversation(currentConversationId)
+                currentConversationId?.let { switchConversation(it) }
             }
             onResult(success)
         }
@@ -1799,9 +1800,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
-import com.liquidglass.fluxhub.data.DataRepository
 
-// ... imports ...
 
                 }
             }
