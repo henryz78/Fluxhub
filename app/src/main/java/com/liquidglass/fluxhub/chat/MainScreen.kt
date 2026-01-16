@@ -65,7 +65,6 @@ import com.liquidglass.fluxhub.ui.theme.GlassTypography
 import com.liquidglass.fluxhub.ui.theme.GlassTextStyles
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
-import com.kyant.backdrop.backdrop
 
 // MainScreen - 主界面入口
 @Composable
@@ -250,7 +249,7 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .backdrop(backdrop)
+                                .drawBackdrop(backdrop)
                                 .background(Color.White.copy(alpha = 0.15f))
                                 .clickable { viewModel.checkAuth() }
                                 .padding(horizontal = 32.dp, vertical = 14.dp)
@@ -262,7 +261,7 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .backdrop(backdrop)
+                                .drawBackdrop(backdrop)
                                 .background(Color.White.copy(alpha = 0.1f))
                                 .clickable { viewModel.logout() }
                                 .padding(horizontal = 32.dp, vertical = 14.dp)
