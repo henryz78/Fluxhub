@@ -297,7 +297,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * 检查登录状态（启动时调用）
      */
-    private fun checkAuth() {
+    fun checkAuth() {
         viewModelScope.launch {
             // 先获取服务器设置（是否需要邀请码等）
             try {
