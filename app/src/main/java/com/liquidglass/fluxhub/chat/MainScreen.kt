@@ -54,6 +54,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.liquidglass.fluxhub.R
 import com.liquidglass.fluxhub.components.LiquidBottomTab
 import com.liquidglass.fluxhub.components.LiquidBottomTabs
+import com.liquidglass.fluxhub.components.LiquidButton
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import com.kyant.backdrop.drawBackdrop
@@ -245,42 +246,36 @@ fun MainScreen(
                             fontSize = 14.sp
                         )
                         Spacer(Modifier.height(32.dp))
-                        // 刷新按钮（液态玻璃样式）
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { RoundedCornerShape(16.dp) },
-                                    effects = { 
-                                        vibrancy()
-                                        blur(20.dp.toPx())
-                                    },
-                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.15f)) }
-                                )
-                                .clickable { viewModel.checkAuth() }
-                                .padding(horizontal = 32.dp, vertical = 14.dp)
+                        // 刷新按钮
+                        LiquidButton(
+                            onClick = { viewModel.checkAuth() },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth(0.6f).height(50.dp),
+                            isInteractive = true,
+                            tint = Color(0xFF34C759)
                         ) {
-                            androidx.compose.material3.Text("刷新状态", color = Color.White, fontSize = 16.sp)
+                            androidx.compose.material3.Text(
+                                "刷新状态",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                         Spacer(Modifier.height(16.dp))
-                        // 切换账号按钮（液态玻璃样式）
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { RoundedCornerShape(16.dp) },
-                                    effects = { 
-                                        vibrancy()
-                                        blur(20.dp.toPx())
-                                    },
-                                    onDrawSurface = { drawRect(Color.White.copy(alpha = 0.1f)) }
-                                )
-                                .clickable { viewModel.logout() }
-                                .padding(horizontal = 32.dp, vertical = 14.dp)
+                        // 切换账号按钮
+                        LiquidButton(
+                            onClick = { viewModel.logout() },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth(0.6f).height(50.dp),
+                            isInteractive = true,
+                            tint = Color(0xFFFF3B30)
                         ) {
-                            androidx.compose.material3.Text("切换账号", color = Color(0xFFFF3B30), fontSize = 16.sp)
+                            androidx.compose.material3.Text(
+                                "切换账号",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
