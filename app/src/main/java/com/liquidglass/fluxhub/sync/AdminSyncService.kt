@@ -58,40 +58,63 @@ class AdminSyncService(private val context: Context) {
         set(value) = prefs.edit().putString("username", value).apply()
     
     /**
-     * 用户注册
+     * 用户注册（带自动重试）
      */
     suspend fun register(username: String, email: String, password: String, inviteCode: String = ""): AuthResult = withContext(Dispatchers.IO) {
-        try {
-            val body = json.encodeToString(
-                RegisterRequest(username = username, email = email, password = password, inviteCode = inviteCode.ifBlank { null })
-            )
-            
-            val request = Request.Builder()
-                .url("$ADMIN_BASE_URL/api/user-auth/register")
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-            
-            val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: "{}"
-            
-            if (response.isSuccessful) {
-                val result = json.decodeFromString<AuthResponse>(responseBody)
-                authToken = result.token
-                userId = result.user.id
-                this@AdminSyncService.username = result.user.username
-                Log.d(TAG, "Register success: ${result.user.username}")
-                return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
-            } else {
-                val error = try {
-                    json.decodeFromString<ErrorResponse>(responseBody).error
-                } catch (e: Exception) { "注册失败" }
-                Log.e(TAG, "Register failed: $error")
-                return@withContext AuthResult.Error(error)
+        val maxAttempts = 3
+        var attempts = 0
+        
+        while (attempts < maxAttempts) {
+            attempts++
+            try {
+                val body = json.encodeToString(
+                    RegisterRequest(username = username, email = email, password = password, inviteCode = inviteCode.ifBlank { null })
+                )
+                
+                val request = Request.Builder()
+                    .url("$ADMIN_BASE_URL/api/user-auth/register")
+                    .post(body.toRequestBody("application/json".toMediaType()))
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: "{}"
+                
+                if (response.isSuccessful) {
+                    val result = json.decodeFromString<AuthResponse>(responseBody)
+                    authToken = result.token
+                    userId = result.user.id
+                    this@AdminSyncService.username = result.user.username
+                    Log.d(TAG, "Register success: ${result.user.username}")
+                    return@withContext AuthResult.Success(result.token, result.user.id, result.user.username)
+                } else {
+                    val error = try {
+                        json.decodeFromString<ErrorResponse>(responseBody).error
+                    } catch (e: Exception) { "注册失败" }
+                    // 如果是业务错误（用户名已存在、邀请码无效等），无需重试
+                    if (error.contains("已存在") || error.contains("邀请码") || error.contains("无效") || error.contains("邮箱")) {
+                        return@withContext AuthResult.Error(error)
+                    }
+                    if (attempts >= maxAttempts) return@withContext AuthResult.Error(error)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Register attempt $attempts failed", e)
+                if (attempts >= maxAttempts) {
+                    val msg = if (e is java.net.SocketTimeoutException) "服务器响应超时，请重试" else "网络连接失败"
+                    return@withContext AuthResult.Error(msg)
+                }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Register error", e)
-            return@withContext AuthResult.Error("网络连接失败")
+            
+            // 下次重试前等待
+            val delayMs = when(attempts) {
+                1 -> 1000L
+                2 -> 2000L
+                else -> 0L
+            }
+            if (delayMs > 0) {
+                try { kotlinx.coroutines.delay(delayMs) } catch (e: Exception) {}
+            }
         }
+        return@withContext AuthResult.Error("网络连接失败")
     }
     
     /**
@@ -313,6 +336,28 @@ class AdminSyncService(private val context: Context) {
         }
         false
     }
+    
+    /**
+     * 获取服务器设置（是否需要邀请码等）
+     */
+    suspend fun getServerSettings(): ServerSettings = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$ADMIN_BASE_URL/api/settings/public")
+                .get()
+                .build()
+            
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val body = response.body?.string() ?: "{}"
+                return@withContext json.decodeFromString<ServerSettings>(body)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get server settings error", e)
+        }
+        // 默认设置：需要邀请码
+        return@withContext ServerSettings(requireInviteCode = true)
+    }
 }
 
 // ========== 数据类 ==========
@@ -396,4 +441,9 @@ data class MessageSyncData(
 data class ConversationsSyncRequest(
     val userId: String,
     val conversations: List<ConversationSyncData>
+)
+
+@Serializable
+data class ServerSettings(
+    val requireInviteCode: Boolean = true
 )

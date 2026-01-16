@@ -43,6 +43,7 @@ fun AuthScreen(
     backdrop: Backdrop,
     authState: AuthState,
     isCheckingAuth: Boolean,
+    requireInviteCode: Boolean = true, // 是否需要邀请码
     onLogin: (username: String, password: String) -> Unit,
     onRegister: (username: String, email: String, password: String, inviteCode: String) -> Unit
 ) {
@@ -206,28 +207,30 @@ fun AuthScreen(
                                 )
                             )
                             Spacer(Modifier.height(16.dp))
-                            // 邀请码
-                            AuthTextField(
-                                value = inviteCode,
-                                onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
-                                placeholder = "邀请码",
-                                icon = Lucide.Ticket,
-                                backdrop = backdrop,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = {
-                                        keyboardController?.hide()
-                                        if (password == confirmPassword) {
-                                            onRegister(username, email, password, inviteCode)
-                                        } else {
-                                            errorMessage = "两次密码不一致"
+                            // 邀请码（仅当服务器要求时显示）
+                            if (requireInviteCode) {
+                                AuthTextField(
+                                    value = inviteCode,
+                                    onValueChange = { inviteCode = it.uppercase(); errorMessage = null },
+                                    placeholder = "邀请码",
+                                    icon = Lucide.Ticket,
+                                    backdrop = backdrop,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            keyboardController?.hide()
+                                            if (password == confirmPassword) {
+                                                onRegister(username, email, password, inviteCode)
+                                            } else {
+                                                errorMessage = "两次密码不一致"
+                                            }
                                         }
-                                    }
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                     

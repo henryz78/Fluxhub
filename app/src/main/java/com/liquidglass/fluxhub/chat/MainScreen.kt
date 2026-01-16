@@ -150,6 +150,16 @@ fun MainScreen(
             (scaleIn(initialScale = 0.8f, animationSpec = tween(500)) + fadeIn(animationSpec = tween(500)))
                 .togetherWith(scaleOut(targetScale = 1.2f, animationSpec = tween(500)) + fadeOut(animationSpec = tween(500)))
         },
+        // 关键：让 NotLoggedIn 和 Error 共用同一个 key，避免动画重建 AuthScreen
+        contentKey = { state ->
+            when (state) {
+                is AuthState.NotLoggedIn, is AuthState.Error -> "login"
+                is AuthState.Checking -> "checking"
+                is AuthState.Blocked -> "blocked"
+                is AuthState.Expired -> "expired"
+                is AuthState.Authenticated -> "authenticated"
+            }
+        },
         label = "AuthTransition",
         modifier = Modifier.fillMaxSize().background(Color.Black) // 默认黑底，防止转场白屏
     ) { targetState ->
@@ -187,6 +197,7 @@ fun MainScreen(
                         backdrop = backdrop,
                         authState = targetState,
                         isCheckingAuth = viewModel.isCheckingAuth,
+                        requireInviteCode = viewModel.requireInviteCode,
                         onLogin = { username, password ->
                             viewModel.login(username, password)
                         },

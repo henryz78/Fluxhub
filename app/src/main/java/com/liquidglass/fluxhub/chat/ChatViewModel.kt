@@ -263,6 +263,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
+    // 是否需要邀请码注册（从服务器获取）
+    var requireInviteCode by mutableStateOf(true)
+        private set
+    
     // ========== 字体样式配置 ==========
     var textColorMode by mutableStateOf("white") // white, black
         private set
@@ -295,6 +299,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun checkAuth() {
         viewModelScope.launch {
+            // 先获取服务器设置（是否需要邀请码等）
+            try {
+                val settings = adminSyncService.getServerSettings()
+                requireInviteCode = settings.requireInviteCode
+            } catch (e: Exception) {
+                // 获取失败，保持默认值（需要邀请码）
+            }
+            
             // 从存储中读取 Token
             val token = settingsRepository.authToken.first()
             
