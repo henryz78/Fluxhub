@@ -201,8 +201,17 @@ fun SettingsScreen(
                         subtitle = "壁纸、毛玻璃效果强度",
                         backdrop = backdrop,
                         isFirst = true,
-                        isLast = true,
                         onClick = onNavigateToDisplay
+                    )
+                    SettingsCategoryItem(
+                        icon = Lucide.Zap,
+                        iconColor = Color.White,
+                        iconBgColor = Color(0xFF5856D6), // Indigo
+                        title = "灵动岛设置",
+                        subtitle = "状态通知与动画效果",
+                        backdrop = backdrop,
+                        isLast = true,
+                        onClick = onNavigateToDynamicIsland
                     )
                 }
             }
