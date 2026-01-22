@@ -3,6 +3,7 @@ package com.liquidglass.fluxhub.chat
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -148,6 +149,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     var isLoading by mutableStateOf(false)
         private set
+    var streamingTokenCount by mutableIntStateOf(0)
+        private set
     var error by mutableStateOf<String?>(null)
         private set
     var showError by mutableStateOf(false)
@@ -178,6 +181,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 当前选中的图片 URI (Vision)
     var selectedImageUri by mutableStateOf<Uri?>(null)
+
+    fun stopGeneration() {
+        currentEventSource?.cancel()
+        isLoading = false
+    }
     
     // 输入框文本（保存在 ViewModel 中，避免导航时丢失）
     var inputText by mutableStateOf("")
@@ -253,6 +261,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
+<<<<<<< HEAD
     // ========== 用户认证 ==========
     private val adminSyncService = AdminSyncService(application)
     
@@ -264,6 +273,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var isCheckingAuth by mutableStateOf(false)
         private set
     
+=======
+    // ========== 灵动岛配置项 ==========
+    var dynamicIslandEnabled by mutableStateOf(true)
+        private set
+    var loginNotificationMode by mutableStateOf("first") // "first" or "every"
+        private set
+    var dynamicIslandDuration by mutableStateOf(3) // 秒
+        private set
+    var showTokenCount by mutableStateOf(true)
+        private set
+    var showElapsedTime by mutableStateOf(true)
+        private set
+    
+    // 触感反馈
+>>>>>>> feature/dynamic-island
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
@@ -276,6 +300,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var textShadowEnabled by mutableStateOf(true)
         private set
+<<<<<<< HEAD
+=======
+
+>>>>>>> feature/dynamic-island
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -580,6 +608,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 settingsRepository.contextSize.collect { contextSize = it }
             }
+            // 加载灵动岛配置项
+            launch {
+                settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
+            }
+            launch {
+                settingsRepository.loginNotificationMode.collect { loginNotificationMode = it }
+            }
+            launch {
+                settingsRepository.dynamicIslandDuration.collect { dynamicIslandDuration = it }
+            }
+            launch {
+                settingsRepository.showTokenCount.collect { showTokenCount = it }
+            }
+            launch {
+                settingsRepository.showElapsedTime.collect { showElapsedTime = it }
+            }
+            // 触感反馈
             launch {
                 settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
             }
@@ -594,6 +639,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun updateHapticFeedbackEnabled(enabled: Boolean) {
+        hapticFeedbackEnabled = enabled
         viewModelScope.launch {
             settingsRepository.setHapticFeedbackEnabled(enabled)
         }
@@ -754,7 +800,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
             }
-            createNewConversation()
+            createNewConversation(showNotification = false)
         }
     }
     
@@ -801,7 +847,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun createNewConversation(systemPrompt: String? = null, title: String = "新对话") {
+    fun createNewConversation(systemPrompt: String? = null, title: String = "新对话", showNotification: Boolean = false) {
         // 同步更新 ID 和 UI 状态，防止 sendMessage 竞争
         val newId = UUID.randomUUID().toString()
         currentConversationId = newId
@@ -826,6 +872,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             
             // 但是我们要保存这个 ID 到设置，以便下次打开尝试恢复(虽然没存DB会失败，但逻辑一致)
             settingsRepository.setCurrentConversationId(newId)
+            // 显示新对话创建成功通知
+            if (showNotification) {
+                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                    message = "新对话已创建",
+                    avatar = "✨"
+                )
+            }
         }
     }
     
@@ -903,6 +956,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             conversationDao.deleteConversation(conversationId)
             
             // 移除手动 createNewConversation，交由 startConversationsCollection 监听处理
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "对话已删除",
+                avatar = "🗑️"
+            )
         }
     }
 
@@ -913,6 +971,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (conversationId == currentConversationId) {
                 currentConversationTitle = newTitle
             }
+            // 显示重命名成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "对话已重命名",
+                avatar = "✏️"
+            )
         }
     }
 
@@ -1226,6 +1289,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun switchAssistant(assistant: AssistantEntity) {
         currentAssistant = assistant
         applyAssistantSettings(assistant)
+        // 显示切换成功通知
+        com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+            message = "已切换助手",
+            avatar = assistant.avatar ?: "🤖"
+        )
     }
     
     private fun applyAssistantSettings(assistant: AssistantEntity) {
@@ -1257,6 +1325,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isDefault = assistants.isEmpty() // 第一个助手为默认
             )
             assistantDao.insertAssistant(assistant)
+            // 显示创建成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已创建",
+                avatar = avatar ?: "🤖"
+            )
         }
     }
     
@@ -1267,6 +1340,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 currentAssistant = assistant
                 applyAssistantSettings(assistant)
             }
+            // 显示更新成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已更新",
+                avatar = assistant.avatar
+            )
         }
     }
     
@@ -1277,6 +1355,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 currentAssistant = assistants.firstOrNull { it.id != assistantId }
                 currentAssistant?.let { applyAssistantSettings(it) }
             }
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "助手已删除",
+                avatar = "🗑️"
+            )
         }
     }
     
@@ -1320,6 +1403,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             currentProvider = provider.copy(isActive = true)
             applyProviderSettings(currentProvider!!)
             fetchModels() // 切换 Provider 后重新获取模型列表
+            // 显示切换成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "已切换服务商",
+                avatar = "🔄"
+            )
         }
     }
     
@@ -1349,8 +1437,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
+=======
+            // 显示创建成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已创建",
+                avatar = "➕"
+            )
+>>>>>>> feature/dynamic-island
         }
     }
     
@@ -1362,8 +1458,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
+<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
+=======
+            // 显示更新成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已更新",
+                avatar = "🔧"
+            )
+>>>>>>> feature/dynamic-island
         }
     }
     
@@ -1377,8 +1481,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fetchModels()
                 }
             }
+<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
+=======
+            // 显示删除成功通知
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                message = "服务商已删除",
+                avatar = "🗑️"
+            )
+>>>>>>> feature/dynamic-island
         }
     }
     
@@ -1455,6 +1567,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         contextSize = value
         viewModelScope.launch {
             settingsRepository.setContextSize(value)
+        }
+    }
+    
+    // ========== 灵动岛配置项更新方法 ==========
+    
+    fun updateDynamicIslandEnabled(value: Boolean) {
+        dynamicIslandEnabled = value
+        viewModelScope.launch {
+            settingsRepository.setDynamicIslandEnabled(value)
+        }
+    }
+    
+    fun updateLoginNotificationMode(value: String) {
+        loginNotificationMode = value
+        viewModelScope.launch {
+            settingsRepository.setLoginNotificationMode(value)
+        }
+    }
+    
+    fun updateDynamicIslandDuration(value: Int) {
+        dynamicIslandDuration = value
+        viewModelScope.launch {
+            settingsRepository.setDynamicIslandDuration(value)
+        }
+    }
+    
+    fun updateShowTokenCount(value: Boolean) {
+        showTokenCount = value
+        viewModelScope.launch {
+            settingsRepository.setShowTokenCount(value)
+        }
+    }
+    
+    fun updateShowElapsedTime(value: Boolean) {
+        showElapsedTime = value
+        viewModelScope.launch {
+            settingsRepository.setShowElapsedTime(value)
         }
     }
     
@@ -1879,6 +2028,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
                 Log.d(TAG, "SSE onOpen: ${response.code}")
+                streamingTokenCount = 0 // 重置 token 计数
             }
             
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
@@ -1952,6 +2102,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         
                         if (!deltaContent.isNullOrEmpty()) {
                             fullContent += deltaContent
+                            
+                            // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
+                            streamingTokenCount += (deltaContent.length / 4).coerceAtLeast(1)
+                            
                             pendingUiUpdate = true
                         }
                         
@@ -2163,13 +2317,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "图片已保存至相册", android.widget.Toast.LENGTH_SHORT).show()
+                        // 使用灵动岛通知替换 Toast
+                        com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                            message = "图片已保存至相册",
+                            avatar = "🖼️"
+                        )
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(getApplication(), "保存失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showError(
+                        message = "保存失败"
+                    )
                 }
             }
         }

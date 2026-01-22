@@ -273,7 +273,7 @@ fun ChatScreen(
                         viewModel.renameConversation(id, newTitle)
                     },
                     onNewConversation = {
-                        viewModel.createNewConversation()
+                        viewModel.createNewConversation(showNotification = true)
                         scope.launch { drawerState.close() }
                     },
                     onInteractionChanged = { isInteractingWithButtons = it },
@@ -418,6 +418,41 @@ private fun LiquidGlassChatContent(
     // 工具箱弹窗状态
     var showToolbox by remember { mutableStateOf(false) }
 
+    // ========== 灵动岛控制（使用全局控制器）==========
+    val controller = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController
+    
+    // AI 生成时显示灵动岛
+    // 使用 remember 跟踪是否正在加载（避免覆盖登录通知）
+    var wasLoading by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(viewModel.isLoading) {
+        if (viewModel.isLoading) {
+            wasLoading = true
+            // 开始生成：显示加载状态
+            controller.showLoading(
+                title = "AI 正在思考...",
+                modelName = viewModel.model.ifBlank { "DeepSeek-Chat" },
+                avatar = viewModel.currentAssistant?.avatar ?: "🤖"
+            )
+        } else if (wasLoading) {
+            // 仅当从加载状态结束时才显示成功/失败
+            wasLoading = false
+            if (viewModel.showError) {
+                controller.showError("失败")
+            } else {
+                controller.showSuccess("完成")
+            }
+        }
+    }
+    
+    // 实时更新 Token 计数
+    LaunchedEffect(viewModel.streamingTokenCount) {
+        controller.updateTokenCount(viewModel.streamingTokenCount)
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
     // 主内容区域
     Column(
         modifier = Modifier
@@ -549,7 +584,7 @@ private fun LiquidGlassChatContent(
                 
                 // 新建会话按钮（右上角）
                 LiquidButton(
-                    onClick = { viewModel.createNewConversation() },
+                    onClick = { viewModel.createNewConversation(showNotification = true) },
                     backdrop = backdrop,
                     modifier = Modifier.size(44.dp),
                     isInteractive = true,
@@ -1257,6 +1292,8 @@ private fun LiquidGlassChatContent(
                 onDismiss = { showToolbox = false }
             )
         }
+    }
+    // DynamicIsland 已移至 MainScreen 全局处理
     }
 }
 

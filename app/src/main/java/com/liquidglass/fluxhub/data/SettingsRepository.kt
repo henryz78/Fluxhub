@@ -39,6 +39,15 @@ class SettingsRepository(private val context: Context) {
         private val AUTH_TOKEN = stringPreferencesKey("auth_token")
         private val USER_ID = stringPreferencesKey("user_id")
         private val USERNAME = stringPreferencesKey("username")
+        
+        // 灵动岛配置项
+        private val DYNAMIC_ISLAND_ENABLED = booleanPreferencesKey("dynamic_island_enabled")
+        private val LOGIN_NOTIFICATION_MODE = stringPreferencesKey("login_notification_mode") // "every" or "first"
+        private val DYNAMIC_ISLAND_DURATION = intPreferencesKey("dynamic_island_duration") // 秒
+        private val SHOW_TOKEN_COUNT = booleanPreferencesKey("show_token_count")
+        private val SHOW_ELAPSED_TIME = booleanPreferencesKey("show_elapsed_time")
+        
+        // 触感反馈
         private val HAPTIC_FEEDBACK_ENABLED = booleanPreferencesKey("haptic_feedback_enabled")
         
         // 字体样式配置
@@ -257,6 +266,58 @@ class SettingsRepository(private val context: Context) {
     suspend fun setContextSize(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
+        }
+    }
+    
+    // ========== 灵动岛配置项 ==========
+    
+    val dynamicIslandEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[DYNAMIC_ISLAND_ENABLED] ?: true // 默认开启
+    }
+    
+    val loginNotificationMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[LOGIN_NOTIFICATION_MODE] ?: "first" // 默认仅首次
+    }
+    
+    val dynamicIslandDuration: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[DYNAMIC_ISLAND_DURATION] ?: 3 // 默认 3 秒
+    }
+    
+    val showTokenCount: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_TOKEN_COUNT] ?: true // 默认显示
+    }
+    
+    val showElapsedTime: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SHOW_ELAPSED_TIME] ?: true // 默认显示
+    }
+    
+    suspend fun setDynamicIslandEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[DYNAMIC_ISLAND_ENABLED] = value
+        }
+    }
+    
+    suspend fun setLoginNotificationMode(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[LOGIN_NOTIFICATION_MODE] = value
+        }
+    }
+    
+    suspend fun setDynamicIslandDuration(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[DYNAMIC_ISLAND_DURATION] = value.coerceIn(1, 10)
+        }
+    }
+    
+    suspend fun setShowTokenCount(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SHOW_TOKEN_COUNT] = value
+        }
+    }
+    
+    suspend fun setShowElapsedTime(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SHOW_ELAPSED_TIME] = value
         }
     }
     
