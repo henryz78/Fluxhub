@@ -283,7 +283,7 @@ fun SettingsScreen(
                             )
                         )
                         Text(
-                            "v1.0.6 · Liquid Glass",
+                            "v1.1.0 · Liquid Glass",
                             fontSize = 13.sp,
                             color = Color.White.copy(alpha = 0.6f),
                             fontWeight = FontWeight.Medium

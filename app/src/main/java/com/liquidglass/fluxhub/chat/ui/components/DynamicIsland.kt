@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -79,32 +80,35 @@ fun DynamicIsland(
     // 内部状态转换动画（用于 Collapsed/Expanded/LongPressMenu 之间切换）
     val transition = updateTransition(targetState = data.state, label = "DynamicIslandTransition")
     
-    // 宽度动画 - 更慢的弹簧
+    // 宽度动画 - 果冻弹簧效果
     val width by transition.animateDp(
         transitionSpec = {
-            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            spring(dampingRatio = 0.6f, stiffness = 130f)
         },
         label = "width"
     ) { state ->
         when (state) {
-            DynamicIslandState.Hidden -> 180.dp // 保持初始大小，让 AnimatedVisibility 处理缩放
-            DynamicIslandState.Collapsed -> 180.dp
-            DynamicIslandState.Expanded -> 340.dp
+            DynamicIslandState.Hidden -> 90.dp // 初始更小
+            DynamicIslandState.Collapsed -> {
+                // 简单的自适应宽度：如果有 token 数或耗时，则加宽
+                if (data.showTokenCount || data.showElapsedTime) 160.dp else 120.dp
+            }
+            DynamicIslandState.Expanded -> 312.dp
             DynamicIslandState.LongPressMenu -> 280.dp
         }
     }
 
-    // 高度动画 - 更慢的弹簧
+    // 高度动画 - 恢复固定高度
     val height by transition.animateDp(
         transitionSpec = {
-            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+            spring(dampingRatio = 0.6f, stiffness = 130f)
         },
         label = "height"
     ) { state ->
         when (state) {
             DynamicIslandState.Hidden -> 36.dp
             DynamicIslandState.Collapsed -> 36.dp
-            DynamicIslandState.Expanded -> 140.dp
+            DynamicIslandState.Expanded -> 150.dp // 恢复固定高度
             DynamicIslandState.LongPressMenu -> 160.dp
         }
     }
@@ -114,21 +118,21 @@ fun DynamicIsland(
         visible = isVisible,
         modifier = modifier, // 对齐 modifier 放在这里
         enter = scaleIn(
-            initialScale = 0.5f,
+            initialScale = 0.3f, // 从更小开始
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
+                dampingRatio = 0.5f,
+                stiffness = 150f
             ),
             transformOrigin = TransformOrigin(0.5f, 0f) // 从顶部中心缩放
-        ) + fadeIn(animationSpec = tween(400)),
+        ) + fadeIn(animationSpec = tween(300)),
         exit = scaleOut(
-            targetScale = 0.5f,
+            targetScale = 0.3f,
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessLow
+                dampingRatio = 0.8f,
+                stiffness = 200f
             ),
             transformOrigin = TransformOrigin(0.5f, 0f)
-        ) + fadeOut(animationSpec = tween(400))
+        ) + fadeOut(animationSpec = tween(300))
     ) {
         // Use key to restart everything when triggerId changes
         key(data.triggerId) {
@@ -136,60 +140,75 @@ fun DynamicIsland(
                 modifier = Modifier
                     .padding(top = 8.dp) // 距离顶部的间距
                     .size(width, height)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shape = { RoundedCornerShape(40.dp) },
-                    effects = {
-                        vibrancy()
-                        blur(20f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        drawRect(Color.Black.copy(alpha = 0.6f)) // 深色半透明背景
+                    .graphicsLayer { 
+                        shadowElevation = 12.dp.toPx()
+                        shape = RoundedCornerShape(40.dp)
+                        clip = true
                     }
-                )
-                .clip(RoundedCornerShape(40.dp))
-                .combinedClickable(
-                    onClick = {
-                        if (data.state == DynamicIslandState.Collapsed) {
-                            onExpand()
-                        } else {
-                            onCollapse()
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { RoundedCornerShape(40.dp) },
+                        effects = {
+                            vibrancy()
+                            blur(25f.dp.toPx()) // 增加模糊度
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.Black.copy(alpha = 0.5f)) // 更通透的背景
                         }
-                    },
-                    onLongClick = {
-                        if (data.state == DynamicIslandState.Collapsed) {
-                            onLongPress()
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.2f),
+                                Color.White.copy(alpha = 0.05f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(40.dp)
+                    )
+                    .clip(RoundedCornerShape(40.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (data.state == DynamicIslandState.Collapsed) {
+                                onExpand()
+                            } else {
+                                onCollapse()
+                            }
+                        },
+                        onLongClick = {
+                            if (data.state == DynamicIslandState.Collapsed) {
+                                onLongPress()
+                            }
                         }
-                    }
-                )
-        ) {
-            // 波浪动画背景 (仅在非菜单状态且非隐藏状态显示)
-            if (data.state != DynamicIslandState.LongPressMenu) {
-                WaveAnimationBackground()
-            }
-
-            // 内容区域
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
+                    )
             ) {
-                androidx.compose.animation.AnimatedContent(
-                    targetState = data.state,
-                    label = "content"
-                ) { targetState ->
-                    when (targetState) {
-                        DynamicIslandState.Collapsed -> CollapsedContent(data)
-                        DynamicIslandState.Expanded -> ExpandedContent(data)
-                        DynamicIslandState.LongPressMenu -> LongPressMenuContent(data, onStopGeneration, onCollapse, backdrop)
-                        else -> {}
+                // 波浪动画背景 (仅在非菜单状态且非隐藏状态显示)
+                if (data.state != DynamicIslandState.LongPressMenu) {
+                    WaveAnimationBackground()
+                }
+
+                // 内容区域
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = data.state,
+                        label = "content"
+                    ) { targetState ->
+                        when (targetState) {
+                            DynamicIslandState.Collapsed -> CollapsedContent(data)
+                            DynamicIslandState.Expanded -> ExpandedContent(data)
+                            DynamicIslandState.LongPressMenu -> LongPressMenuContent(data, onStopGeneration, onCollapse, backdrop)
+                            else -> {}
+                        }
                     }
                 }
             }
         }
     }
-}
 }
 
 @Composable
@@ -255,7 +274,7 @@ private fun CollapsedContent(data: DynamicIslandData) {
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "tokens",
+                    text = "tok",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Color.White.copy(alpha = 0.5f)
                     )
@@ -457,12 +476,13 @@ private fun AnimatedXMark(modifier: Modifier = Modifier) {
 private fun ExpandedContent(data: DynamicIslandData) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly,
+        verticalArrangement = Arrangement.Center, // 整体垂直居中
         modifier = Modifier.fillMaxSize()
     ) {
         // 顶部信息：头像和状态
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center, // 居中对齐
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
@@ -501,8 +521,9 @@ private fun ExpandedContent(data: DynamicIslandData) {
             }
         }
         
-        // 可视化波形条 (仅加载状态显示)
+        // 可视化波形条 (仅加载状态显示) - 增加间距
         if (!data.isCompleted && !data.isFailed) {
+            Spacer(modifier = Modifier.height(16.dp))
             ThinkingWaveform()
         }
     }
@@ -594,10 +615,13 @@ private fun WaveAnimationBackground() {
         val height = size.height
         val centerY = height / 2
         
+        // 优化：增加步长以减少采样点 (10 -> 25)
+        val step = 25
+        
         // 绘制第一层波浪
         val path1 = Path().apply {
             moveTo(0f, centerY)
-            for (x in 0..width.toInt() step 10) {
+            for (x in 0..width.toInt() step step) {
                 val xFloat = x.toFloat()
                 val y = centerY + 10.dp.toPx() * sin((xFloat / width) * 2 * PI + phase1).toFloat()
                 lineTo(xFloat, y)
@@ -611,7 +635,7 @@ private fun WaveAnimationBackground() {
         // 绘制第二层波浪
         val path2 = Path().apply {
             moveTo(0f, centerY)
-            for (x in 0..width.toInt() step 10) {
+            for (x in 0..width.toInt() step step) {
                 val xFloat = x.toFloat()
                 val y = centerY + 8.dp.toPx() * sin((xFloat / width) * 3 * PI + phase2).toFloat()
                 lineTo(xFloat, y)
