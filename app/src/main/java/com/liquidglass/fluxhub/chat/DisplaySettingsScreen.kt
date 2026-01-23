@@ -272,6 +272,7 @@ fun DisplaySettingsScreen(
                         isSelected = viewModel.glassColor == "FF9500",
                         onClick = { viewModel.updateGlassColor("FF9500") }
                     )
+                }
             }
         }
 
