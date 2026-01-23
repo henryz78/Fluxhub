@@ -92,7 +92,6 @@ fun DynamicIslandSettingsScreen(
                         color = Color.White.copy(alpha = 0.6f)
                     )
                 }
-                }
                 LiquidToggle(
                     selected = { viewModel.dynamicIslandEnabled },
                     onSelect = { viewModel.updateDynamicIslandEnabled(it) },
@@ -213,7 +212,6 @@ private fun SettingsCardSimple(
     }
 }
 
-@Composable
 @Composable
 private fun ModeOption(
     selected: Boolean,
