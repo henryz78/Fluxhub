@@ -88,12 +88,12 @@ fun DynamicIsland(
         label = "width"
     ) { state ->
         when (state) {
-            DynamicIslandState.Hidden -> 120.dp // 初始更小，展开时更有张力
+            DynamicIslandState.Hidden -> 100.dp // 初始更小
             DynamicIslandState.Collapsed -> {
                 // 简单的自适应宽度：如果有 token 数或耗时，则加宽
-                if (data.showTokenCount || data.showElapsedTime) 220.dp else 180.dp
+                if (data.showTokenCount || data.showElapsedTime) 190.dp else 150.dp
             }
-            DynamicIslandState.Expanded -> 312.dp // 更精致的尺寸
+            DynamicIslandState.Expanded -> 312.dp // 保持已调整的展开宽度
             DynamicIslandState.LongPressMenu -> 280.dp
         }
     }
