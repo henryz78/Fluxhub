@@ -93,12 +93,12 @@ fun DynamicIsland(
                 // 简单的自适应宽度：如果有 token 数或耗时，则加宽
                 if (data.showTokenCount || data.showElapsedTime) 220.dp else 180.dp
             }
-            DynamicIslandState.Expanded -> 350.dp
+            DynamicIslandState.Expanded -> 312.dp // 更精致的尺寸
             DynamicIslandState.LongPressMenu -> 280.dp
         }
     }
 
-    // 高度动画 - 果冻弹簧效果
+    // 高度动画 - 根据内容动态调整
     val height by transition.animateDp(
         transitionSpec = {
             spring(dampingRatio = 0.6f, stiffness = 130f)
@@ -108,7 +108,10 @@ fun DynamicIsland(
         when (state) {
             DynamicIslandState.Hidden -> 36.dp
             DynamicIslandState.Collapsed -> 36.dp
-            DynamicIslandState.Expanded -> 150.dp // 稍微增加高度
+            DynamicIslandState.Expanded -> {
+                // 如果是完成/失败状态，不需要那么高，因为没有波形
+                if (data.isCompleted || data.isFailed) 88.dp else 140.dp
+            }
             DynamicIslandState.LongPressMenu -> 160.dp
         }
     }
@@ -476,12 +479,13 @@ private fun AnimatedXMark(modifier: Modifier = Modifier) {
 private fun ExpandedContent(data: DynamicIslandData) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly,
+        verticalArrangement = Arrangement.Center, // 整体垂直居中
         modifier = Modifier.fillMaxSize()
     ) {
         // 顶部信息：头像和状态
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center, // 居中对齐
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
@@ -520,8 +524,9 @@ private fun ExpandedContent(data: DynamicIslandData) {
             }
         }
         
-        // 可视化波形条 (仅加载状态显示)
+        // 可视化波形条 (仅加载状态显示) - 增加间距
         if (!data.isCompleted && !data.isFailed) {
+            Spacer(modifier = Modifier.height(16.dp))
             ThinkingWaveform()
         }
     }

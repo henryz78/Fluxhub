@@ -147,10 +147,9 @@ object DynamicIslandController {
      */
     fun hide() {
         stopTimer()
-        autoHideJob?.cancel()
+        scheduleAutoHide(0) // 确保取消任何 pending 的自动隐藏任务
+        // 不要在这里重置 isCompleted/isFailed，否则退出动画还没结束时 UI 会闪回默认状态
         this.state = DynamicIslandState.Hidden
-        this.isCompleted = false
-        this.isFailed = false
     }
     
     /**

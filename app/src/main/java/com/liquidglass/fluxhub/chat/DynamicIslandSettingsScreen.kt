@@ -28,6 +28,7 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.blur
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.liquidglass.fluxhub.components.LiquidButton
+import com.liquidglass.fluxhub.components.LiquidToggle
 
 @Composable
 fun DynamicIslandSettingsScreen(
@@ -91,15 +92,11 @@ fun DynamicIslandSettingsScreen(
                         color = Color.White.copy(alpha = 0.6f)
                     )
                 }
-                Switch(
-                    checked = viewModel.dynamicIslandEnabled,
-                    onCheckedChange = { viewModel.updateDynamicIslandEnabled(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF34C759),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.4f)
-                    )
+                }
+                LiquidToggle(
+                    selected = { viewModel.dynamicIslandEnabled },
+                    onSelect = { viewModel.updateDynamicIslandEnabled(it) },
+                    backdrop = backdrop
                 )
             }
         }
@@ -132,6 +129,7 @@ fun DynamicIslandSettingsScreen(
                         selected = viewModel.loginNotificationMode == "first",
                         onClick = { viewModel.updateLoginNotificationMode("first") },
                         label = "仅登录成功后",
+                        backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                     
@@ -140,6 +138,7 @@ fun DynamicIslandSettingsScreen(
                         selected = viewModel.loginNotificationMode == "every",
                         onClick = { viewModel.updateLoginNotificationMode("every") },
                         label = "每次进入软件",
+                        backdrop = backdrop,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -165,15 +164,10 @@ fun DynamicIslandSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("显示 Token 计数", color = Color.White)
-                    Switch(
-                        checked = viewModel.showTokenCount,
-                        onCheckedChange = { viewModel.updateShowTokenCount(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF34C759),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.Gray.copy(alpha = 0.4f)
-                        )
+                    LiquidToggle(
+                        selected = { viewModel.showTokenCount },
+                        onSelect = { viewModel.updateShowTokenCount(it) },
+                        backdrop = backdrop
                     )
                 }
                 
@@ -186,15 +180,10 @@ fun DynamicIslandSettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("显示耗时", color = Color.White)
-                    Switch(
-                        checked = viewModel.showElapsedTime,
-                        onCheckedChange = { viewModel.updateShowElapsedTime(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF34C759),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.Gray.copy(alpha = 0.4f)
-                        )
+                    LiquidToggle(
+                        selected = { viewModel.showElapsedTime },
+                        onSelect = { viewModel.updateShowElapsedTime(it) },
+                        backdrop = backdrop
                     )
                 }
             }
@@ -225,22 +214,21 @@ private fun SettingsCardSimple(
 }
 
 @Composable
+@Composable
 private fun ModeOption(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
+    backdrop: Backdrop,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                if (selected) Color(0xFF34C759).copy(alpha = 0.3f)
-                else Color.White.copy(alpha = 0.1f)
-            )
-            .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        contentAlignment = Alignment.Center
+    LiquidButton(
+        onClick = onClick,
+        backdrop = backdrop,
+        modifier = modifier.height(48.dp),
+        isInteractive = true,
+        tint = if (selected) Color(0xFF34C759) else Color.White,
+        surfaceColor = if (selected) Color(0xFF34C759).copy(alpha = 0.2f) else Color.White.copy(alpha = 0.1f)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -248,7 +236,6 @@ private fun ModeOption(
         ) {
             Text(
                 label,
-                color = if (selected) Color(0xFF34C759) else Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
@@ -257,7 +244,6 @@ private fun ModeOption(
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = Color(0xFF34C759),
                     modifier = Modifier.size(18.dp)
                 )
             }
