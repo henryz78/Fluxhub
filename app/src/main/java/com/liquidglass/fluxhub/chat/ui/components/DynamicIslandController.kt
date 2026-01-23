@@ -104,7 +104,7 @@ object DynamicIslandController {
      */
     fun showSuccess(
         message: String = "完成",
-        autoHideDelayMs: Long = 2500,
+        autoHideDelayMs: Long = 3500,
         avatar: String? = null,
         customTitle: String? = null
     ) {
@@ -128,7 +128,7 @@ object DynamicIslandController {
     /**
      * 显示错误状态
      */
-    fun showError(message: String = "失败", autoHideDelayMs: Long = 2500) {
+    fun showError(message: String = "失败", autoHideDelayMs: Long = 3500) {
         if (!isEnabled) return
         
         triggerId++
