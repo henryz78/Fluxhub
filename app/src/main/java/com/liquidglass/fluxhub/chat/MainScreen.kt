@@ -350,9 +350,7 @@ private fun AuthenticatedContent(
         androidx.compose.runtime.snapshotFlow { viewModel.agreementAccepted }
             .collect { accepted ->
                 if (accepted) {
-                    // 延时800ms等待转场动画和可能的公告/协议弹窗完全消失
-                    kotlinx.coroutines.delay(800)
-                    
+                    // 立刻弹出，无延迟
                     val mode = viewModel.loginNotificationMode
                     
                     if (mode == "every" && !hasShownWelcomeThisSession) {
