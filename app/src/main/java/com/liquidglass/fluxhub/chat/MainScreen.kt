@@ -339,27 +339,42 @@ private fun AuthenticatedContent(
     // 快捷提示词状态
     var pendingPrompt by remember { mutableStateOf<String?>(null) }
     
+    // 每次App会话只显示一次 "欢迎回来" (针对 Every 模式)
+    var hasShownWelcomeThisSession by rememberSaveable { mutableStateOf(false) }
+
     // 监听登录成功通知逻辑
     LaunchedEffect(Unit) {
-        val mode = viewModel.loginNotificationMode
-        // 延时500ms等待转场动画和可能的公告
-        kotlinx.coroutines.delay(500)
-        
-        if (mode == "every") {
-             // 每次进入都显示
-             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
-                 message = "欢迎回来 👋",
-                 avatar = "🏠"
-             )
-        } else if (mode == "first" && viewModel.justLoggedIn) {
-             // 仅首次登录后显示
-             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
-                 message = "登录成功 🚀",
-                 avatar = "✅"
-             )
-             // 重置标记，避免切换 Tab 或配置更改时重复显示
-             viewModel.justLoggedIn = false
-        }
+        // 核心修正：必须等待用户同意协议后再显示通知
+        // 使用 snapshotFlow 监听状态变化，直到 agreementAccepted 为 true
+        androidx.compose.runtime.snapshotFlow { viewModel.agreementAccepted }
+            .collect { accepted ->
+                if (accepted) {
+                    // 延时800ms等待转场动画和可能的公告/协议弹窗完全消失
+                    kotlinx.coroutines.delay(800)
+                    
+                    val mode = viewModel.loginNotificationMode
+                    
+                    if (mode == "every" && !hasShownWelcomeThisSession) {
+                         // 每次进入都显示 (但单次Session内切换Tab不重复显示)
+                         com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                             message = "欢迎回来",
+                             avatar = "🏠"
+                         )
+                         hasShownWelcomeThisSession = true
+                    } else if (mode == "first" && viewModel.justLoggedIn) {
+                         // 仅首次登录后显示
+                         com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                             message = "登录成功",
+                             avatar = "✅"
+                         )
+                         // 重置标记，避免切换 Tab 或配置更改时重复显示
+                         viewModel.justLoggedIn = false
+                    }
+                    
+                    // 逻辑执行完毕后取消收集，防止多次触发
+                    throw java.util.concurrent.CancellationException("Notification shown")
+                }
+            }
     }
     
     // 保持各页面的子页面状态 (Moved to top scope for access in Bottom Bar)
@@ -690,42 +705,7 @@ private fun AuthenticatedContent(
             onDismiss = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.hide() }
         )
         
-        // 登录成功通知（仅在首页显示，且用户已同意协议后）
-        var hasShownLoginSuccess by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-        // 跟踪是否已经在本次应用启动中显示过（用于 "every" 模式，每次启动只显示一次）
-        var hasShownThisSession by remember { mutableStateOf(false) }
-        
-        LaunchedEffect(selectedTab, viewModel.agreementAccepted) {
-            // 必须先同意用户协议
-            if (!viewModel.agreementAccepted) return@LaunchedEffect
-            
-            // 仅在首页（Tab 0）显示
-            if (selectedTab != 0) return@LaunchedEffect
-            
-            // 等待 100ms 让协议弹窗消失
-            kotlinx.coroutines.delay(100)
-            
-            // 直接从 viewModel 读取设置（确保是最新值）
-            // 检查是否启用灵动岛
-            if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
-            
-            // 检查通知模式
-            val shouldShow = when (viewModel.loginNotificationMode) {
-                "every" -> !hasShownThisSession // 每次进入软件显示一次
-                "first" -> !hasShownLoginSuccess // 仅登录成功后显示（跨 session 持久化）
-                else -> !hasShownLoginSuccess
-            }
-            
-            if (shouldShow) {
-                hasShownLoginSuccess = true
-                hasShownThisSession = true
-                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
-                    message = "登录成功",
-                    avatar = "👋",
-                    customTitle = "欢迎回来"
-                )
-            }
-        }
+        // 旧的登录成功通知逻辑已移除，迁移至 AuthenticatedContent 中统一管理
         
         // 用户协议弹窗
         if (!viewModel.agreementAccepted) {
