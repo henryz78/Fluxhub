@@ -484,8 +484,8 @@ private fun AgreementDialog(
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
-    // 10秒倒计时
-    var countdown by remember { mutableIntStateOf(10) }
+    // 5秒倒计时
+    var countdown by remember { mutableIntStateOf(5) }
     val canAccept = countdown <= 0
     
     LaunchedEffect(Unit) {

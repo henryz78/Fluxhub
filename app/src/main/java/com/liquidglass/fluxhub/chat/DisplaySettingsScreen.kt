@@ -272,26 +272,6 @@ fun DisplaySettingsScreen(
                         isSelected = viewModel.glassColor == "FF9500",
                         onClick = { viewModel.updateGlassColor("FF9500") }
                     )
-                }
-
-                Spacer(Modifier.height(24.dp))
-                
-                // 不透明度 (Opacity)
-                Text(
-                    "不透明度",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
-                Spacer(Modifier.height(12.dp))
-                
-                LiquidSlider(
-                    value = { glassOpacity },
-                    onValueChange = { viewModel.updateGlassOpacity(it) },
-                    valueRange = 0f..1f,
-                    visibilityThreshold = 0.01f,
-                    backdrop = backdrop,
-                    modifier = Modifier.height(32.dp)
-                )
             }
         }
 
