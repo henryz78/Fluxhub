@@ -88,17 +88,17 @@ fun DynamicIsland(
         label = "width"
     ) { state ->
         when (state) {
-            DynamicIslandState.Hidden -> 100.dp // 初始更小
+            DynamicIslandState.Hidden -> 120.dp // 恢复为 120dp
             DynamicIslandState.Collapsed -> {
                 // 简单的自适应宽度：如果有 token 数或耗时，则加宽
                 if (data.showTokenCount || data.showElapsedTime) 190.dp else 150.dp
             }
-            DynamicIslandState.Expanded -> 312.dp // 保持已调整的展开宽度
+            DynamicIslandState.Expanded -> 312.dp
             DynamicIslandState.LongPressMenu -> 280.dp
         }
     }
 
-    // 高度动画 - 根据内容动态调整
+    // 高度动画 - 恢复固定高度
     val height by transition.animateDp(
         transitionSpec = {
             spring(dampingRatio = 0.6f, stiffness = 130f)
@@ -108,10 +108,7 @@ fun DynamicIsland(
         when (state) {
             DynamicIslandState.Hidden -> 36.dp
             DynamicIslandState.Collapsed -> 36.dp
-            DynamicIslandState.Expanded -> {
-                // 如果是完成/失败状态，不需要那么高，因为没有波形
-                if (data.isCompleted || data.isFailed) 88.dp else 140.dp
-            }
+            DynamicIslandState.Expanded -> 150.dp // 恢复固定高度
             DynamicIslandState.LongPressMenu -> 160.dp
         }
     }
