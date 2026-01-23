@@ -261,7 +261,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var contextSize by mutableStateOf(64)
         private set
     
-<<<<<<< HEAD
     // ========== 用户认证 ==========
     private val adminSyncService = AdminSyncService(application)
     
@@ -273,7 +272,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var isCheckingAuth by mutableStateOf(false)
         private set
     
-=======
     // ========== 灵动岛配置项 ==========
     var dynamicIslandEnabled by mutableStateOf(true)
         private set
@@ -287,7 +285,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     
     // 触感反馈
->>>>>>> feature/dynamic-island
     var hapticFeedbackEnabled by mutableStateOf(true)
         private set
     
@@ -300,10 +297,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var textShadowEnabled by mutableStateOf(true)
         private set
-<<<<<<< HEAD
-=======
-
->>>>>>> feature/dynamic-island
     // 当前活跃的 EventSource (用于取消)
     private var currentEventSource: EventSource? = null
     
@@ -1437,16 +1430,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
-<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
-=======
             // 显示创建成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
                 message = "服务商已创建",
                 avatar = "➕"
             )
->>>>>>> feature/dynamic-island
         }
     }
     
@@ -1458,16 +1448,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 applyProviderSettings(provider)
                 fetchModels()
             }
-<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
-=======
             // 显示更新成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
                 message = "服务商已更新",
                 avatar = "🔧"
             )
->>>>>>> feature/dynamic-island
         }
     }
     
@@ -1481,16 +1468,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fetchModels()
                 }
             }
-<<<<<<< HEAD
             // 同步到后端
             syncProvidersToAdmin()
-=======
             // 显示删除成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
                 message = "服务商已删除",
                 avatar = "🗑️"
             )
->>>>>>> feature/dynamic-island
         }
     }
     
