@@ -339,6 +339,29 @@ private fun AuthenticatedContent(
     // 快捷提示词状态
     var pendingPrompt by remember { mutableStateOf<String?>(null) }
     
+    // 监听登录成功通知逻辑
+    LaunchedEffect(Unit) {
+        val mode = viewModel.loginNotificationMode
+        // 延时500ms等待转场动画和可能的公告
+        kotlinx.coroutines.delay(500)
+        
+        if (mode == "every") {
+             // 每次进入都显示
+             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                 message = "欢迎回来 👋",
+                 avatar = "🏠"
+             )
+        } else if (mode == "first" && viewModel.justLoggedIn) {
+             // 仅首次登录后显示
+             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                 message = "登录成功 🚀",
+                 avatar = "✅"
+             )
+             // 重置标记，避免切换 Tab 或配置更改时重复显示
+             viewModel.justLoggedIn = false
+        }
+    }
+    
     // 保持各页面的子页面状态 (Moved to top scope for access in Bottom Bar)
     var chatSubPage by remember { mutableStateOf<String?>(null) }
     var settingsSubPage by remember { mutableStateOf<String?>(null) }

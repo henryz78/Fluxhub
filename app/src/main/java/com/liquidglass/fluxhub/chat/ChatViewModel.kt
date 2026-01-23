@@ -271,6 +271,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 是否正在登录/注册/续期中（用于局部 Loading 状态）
     var isCheckingAuth by mutableStateOf(false)
         private set
+
+    // 刚刚完成登录操作（用于控制一次性欢迎通知）
+    var justLoggedIn by mutableStateOf(false)
     
     // ========== 灵动岛配置项 ==========
     var dynamicIslandEnabled by mutableStateOf(true)
@@ -396,6 +399,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 保存认证信息
                     settingsRepository.saveAuth(result.token, result.userId, result.username)
                     authState = AuthState.Authenticated(result.userId, result.username)
+                    justLoggedIn = true // 标记刚登录
                 }
                 is AuthResult.Error -> {
                     when {
@@ -430,6 +434,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 保存认证信息
                     settingsRepository.saveAuth(result.token, result.userId, result.username)
                     authState = AuthState.Authenticated(result.userId, result.username)
+                    justLoggedIn = true // 注册成功自动登录
+                    
+                    // 注册成功通知
+                    com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                        message = "注册成功",
+                        avatar = "🎉"
+                    )
                 }
                 is AuthResult.Error -> {
                     authState = AuthState.Error(result.message)
@@ -462,6 +473,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 保存新 Token 到 DataStore 确保持久化
                     settingsRepository.saveAuth(result.token, result.userId, result.username)
                     authState = AuthState.Authenticated(result.userId, result.username)
+                    
+                    // 续期成功通知
+                    com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                        message = "续费成功",
+                        avatar = "💎"
+                    )
                 }
                 is AuthResult.Error -> {
                     // 续期失败，保持过期状态
