@@ -3,7 +3,6 @@ package com.liquidglass.fluxhub.data
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.liquidglass.fluxhub.chat.UiMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -50,11 +49,12 @@ class DataRepository(private val context: Context) {
         val conversations = database.conversationDao().getAllConversationsSync()
         val messages = database.messageDao().getAllMessagesSync()
         val assistants = database.assistantDao().getAllAssistantsSync()
-        val providers = database.providerDao().getAllProvidersSync()
+        val providers = database.providerDao().getAllProvidersSync().map { provider ->
+            provider.copy(apiKey = "")
+        }
         
-        // 导出设置
+        // Do not include secrets in portable backups. Users can re-enter keys after import.
         val settings = AppSettingsBackup(
-            apiKey = settingsRepository.apiKey.first(),
             baseUrl = settingsRepository.baseUrl.first(),
             model = settingsRepository.model.first(),
             defaultModel = settingsRepository.defaultModel.first(),

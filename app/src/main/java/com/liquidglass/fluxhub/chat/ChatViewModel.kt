@@ -251,6 +251,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // 生成任务 Job (参考 RikkaHub ChatService)
     private var generationJob: Job? = null
+    private var requestTimeoutJob: Job? = null
     
     // Flow 采集任务
     private var messagesJob: Job? = null
@@ -600,12 +601,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         messages.clear()
         
         // 取消当前流式输出
-        currentEventSource?.cancel()
-        isLoading = false
-        
-        // 取消当前流式输出
-        currentEventSource?.cancel()
-        isLoading = false
+        cancelGeneration()
         
         viewModelScope.launch {
             // 清理之前的会话
@@ -879,6 +875,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentEventSource = null
         generationJob?.cancel()
         generationJob = null
+        requestTimeoutJob?.cancel()
+        requestTimeoutJob = null
         isLoading = false
         
         // 标记最后一条消息为非流式
@@ -1196,11 +1194,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.setContextSize(value)
         }
     }
+
+    private fun shouldSendOpenAiOnlyOptions(effectiveBaseUrl: String): Boolean {
+        return effectiveBaseUrl.contains("api.openai.com", ignoreCase = true)
+    }
+
+    private fun reasoningEffortOrNull(effectiveBaseUrl: String): String? {
+        if (!shouldSendOpenAiOnlyOptions(effectiveBaseUrl) || thinkingBudget == 0) return null
+        return when (thinkingBudget) {
+            in 1..4096 -> "low"
+            in 4097..16000 -> "medium"
+            else -> "high"
+        }
+    }
+
+    private fun beginRequestTimeout() {
+        requestTimeoutJob?.cancel()
+        requestTimeoutJob = viewModelScope.launch {
+            delay(30000)
+            if (isLoading) {
+                Log.w(TAG, "Request timeout, cancelling active generation")
+                cancelGeneration()
+                showErrorMessage("请求超时，请重试")
+            }
+        }
+    }
+
+    private fun finishGeneration() {
+        requestTimeoutJob?.cancel()
+        requestTimeoutJob = null
+        isLoading = false
+    }
     
     fun sendMessage(content: String) {
         if (content.isBlank() && selectedImageUri == null) return
         
-        val finalContent = if (selectedImageUri != null) {
+        val hasImage = selectedImageUri != null
+        val finalContent = if (hasImage) {
             val uri = selectedImageUri
             selectedImageUri = null // 消费图片
             "![image]($uri)\n$content"
@@ -1210,7 +1240,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         // 优先从当前 Provider 获取配置，确保使用最新值
         val effectiveApiKey = currentProvider?.apiKey ?: apiKey
-        val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
         
         if (effectiveApiKey.isBlank()) {
             showErrorMessage("请先配置服务商")
@@ -1224,7 +1253,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         val conversationId = currentConversationId ?: return
         
-        Log.d(TAG, "sendMessage: $finalContent")
+        Log.d(TAG, "sendMessage: user message queued, hasImage=$hasImage, length=${content.length}")
         
         // 添加用户消息
         val userMessageId = UUID.randomUUID().toString()
@@ -1289,15 +1318,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Main) {
             if (model.isBlank()) {
                 showErrorMessage("请先选择模型")
-                isLoading = false
+                finishGeneration()
                 return@launch
             }
 
-            // 关键：即使 isLoading 为 true，我们也强制重置并添加新气泡
-            // 防止因为之前的请求挂起导致 UI 彻底没反应
             if (isLoading) {
-                Log.w(TAG, "isLoading was true, forcing reset for new request")
-                isLoading = false
+                Log.w(TAG, "isLoading was true, cancelling previous request before starting a new one")
+                cancelGeneration()
             }
             
             val useStream = this@ChatViewModel.streamEnabled
@@ -1324,15 +1351,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 callNonStreamingApi(aiMessageId, conversationId)
             }
-            
-            // 安全兜底：如果 30 秒还没反应，强制重置 loading 状态
-            launch {
-                delay(30000)
-                if (isLoading) {
-                    Log.w(TAG, "Request timeout, forcing isLoading = false")
-                    isLoading = false
-                }
-            }
+            beginRequestTimeout()
         }
     }
     
@@ -1345,14 +1364,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // 构建消息列表（共用逻辑）
                 val requestMessages = buildApiMessages(messages, aiMessageId)
-                
-                // 根据 thinkingBudget 计算 reasoning_effort 级别
-                val reasoningEffort = when (thinkingBudget) {
-                    0 -> null // 关闭时不传此参数
-                    in 1..4096 -> "low"
-                    in 4097..16000 -> "medium"
-                    else -> "high"
-                }
+                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                val reasoningEffort = reasoningEffortOrNull(effectiveBaseUrl)
                 
                 val requestJson = buildJsonObject {
                     put("model", model)
@@ -1378,10 +1392,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
-                Log.d(TAG, "Request body (Non-Streaming): $requestBody")
-                
-                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
-                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                Log.d(TAG, "Non-streaming request prepared, messages=${requestMessages.size}, bodyLength=${requestBody.length}")
                 
                 val request = Request.Builder()
                     .url("$effectiveBaseUrl/chat/completions")
@@ -1392,7 +1403,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.IO) {
                     val response = client.newCall(request).execute()
                     val body = response.body?.string() ?: "{}"
-                    Log.d(TAG, "Non-streaming response raw body: $body") // CRITICAL LOG
+                    Log.d(TAG, "Non-streaming response received, code=${response.code}, bodyLength=${body.length}")
                     
                     if (response.isSuccessful) {
                         try {
@@ -1430,7 +1441,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
                             
                             withContext(Dispatchers.Main) {
-                                isLoading = false
+                                finishGeneration()
                                 val index = messages.indexOfFirst { it.id == aiMessageId }
                                 if (index >= 0) {
                                     val safeContent = if (contentStr.isEmpty() && reasoningStr.isEmpty()) "⚠️ API 未返回任何内容" else contentStr
@@ -1461,7 +1472,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Non-streaming request failed", e)
-                isLoading = false
+                finishGeneration()
                 val errorMsg = "请求失败: ${e.message}"
                 showErrorMessage(errorMsg)
                 
@@ -1552,14 +1563,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "callStreamingApiWithEventSource: using baseUrl=$baseUrl, model=$model, contextSize=$contextSize")
                 
                 val messagesWithSystem = buildApiMessages(messages, aiMessageId)
-                
-                // 根据 thinkingBudget 计算 reasoning_effort 级别
-                val reasoningEffort = when (thinkingBudget) {
-                    0 -> null // 关闭时不传此参数
-                    in 1..4096 -> "low"
-                    in 4097..16000 -> "medium"
-                    else -> "high"
-                }
+                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
+                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                val reasoningEffort = reasoningEffortOrNull(effectiveBaseUrl)
                 
                 val requestJson = buildJsonObject {
                     put("model", model)
@@ -1577,10 +1583,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     })
                     put("stream", true)
-                    // 增加 stream_options 以获得更好的 API 兼容性 (OpenAI 标准)
-                    put("stream_options", buildJsonObject {
-                        put("include_usage", true)
-                    })
+                    if (shouldSendOpenAiOnlyOptions(effectiveBaseUrl)) {
+                        put("stream_options", buildJsonObject {
+                            put("include_usage", true)
+                        })
+                    }
                     temperature.let { put("temperature", it) }
                     topP.let { put("top_p", it) }
                     maxTokens?.let { put("max_tokens", it) }
@@ -1588,11 +1595,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
-                Log.d(TAG, "Request body (Streaming): $requestBody")
-                
-                // 优先从 currentProvider 获取配置
-                val effectiveBaseUrl = currentProvider?.baseUrl ?: baseUrl
-                val effectiveApiKey = currentProvider?.apiKey ?: apiKey
+                Log.d(TAG, "Streaming request prepared, messages=${messagesWithSystem.size}, bodyLength=${requestBody.length}")
                 
                 val request = Request.Builder()
                     .url("$effectiveBaseUrl/chat/completions")
@@ -1623,7 +1626,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // 收到 [DONE] 时主动完成处理
                     viewModelScope.launch {
-                        isLoading = false
+                        finishGeneration()
                         
                         val index = messages.indexOfFirst { it.id == aiMessageId }
                         if (index >= 0) {
@@ -1654,10 +1657,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // 取消连接
                     eventSource.cancel()
+                    currentEventSource = null
                     return
                 }
-                
-                Log.d(TAG, "SSE onEvent: ${data.take(100)}")
                 
                 try {
                     // 动态解析 Streaming 响应
@@ -1708,15 +1710,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk: ${data.take(200)}", e)
+                    Log.w(TAG, "Failed to parse SSE chunk", e)
                 }
             }
             
             override fun onClosed(eventSource: EventSource) {
                 Log.d(TAG, "SSE onClosed, final content length: ${fullContent.length}")
+                currentEventSource = null
                 
                 viewModelScope.launch {
-                    isLoading = false
+                    finishGeneration()
                     
                     val index = messages.indexOfFirst { it.id == aiMessageId }
                     if (index >= 0) {
@@ -1748,11 +1751,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                currentEventSource = null
                 // 特殊处理 stream was reset 错误：如果已经有内容生成，则视为成功
                 if (t?.message?.contains("stream was reset", ignoreCase = true) == true && fullContent.isNotEmpty()) {
                     Log.w(TAG, "Stream reset ignored, treating as success (content length: ${fullContent.length})")
                     viewModelScope.launch {
-                        isLoading = false
+                        finishGeneration()
                         
                         val index = messages.indexOfFirst { it.id == aiMessageId }
                         if (index >= 0) {
@@ -1784,7 +1788,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val errorMsg = t?.message ?: errorBody ?: "Unknown error"
                 
                 viewModelScope.launch {
-                    isLoading = false
+                    finishGeneration()
                     
                     val errorDetail = "请求失败: $errorMsg"
                     showErrorMessage(errorDetail)
@@ -1813,7 +1817,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
         } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
-                isLoading = false
+                finishGeneration()
                 val errorMsg = "初始化流式请求失败: ${e.message}"
                 showErrorMessage(errorMsg)
                 
