@@ -303,6 +303,12 @@ fun MainScreen(
                                     backdrop = backdrop,
                                     bottomPadding = PaddingValues(bottom = bottomPadding)
                                 )
+                                "dynamic_island_settings" -> DynamicIslandSettingsScreen(
+                                    onBack = { settingsSubPage = null },
+                                    viewModel = viewModel,
+                                    backdrop = backdrop,
+                                    bottomPadding = PaddingValues(bottom = bottomPadding)
+                                )
                                 else -> SettingsScreen(
                                     onBack = { selectedTab = 1 },
                                     viewModel = viewModel,
@@ -311,7 +317,8 @@ fun MainScreen(
                                     bottomPadding = PaddingValues(bottom = bottomPadding),
                                     onNavigateToAssistants = { settingsSubPage = "assistants" },
                                     onNavigateToProviders = { settingsSubPage = "providers" },
-                                    onNavigateToDisplay = { settingsSubPage = "display_settings" }
+                                    onNavigateToDisplay = { settingsSubPage = "display_settings" },
+                                    onNavigateToDynamicIsland = { settingsSubPage = "dynamic_island_settings" }
                                 )
                             }
                         }
@@ -440,6 +447,73 @@ fun MainScreen(
                         }
                     }
                 }
+            }
+        }
+        
+        // ========== 全局灵动岛 ==========
+        // 同步设置到控制器
+        LaunchedEffect(
+            viewModel.dynamicIslandEnabled,
+            viewModel.loginNotificationMode,
+            viewModel.showTokenCount,
+            viewModel.showElapsedTime
+        ) {
+            com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.apply {
+                isEnabled = viewModel.dynamicIslandEnabled
+                loginNotificationMode = viewModel.loginNotificationMode
+                showTokenCountEnabled = viewModel.showTokenCount
+                showElapsedTimeEnabled = viewModel.showElapsedTime
+            }
+        }
+        
+        // 全局灵动岛 UI
+        com.liquidglass.fluxhub.chat.ui.components.DynamicIsland(
+            data = com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.toData(),
+            backdrop = backdrop,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding(),
+            onExpand = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.expand() },
+            onCollapse = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.collapse() },
+            onLongPress = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showLongPressMenu() },
+            onStopGeneration = { viewModel.stopGeneration() },
+            onDismiss = { com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.hide() }
+        )
+        
+        // 登录成功通知（仅在首页显示，且用户已同意协议后）
+        var hasShownLoginSuccess by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        // 跟踪是否已经在本次应用启动中显示过（用于 "every" 模式，每次启动只显示一次）
+        var hasShownThisSession by remember { mutableStateOf(false) }
+        
+        LaunchedEffect(selectedTab, viewModel.agreementAccepted) {
+            // 必须先同意用户协议
+            if (!viewModel.agreementAccepted) return@LaunchedEffect
+            
+            // 仅在首页（Tab 0）显示
+            if (selectedTab != 0) return@LaunchedEffect
+            
+            // 等待 100ms 让协议弹窗消失
+            kotlinx.coroutines.delay(100)
+            
+            // 直接从 viewModel 读取设置（确保是最新值）
+            // 检查是否启用灵动岛
+            if (!viewModel.dynamicIslandEnabled) return@LaunchedEffect
+            
+            // 检查通知模式
+            val shouldShow = when (viewModel.loginNotificationMode) {
+                "every" -> !hasShownThisSession // 每次进入软件显示一次
+                "first" -> !hasShownLoginSuccess // 仅登录成功后显示（跨 session 持久化）
+                else -> !hasShownLoginSuccess
+            }
+            
+            if (shouldShow) {
+                hasShownLoginSuccess = true
+                hasShownThisSession = true
+                com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
+                    message = "登录成功",
+                    avatar = "👋",
+                    customTitle = "欢迎回来"
+                )
             }
         }
         
