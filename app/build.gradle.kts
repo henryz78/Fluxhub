@@ -98,4 +98,6 @@ dependencies {
     // Liquid Glass Effect
     implementation(libs.capsule)
     implementation(project(":backdrop"))
+
+    testImplementation(kotlin("test"))
 }

@@ -27,6 +27,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Run Unit Tests
+      run: ./gradlew testDebugUnitTest --no-configuration-cache
+      env:
+        GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-configuration-cache
       env:

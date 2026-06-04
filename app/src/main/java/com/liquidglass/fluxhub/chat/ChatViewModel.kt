@@ -46,27 +46,6 @@ import java.util.Collections
 private const val TAG = "ChatViewModel"
 
 @Serializable
-data class ChatMessage(
-    val role: String,
-    val content: JsonElement? = null
-)
-
-@Serializable
-data class ChatRequest(
-    val model: String,
-    val messages: List<ChatMessage>,
-    val stream: Boolean,
-    val temperature: Float? = null,
-    @kotlinx.serialization.SerialName("top_p")
-    val topP: Float? = null,
-    @kotlinx.serialization.SerialName("max_tokens")
-    val maxTokens: Int? = null,
-    @kotlinx.serialization.SerialName("reasoning_effort")
-    val reasoningEffort: String? = null
-)
-
-// 移除硬编码的数据类，改用动态解析
-@Serializable
 data class APIError(val message: String? = null)
 
 @Serializable
@@ -1291,16 +1270,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun shouldSendOpenAiOnlyOptions(effectiveBaseUrl: String): Boolean {
-        return effectiveBaseUrl.contains("api.openai.com", ignoreCase = true)
+        return ChatRequestBuilder.shouldSendOpenAiOnlyOptions(effectiveBaseUrl)
     }
 
     private fun reasoningEffortOrNull(effectiveBaseUrl: String): String? {
-        if (!shouldSendOpenAiOnlyOptions(effectiveBaseUrl) || thinkingBudget == 0) return null
-        return when (thinkingBudget) {
-            in 1..4096 -> "low"
-            in 4097..16000 -> "medium"
-            else -> "high"
-        }
+        return ChatRequestBuilder.reasoningEffortOrNull(effectiveBaseUrl, thinkingBudget)
     }
 
     private fun beginRequestTimeout() {
@@ -1500,28 +1474,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val effectiveApiKey = currentProvider?.apiKey ?: apiKey
                 val reasoningEffort = reasoningEffortOrNull(effectiveBaseUrl)
                 
-                val requestJson = buildJsonObject {
-                    put("model", model)
-                    put("messages", buildJsonArray {
-                        requestMessages.forEach { msg ->
-                            add(buildJsonObject {
-                                put("role", msg.role)
-                                // 安全处理：如果是 JsonElement 则直接 put，否则转为 JsonPrimitive
-                                val content = msg.content
-                                if (content != null) {
-                                    put("content", content)
-                                } else {
-                                    put("content", "")
-                                }
-                            })
-                        }
-                    })
-                    put("stream", false)
-                    temperature.let { put("temperature", it) }
-                    topP.let { put("top_p", it) }
-                    maxTokens?.let { put("max_tokens", it) }
-                    reasoningEffort?.let { put("reasoning_effort", it) }
-                }
+                val requestJson = ChatRequestBuilder.buildRequestJson(
+                    model = model,
+                    messages = requestMessages,
+                    stream = false,
+                    temperature = temperature,
+                    topP = topP,
+                    maxTokens = maxTokens,
+                    reasoningEffort = reasoningEffort,
+                    includeStreamOptions = false
+                )
                 
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Non-streaming request prepared, messages=${requestMessages.size}, bodyLength=${requestBody.length}")
@@ -1622,71 +1584,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private fun buildApiMessages(history: List<UiMessage>, aiMessageId: String? = null): List<ChatMessage> {
         Log.d(TAG, "Building API messages from history of size ${history.size}, excluding: $aiMessageId")
-        val baseMessages = history
-            // 关键：必须排除当前正在生成的(isStreaming)或者占位符消息
-            // 否则 API 会因为 history 以 assistant 消息结尾而返回 400 错误
-            .filter { 
-                it.role == "user" || 
-                (it.role == "assistant" && !it.isStreaming && it.content.isNotBlank() && it.id != aiMessageId)
-            }
-            .takeLast(contextSize) // 直接限制上下文数量
-
-        val processedMsgs = baseMessages.map { message ->
-            // 解析 Vision 图片 (Markdown: ![image](uri))
-            val imageMatch = Regex("!\\[image\\]\\((.*?)\\)").find(message.content)
-            val contentElement = if (imageMatch != null) {
-                val uriStr = imageMatch.groupValues[1]
-                val textContent = message.content.replace(imageMatch.value, "").trim()
-                
-                val base64 = try {
-                        FileUtils.uriToBase64(getApplication(), Uri.parse(uriStr))
+        return ChatRequestBuilder.buildMessages(
+            history = history,
+            aiMessageId = aiMessageId,
+            contextSize = contextSize,
+            systemPrompt = currentAssistant?.systemPrompt,
+            imageBase64Loader = { uriString ->
+                try {
+                    FileUtils.uriToBase64(getApplication(), Uri.parse(uriString))
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to load image from URI: $uriStr", e)
+                    Log.e(TAG, "Failed to load image from URI: $uriString", e)
                     null
                 }
-                
-                if (base64 != null) {
-                    buildJsonArray {
-                        add(buildJsonObject {
-                            put("type", "text")
-                            put("text", textContent)
-                        })
-                        add(buildJsonObject {
-                            put("type", "image_url")
-                            put("image_url", buildJsonObject {
-                                put("url", "data:image/jpeg;base64,$base64")
-                            })
-                        })
-                    }
-                } else {
-                    JsonPrimitive(message.content)
-                }
-            } else {
-                // 如果 content 已经是 JSON 字符串，尝试解析，否则包装成 JsonPrimitive
-                try {
-                    if (message.content.trim().startsWith("[")) {
-                        json.parseToJsonElement(message.content)
-                    } else {
-                        JsonPrimitive(message.content)
-                    }
-                } catch (e: Exception) {
-                    JsonPrimitive(message.content)
-                }
             }
-            
-            ChatMessage(message.role, contentElement)
-        }
-            
-        // 过滤无效消息
-        val finalMsgs = processedMsgs.filter { it.content != null }
-        
-        // 注入系统提示词
-        val systemPrompt = currentAssistant?.systemPrompt?.takeIf { it.isNotBlank() }
-        if (systemPrompt != null) {
-            return listOf(ChatMessage("system", JsonPrimitive(systemPrompt))) + finalMsgs
-        } else {
-            return finalMsgs
-        }
+        )
     }
 
     private fun callStreamingApiWithEventSource(aiMessageId: String, conversationId: String) {
@@ -1699,32 +1610,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val effectiveApiKey = currentProvider?.apiKey ?: apiKey
                 val reasoningEffort = reasoningEffortOrNull(effectiveBaseUrl)
                 
-                val requestJson = buildJsonObject {
-                    put("model", model)
-                    put("messages", buildJsonArray {
-                        messagesWithSystem.forEach { msg ->
-                            add(buildJsonObject {
-                                put("role", msg.role)
-                                val content = msg.content
-                                if (content != null) {
-                                    put("content", content)
-                                } else {
-                                    put("content", "")
-                                }
-                            })
-                        }
-                    })
-                    put("stream", true)
-                    if (shouldSendOpenAiOnlyOptions(effectiveBaseUrl)) {
-                        put("stream_options", buildJsonObject {
-                            put("include_usage", true)
-                        })
-                    }
-                    temperature.let { put("temperature", it) }
-                    topP.let { put("top_p", it) }
-                    maxTokens?.let { put("max_tokens", it) }
-                    reasoningEffort?.let { put("reasoning_effort", it) }
-                }
+                val requestJson = ChatRequestBuilder.buildRequestJson(
+                    model = model,
+                    messages = messagesWithSystem,
+                    stream = true,
+                    temperature = temperature,
+                    topP = topP,
+                    maxTokens = maxTokens,
+                    reasoningEffort = reasoningEffort,
+                    includeStreamOptions = shouldSendOpenAiOnlyOptions(effectiveBaseUrl)
+                )
                 
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Streaming request prepared, messages=${messagesWithSystem.size}, bodyLength=${requestBody.length}")
