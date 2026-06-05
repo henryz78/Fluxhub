@@ -1,16 +1,15 @@
 package com.liquidglass.fluxhub.chat
 
 import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.content
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class ChatRequestBuilderTest {
 
@@ -51,7 +50,9 @@ class ChatRequestBuilderTest {
             }
         )
 
-        val content = assertNotNull(messages.single().content).jsonArray
+        val messageContent = messages.single().content
+        assertNotNull(messageContent)
+        val content = messageContent!!.jsonArray
         assertEquals("text", content[0].jsonObject["type"]?.jsonPrimitive?.content)
         assertEquals("what is this?", content[0].jsonObject["text"]?.jsonPrimitive?.content)
         assertEquals("image_url", content[1].jsonObject["type"]?.jsonPrimitive?.content)
