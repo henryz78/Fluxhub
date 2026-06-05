@@ -24,9 +24,7 @@ class MainActivity : ComponentActivity() {
                 layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
             // 设置首选显示模式为最高刷新率
-            val display = display ?: windowManager.defaultDisplay
-            val supportedModes = display.supportedModes
-            val highRefreshMode = supportedModes.maxByOrNull { it.refreshRate }
+            val highRefreshMode = display?.supportedModes?.maxByOrNull { it.refreshRate }
             highRefreshMode?.let {
                 window.attributes = window.attributes.apply {
                     preferredDisplayModeId = it.modeId

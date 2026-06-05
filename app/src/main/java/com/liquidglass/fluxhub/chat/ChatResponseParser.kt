@@ -22,7 +22,7 @@ data class ChatStreamDelta(
     val isDone: Boolean = false
 )
 
-class ChatApiException(message: String) : Exception(message)
+class ChatApiException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 object ChatResponseParser {
     private val json = Json { ignoreUnknownKeys = true }

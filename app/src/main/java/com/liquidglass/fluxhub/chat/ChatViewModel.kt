@@ -25,16 +25,10 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import android.net.Uri
@@ -44,15 +38,6 @@ import kotlinx.serialization.json.*
 import java.util.Collections
 
 private const val TAG = "ChatViewModel"
-
-@Serializable
-data class APIError(val message: String? = null)
-
-@Serializable
-data class ChatResponse(
-    val choices: JsonArray? = null,
-    val error: APIError? = null
-)
 
 // 用于 UI 显示的消息 (支持消息分支 - 参考 RikkaHub)
 // @Immutable 帮助 Compose 跳过不必要的重组
@@ -71,16 +56,6 @@ data class UiMessage(
     val totalVersions: Int = 1     // 总版本数
 )
 
-@Serializable
-data class ModelsResponse(
-    val data: List<Model>
-)
-
-@Serializable
-data class Model(
-    val id: String
-)
-
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val json = Json { 
@@ -93,6 +68,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
+    private val chatApiClient = ChatApiClient(client)
     
     private val database = AppDatabase.getDatabase(application)
     
@@ -457,66 +433,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             kotlinx.coroutines.delay(200)
             
             try {
-                val url = "$baseUrl/models"
-                Log.d(TAG, "Fetching models from: $url")
-                
-                val request = Request.Builder()
-                    .url(url)
-                    .addHeader("Authorization", "Bearer $apiKey")
-                    .get()
-                    .build()
-                
-                withContext(Dispatchers.IO) {
-                    try {
-                        client.newCall(request).execute().use { response ->
-                            if (response.isSuccessful) {
-                                val body = response.body?.string() ?: "{}"
-                                try {
-                                    val modelsResponse = json.decodeFromString(ModelsResponse.serializer(), body)
-                                    val modelIds = modelsResponse.data.map { it.id }.sorted()
-                                    
-                                    withContext(Dispatchers.Main) {
-                                        Log.d(TAG, "Fetched ${modelIds.size} models from $baseUrl")
-                                        availableModels.clear()
-                                        availableModels.addAll(modelIds)
-                                        
-                                        // 校验当前选中的模型是否有效
-                                        if (model.isNotBlank() && !modelIds.contains(model)) {
-                                            Log.w(TAG, "Current model $model not available in $baseUrl")
-                                            // 注意：不要在这里清空 saveModel("")，用户可能只是暂时连不上，或者 Provider 没更新
-                                            // 我们保持现状，但在 UI 上可以给个提示
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Failed to parse models from $baseUrl", e)
-                                    withContext(Dispatchers.Main) {
-                                        if (availableModels.isEmpty()) {
-                                            showErrorMessage("模型列表解析失败")
-                                        }
-                                    }
-                                }
-                            } else {
-                                Log.e(TAG, "Failed to fetch models: ${response.code} for $baseUrl")
-                                withContext(Dispatchers.Main) {
-                                    if (availableModels.isEmpty()) {
-                                        showErrorMessage("获取模型列表失败: ${response.code}")
-                                    }
-                                }
-                            }
+                Log.d(TAG, "Fetching models from: $baseUrl/models")
+
+                val modelIds = chatApiClient.fetchModels(baseUrl, apiKey)
+
+                Log.d(TAG, "Fetched ${modelIds.size} models from $baseUrl")
+                availableModels.clear()
+                availableModels.addAll(modelIds)
+
+                // 校验当前选中的模型是否有效
+                if (model.isNotBlank() && !modelIds.contains(model)) {
+                    Log.w(TAG, "Current model $model not available in $baseUrl")
+                    // 注意：不要在这里清空 saveModel("")，用户可能只是暂时连不上，或者 Provider 没更新
+                    // 我们保持现状，但在 UI 上可以给个提示
+                }
+            } catch (e: ChatApiException) {
+                Log.e(TAG, "Failed to fetch models from $baseUrl", e)
+                if (availableModels.isEmpty()) {
+                    val errorMessage = e.message ?: "获取模型列表失败"
+                    showErrorMessage(
+                        if (errorMessage.startsWith("HTTP ")) {
+                            "获取模型列表失败: $errorMessage"
+                        } else {
+                            errorMessage
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Network error fetching models from $baseUrl", e)
-                        withContext(Dispatchers.Main) {
-                            if (availableModels.isEmpty()) {
-                                showErrorMessage("网络错误，无法获取模型列表")
-                            }
-                        }
-                    }
+                    )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error fetching models", e)
-                availableModels.clear()
-                if (model.isNotBlank()) saveModel("")
+                Log.e(TAG, "Network error fetching models from $baseUrl", e)
+                if (availableModels.isEmpty()) {
+                    showErrorMessage("网络错误，无法获取模型列表")
+                }
             }
         }
     }
@@ -1487,55 +1434,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Non-streaming request prepared, messages=${requestMessages.size}, bodyLength=${requestBody.length}")
-                
-                val request = Request.Builder()
-                    .url("$effectiveBaseUrl/chat/completions")
-                    .addHeader("Authorization", "Bearer $effectiveApiKey")
-                    .post(requestBody.toRequestBody("application/json".toMediaType()))
-                    .build()
-                
-                withContext(Dispatchers.IO) {
-                    val response = client.newCall(request).execute()
-                    val body = response.body?.string() ?: "{}"
-                    Log.d(TAG, "Non-streaming response received, code=${response.code}, bodyLength=${body.length}")
-                    
-                    if (response.isSuccessful) {
-                        try {
-                            val parsed = ChatResponseParser.parseNonStreaming(body)
-                            val contentStr = parsed.content
-                            val reasoningStr = parsed.reasoningContent.orEmpty()
-                            
-                            Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
-                            
-                            withContext(Dispatchers.Main) {
-                                finishGeneration()
-                                val index = messages.indexOfFirst { it.id == aiMessageId }
-                                if (index >= 0) {
-                                    val safeContent = if (contentStr.isEmpty() && reasoningStr.isEmpty()) "⚠️ API 未返回任何内容" else contentStr
-                                    messages[index] = messages[index].copy(
-                                        content = safeContent,
-                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
-                                        isStreaming = false
-                                    )
-                                    
-                                    // 保存到数据库
-                                    messageDao.insertMessage(MessageEntity(
-                                        id = aiMessageId,
-                                        conversationId = conversationId,
-                                        role = "assistant",
-                                        content = safeContent,
-                                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
-                                        model = model
-                                    ))
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Parsing error", e)
-                            throw e 
-                        }
-                    } else {
-                        throw Exception("HTTP ${response.code}: ${response.message}")
-                    }
+
+                val parsed = chatApiClient.executeNonStreaming(
+                    baseUrl = effectiveBaseUrl,
+                    apiKey = effectiveApiKey,
+                    requestBody = requestBody
+                )
+                val contentStr = parsed.content
+                val reasoningStr = parsed.reasoningContent.orEmpty()
+
+                Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
+
+                finishGeneration()
+                val index = messages.indexOfFirst { it.id == aiMessageId }
+                if (index >= 0) {
+                    val safeContent = if (contentStr.isEmpty() && reasoningStr.isEmpty()) "⚠️ API 未返回任何内容" else contentStr
+                    messages[index] = messages[index].copy(
+                        content = safeContent,
+                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
+                        isStreaming = false
+                    )
+
+                    // 保存到数据库
+                    messageDao.insertMessage(MessageEntity(
+                        id = aiMessageId,
+                        conversationId = conversationId,
+                        role = "assistant",
+                        content = safeContent,
+                        thinkingContent = reasoningStr.takeIf { it.isNotEmpty() },
+                        model = model
+                    ))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Non-streaming request failed", e)
@@ -1597,35 +1525,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Streaming request prepared, messages=${messagesWithSystem.size}, bodyLength=${requestBody.length}")
                 
-                val request = Request.Builder()
-                    .url("$effectiveBaseUrl/chat/completions")
-                    .addHeader("Authorization", "Bearer $effectiveApiKey")
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader("Accept", "text/event-stream")
-                    .post(requestBody.toRequestBody("application/json".toMediaType()))
-                    .build()
-                
                 var fullContent = ""
                 var fullThinkingContent = ""
+                var hasFinished = false
                 
                 // 性能优化：UI 更新节流（每 50ms 最多更新一次）
                 var lastUiUpdateTime = 0L
                 val uiUpdateThrottleMs = 50L
                 var pendingUiUpdate = false
-                
-                // ... (EventSourceListener setup continues)
-        
-        val listener = object : EventSourceListener() {
-            override fun onOpen(eventSource: EventSource, response: Response) {
-                Log.d(TAG, "SSE onOpen: ${response.code}")
-                streamingTokenCount = 0 // 重置 token 计数
-            }
-            
-            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                if (data == "[DONE]") {
-                    Log.d(TAG, "SSE stream completed with [DONE], content length: ${fullContent.length}")
-                    
-                    // 收到 [DONE] 时主动完成处理
+
+                fun completeStreamingResponse(cancelEventSource: Boolean = false) {
+                    if (hasFinished) return
+                    hasFinished = true
+
+                    if (cancelEventSource) {
+                        currentEventSource?.cancel()
+                    }
+                    currentEventSource = null
+
                     viewModelScope.launch {
                         finishGeneration()
                         
@@ -1638,7 +1555,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 isStreaming = false
                             )
                         }
-                        
+
                         // 保存到数据库
                         if (fullContent.isNotEmpty()) {
                             messageDao.insertMessage(MessageEntity(
@@ -1655,164 +1572,115 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     }
-                    
-                    // 取消连接
-                    eventSource.cancel()
-                    currentEventSource = null
-                    return
                 }
-                
-                try {
-                    ChatResponseParser.parseStreamingEventData(data).forEach { delta ->
-                        if (delta.isDone) return@forEach
 
-                        delta.errorMessage?.let { errorMsg ->
-                            Log.e(TAG, "Streaming API error: $errorMsg")
-                            return@forEach
+                currentEventSource = chatApiClient.startStreaming(
+                    baseUrl = effectiveBaseUrl,
+                    apiKey = effectiveApiKey,
+                    requestBody = requestBody,
+                    callback = object : ChatStreamCallback {
+                        override fun onOpen(responseCode: Int) {
+                            Log.d(TAG, "SSE onOpen: $responseCode")
+                            streamingTokenCount = 0 // 重置 token 计数
                         }
 
-                        if (delta.reasoningContent.isNotEmpty()) {
-                            fullThinkingContent += delta.reasoningContent
-                            pendingUiUpdate = true
-                        }
+                        override fun onDelta(delta: ChatStreamDelta) {
+                            if (hasFinished) return
 
-                        if (delta.content.isNotEmpty()) {
-                            fullContent += delta.content
-                            
-                            // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
-                            streamingTokenCount += (delta.content.length / 4).coerceAtLeast(1)
-                            
-                            pendingUiUpdate = true
-                        }
-                        
-                        // 节流 UI 更新：最多每 50ms 更新一次
-                        val now = System.currentTimeMillis()
-                        if (pendingUiUpdate && (now - lastUiUpdateTime >= uiUpdateThrottleMs)) {
-                            pendingUiUpdate = false
-                            lastUiUpdateTime = now
-                            viewModelScope.launch {
-                                val index = messages.indexOfFirst { it.id == aiMessageId }
-                                if (index >= 0) {
-                                    messages[index] = messages[index].copy(
-                                        content = fullContent,
-                                        thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() }
-                                    )
+                            delta.errorMessage?.let { errorMsg ->
+                                Log.e(TAG, "Streaming API error: $errorMsg")
+                                return
+                            }
+
+                            if (delta.reasoningContent.isNotEmpty()) {
+                                fullThinkingContent += delta.reasoningContent
+                                pendingUiUpdate = true
+                            }
+
+                            if (delta.content.isNotEmpty()) {
+                                fullContent += delta.content
+
+                                // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
+                                streamingTokenCount += (delta.content.length / 4).coerceAtLeast(1)
+
+                                pendingUiUpdate = true
+                            }
+
+                            // 节流 UI 更新：最多每 50ms 更新一次
+                            val now = System.currentTimeMillis()
+                            if (pendingUiUpdate && (now - lastUiUpdateTime >= uiUpdateThrottleMs)) {
+                                pendingUiUpdate = false
+                                lastUiUpdateTime = now
+                                viewModelScope.launch {
+                                    val index = messages.indexOfFirst { it.id == aiMessageId }
+                                    if (index >= 0) {
+                                        messages[index] = messages[index].copy(
+                                            content = fullContent,
+                                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() }
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse SSE chunk", e)
-                }
-            }
-            
-            override fun onClosed(eventSource: EventSource) {
-                Log.d(TAG, "SSE onClosed, final content length: ${fullContent.length}")
-                currentEventSource = null
-                
-                viewModelScope.launch {
-                    finishGeneration()
-                    
-                    val index = messages.indexOfFirst { it.id == aiMessageId }
-                    if (index >= 0) {
-                        // 确保最终内容完整更新
-                        messages[index] = messages[index].copy(
-                            content = fullContent,
-                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
-                            isStreaming = false
-                        )
-                    }
-                    
-                    // 保存到数据库
-                    if (fullContent.isNotEmpty()) {
-                        messageDao.insertMessage(MessageEntity(
-                            id = aiMessageId,
-                            conversationId = conversationId,
-                            role = "assistant",
-                            content = fullContent,
-                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
-                            model = model
-                        ))
-                    } else {
-                        // 如果没有内容，显示错误
-                        if (index >= 0) {
-                            messages[index] = messages[index].copy(content = "⚠️ 无内容返回")
+
+                        override fun onDone() {
+                            Log.d(TAG, "SSE stream completed with [DONE], content length: ${fullContent.length}")
+                            completeStreamingResponse(cancelEventSource = true)
+                        }
+
+                        override fun onClosed() {
+                            Log.d(TAG, "SSE onClosed, final content length: ${fullContent.length}")
+                            completeStreamingResponse()
+                        }
+
+                        override fun onFailure(message: String, throwable: Throwable?, responseCode: Int?) {
+                            currentEventSource = null
+                            // 特殊处理 stream was reset 错误：如果已经有内容生成，则视为成功
+                            if (message.contains("stream was reset", ignoreCase = true) && fullContent.isNotEmpty()) {
+                                Log.w(TAG, "Stream reset ignored, treating as success (content length: ${fullContent.length})")
+                                completeStreamingResponse()
+                                return
+                            }
+
+                            if (hasFinished) return
+                            hasFinished = true
+
+                            Log.e(TAG, "SSE onFailure: $message, response: $responseCode", throwable)
+
+                            viewModelScope.launch {
+                                finishGeneration()
+
+                                val errorDetail = "请求失败: $message"
+                                showErrorMessage(errorDetail)
+
+                                // 仅当消息为空时才显示错误占位符，否则保留已有内容
+                                val index = messages.indexOfFirst { it.id == aiMessageId }
+                                if (index >= 0) {
+                                    val currentMsg = messages[index]
+                                    if (currentMsg.content.isBlank()) {
+                                        messages[index] = currentMsg.copy(
+                                            content = "⚠️ 加载失败", // 简单提示，详细看弹窗
+                                            isStreaming = false
+                                        )
+                                    } else {
+                                        messages[index] = currentMsg.copy(isStreaming = false)
+                                    }
+                                }
+                            }
+                        }
+
+                        override fun onParseError(error: Exception) {
+                            Log.w(TAG, "Failed to parse SSE chunk", error)
                         }
                     }
-                }
-            }
-            
-            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                currentEventSource = null
-                // 特殊处理 stream was reset 错误：如果已经有内容生成，则视为成功
-                if (t?.message?.contains("stream was reset", ignoreCase = true) == true && fullContent.isNotEmpty()) {
-                    Log.w(TAG, "Stream reset ignored, treating as success (content length: ${fullContent.length})")
-                    viewModelScope.launch {
-                        finishGeneration()
-                        
-                        val index = messages.indexOfFirst { it.id == aiMessageId }
-                        if (index >= 0) {
-                            messages[index] = messages[index].copy(isStreaming = false)
-                        }
-                        
-                        // 保存到数据库
-                        messageDao.insertMessage(MessageEntity(
-                            id = aiMessageId,
-                            conversationId = conversationId,
-                            role = "assistant",
-                            content = fullContent,
-                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
-                            model = model
-                        ))
-                    }
-                    return
-                }
-
-                Log.e(TAG, "SSE onFailure: ${t?.message}, response: ${response?.code}")
-                
-                // 在 IO 线程/回调线程读取 response body，避免 NetworkOnMainThreadException
-                val errorBody = try {
-                    response?.body?.string()?.take(500) // 限制长度
-                } catch (e: Exception) {
-                    null
-                }
-                
-                val errorMsg = t?.message ?: errorBody ?: "Unknown error"
-                
-                viewModelScope.launch {
-                    finishGeneration()
-                    
-                    val errorDetail = "请求失败: $errorMsg"
-                    showErrorMessage(errorDetail)
-                    
-                    // 仅当消息为空时才显示错误占位符，否则保留已有内容
-                    val index = messages.indexOfFirst { it.id == aiMessageId }
-                    if (index >= 0) {
-                        val currentMsg = messages[index]
-                        if (currentMsg.content.isBlank()) {
-                            messages[index] = currentMsg.copy(
-                                content = "⚠️ 加载失败", // 简单提示，详细看弹窗
-                                isStreaming = false
-                            )
-                        } else {
-                            messages[index] = currentMsg.copy(isStreaming = false)
-                        }
-                    }
-                }
-
-
-                }
-            }
-            
-            // 使用 EventSources 创建 SSE 连接
-            currentEventSource = EventSources.createFactory(client).newEventSource(request, listener)
-            Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
-        } catch (e: Exception) {
+                )
+                Log.d(TAG, "SSE EventSource created successfully for $aiMessageId")
+            } catch (e: Exception) {
                 Log.e(TAG, "Streaming request setup failed", e)
                 finishGeneration()
                 val errorMsg = "初始化流式请求失败: ${e.message}"
                 showErrorMessage(errorMsg)
-                
+
                 // 绝不移除气泡，而是显示错误
                 val index = messages.indexOfFirst { it.id == aiMessageId }
                 if (index >= 0) {

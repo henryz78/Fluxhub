@@ -1375,9 +1375,9 @@ private fun LiquidGlassChatBubble(
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         Column {
                     // 1. 如果有思考内容，则显示
-                    if (!message.thinkingContent.isNullOrBlank()) {
+                    message.thinkingContent?.takeIf { it.isNotBlank() }?.let { thinkingContent ->
                         ThinkingComponent(
-                            content = message.thinkingContent!!,
+                            content = thinkingContent,
                             isThinking = message.isStreaming && message.content.isEmpty(),
                             backdrop = backdrop,
                             shouldCollapse = message.content.isNotEmpty() // 当主内容出现时自动折叠
@@ -1402,7 +1402,7 @@ private fun LiquidGlassChatBubble(
                     val imageUrl = imageMatch?.groupValues?.get(1)
                     // 缓存 textContent 避免每次重组时重新计算
                     val textContent = remember(message.content, imageUrl) {
-                        if (imageUrl != null && imageMatch != null) {
+                        if (imageMatch != null) {
                             message.content.substring(imageMatch.range.last + 1).trimStart()
                         } else message.content
                     }
