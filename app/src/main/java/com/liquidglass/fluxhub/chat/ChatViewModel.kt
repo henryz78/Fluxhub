@@ -1036,21 +1036,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 providers.addAll(list)
 
                 // 同步当前 Provider 的配置变更 (解决用户在其他页面修改配置后此处不更新的问题)
-                currentProvider?.let { current ->
-                    list.find { it.id == current.id }?.let { updated ->
-                        if (updated.apiKey != current.apiKey || updated.baseUrl != current.baseUrl) {
-                            Log.d(TAG, "Active provider config updated from DB")
-                            currentProvider = updated
-                            applyProviderSettings(updated)
-                            fetchModels()
-                        }
-                    }
+                ChatProviderSelector.updatedConfigurationProvider(currentProvider, list)?.let { updated ->
+                    Log.d(TAG, "Active provider config updated from DB")
+                    currentProvider = updated
+                    applyProviderSettings(updated)
+                    fetchModels()
                 }
 
                 // 如果没有当前 Provider，尝试加载激活的 Provider
                 if (currentProvider == null && list.isNotEmpty()) {
-                    currentProvider = list.find { it.isActive } ?: list.first()
-                    applyProviderSettings(currentProvider!!)
+                    currentProvider = ChatProviderSelector.defaultProvider(list)
+                    currentProvider?.let { applyProviderSettings(it) }
                     fetchModels() // 初始加载完成后抓取模型
                 }
             }
@@ -1061,8 +1057,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             providerDao.deactivateAllProviders()
             providerDao.activateProvider(provider.id)
-            currentProvider = provider.copy(isActive = true)
-            applyProviderSettings(currentProvider!!)
+            val activatedProvider = provider.copy(isActive = true)
+            currentProvider = activatedProvider
+            applyProviderSettings(activatedProvider)
             fetchModels() // 切换 Provider 后重新获取模型列表
             // 显示切换成功通知
             com.liquidglass.fluxhub.chat.ui.components.DynamicIslandController.showSuccess(
@@ -1126,7 +1123,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             providerDao.deleteProvider(providerId)
             if (currentProvider?.id == providerId) {
-                currentProvider = providers.firstOrNull { it.id != providerId }
+                currentProvider = ChatProviderSelector.fallbackAfterDelete(providerId, providers)
                 currentProvider?.let { 
                     applyProviderSettings(it)
                     fetchModels()
@@ -1280,15 +1277,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun sendMessage(content: String) {
-        if (content.isBlank() && selectedImageUri == null) return
-        
-        val hasImage = selectedImageUri != null
-        val finalContent = if (hasImage) {
-            val uri = selectedImageUri
+        val preparedInput = ChatInputPreparer.prepare(
+            content = content,
+            imageUri = selectedImageUri?.toString()
+        ) ?: return
+
+        if (preparedInput.hasImage) {
             selectedImageUri = null // 消费图片
-            "![image]($uri)\n$content"
-        } else {
-            content
         }
         
         // 优先从当前 Provider 获取配置，确保使用最新值
@@ -1306,11 +1301,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         val conversationId = currentConversationId ?: return
         
-        Log.d(TAG, "sendMessage: user message queued, hasImage=$hasImage, length=${content.length}")
+        Log.d(TAG, "sendMessage: user message queued, hasImage=${preparedInput.hasImage}, length=${preparedInput.plainText.length}")
         
         // 添加用户消息
         val userMessageId = UUID.randomUUID().toString()
-        val userMessage = UiMessage(id = userMessageId, role = "user", content = finalContent)
+        val userMessage = UiMessage(id = userMessageId, role = "user", content = preparedInput.finalContent)
         messages.add(userMessage)
         
         // 保存到数据库
@@ -1319,7 +1314,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 id = userMessageId,
                 conversationId = conversationId,
                 role = "user",
-                content = finalContent
+                content = preparedInput.finalContent
             ))
             
             // 检查是否是临时会话，如果是，现在立即"转正"
@@ -1329,7 +1324,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 
                 val conversation = ConversationEntity(
                     id = conversationId,
-                    title = content.take(50), // 用第一局话做标题
+                    title = preparedInput.title, // 用第一句话做标题
                     assistantId = currentAssistant?.id,
                     createdAt = System.currentTimeMillis(),
                     updatedAt = System.currentTimeMillis()
@@ -1351,9 +1346,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } else {
                 // 原有逻辑：更新会话时间和标题
-                val currentConv = conversationDao.getConversation(conversationId)
                 if (messages.size <= 1) { // 这里的 messages.size 可能不准确，因为 Collection 是异步的
-                    val newTitle = content.take(50)
+                    val newTitle = preparedInput.title
                     conversationDao.updateConversationTitle(conversationId, newTitle)
                     currentConversationTitle = newTitle
                 }
