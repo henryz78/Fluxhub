@@ -1501,36 +1501,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     if (response.isSuccessful) {
                         try {
-                            val responseJson = json.parseToJsonElement(body).jsonObject
-                            
-                            // 检查 API 错误 (更全面的检测)
-                            responseJson["error"]?.let { 
-                                val errorObj = it.jsonObject
-                                val errorMsg = errorObj["message"]?.jsonPrimitive?.contentOrNull 
-                                    ?: errorObj["code"]?.jsonPrimitive?.contentOrNull 
-                                    ?: "Unknown API Error"
-                                throw Exception(errorMsg)
-                            }
-                            
-                            val choices = responseJson["choices"]?.jsonArray
-                            val firstChoice = choices?.getOrNull(0)?.jsonObject
-                            val messageObj = firstChoice?.get("message")?.jsonObject ?: firstChoice?.get("delta")?.jsonObject
-                            
-                            // 深度提取内容 (参考 Rikkahub)
-                            val contentElement = messageObj?.get("content") ?: firstChoice?.get("text")
-                            val contentStr = when (contentElement) {
-                                is JsonPrimitive -> contentElement.contentOrNull ?: ""
-                                is JsonArray -> contentElement.mapNotNull { 
-                                    it.jsonObject["text"]?.jsonPrimitive?.contentOrNull 
-                                }.joinToString("")
-                                else -> ""
-                            }
-                            
-                            val reasoningElement = messageObj?.get("reasoning_content") ?: messageObj?.get("reasoning")
-                            val reasoningStr = when (reasoningElement) {
-                                is JsonPrimitive -> reasoningElement.contentOrNull ?: ""
-                                else -> ""
-                            }
+                            val parsed = ChatResponseParser.parseNonStreaming(body)
+                            val contentStr = parsed.content
+                            val reasoningStr = parsed.reasoningContent.orEmpty()
                             
                             Log.d(TAG, "Parsed result - content length: ${contentStr.length}, reasoning length: ${reasoningStr.length}")
                             
@@ -1690,37 +1663,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 try {
-                    // 动态解析 Streaming 响应
-                    data.trim().split("\n").filter { it.isNotBlank() }.map { it.removePrefix("data: ") }.forEach { line ->
-                        if (line == "[DONE]") return@forEach
-                        
-                        val chunkJson = json.parseToJsonElement(line).jsonObject
-                        
-                        // 检查错误
-                        chunkJson["error"]?.let { 
-                            val errorMsg = it.jsonObject["message"]?.jsonPrimitive?.contentOrNull ?: "Streaming Error"
+                    ChatResponseParser.parseStreamingEventData(data).forEach { delta ->
+                        if (delta.isDone) return@forEach
+
+                        delta.errorMessage?.let { errorMsg ->
                             Log.e(TAG, "Streaming API error: $errorMsg")
                             return@forEach
                         }
-                        
-                        val choices = chunkJson["choices"]?.jsonArray
-                        val firstChoice = choices?.getOrNull(0)?.jsonObject
-                        val deltaObj = firstChoice?.get("delta")?.jsonObject ?: firstChoice?.get("message")?.jsonObject
-                        
-                        val deltaContent = deltaObj?.get("content")?.jsonPrimitive?.contentOrNull
-                        val deltaReasoning = deltaObj?.get("reasoning_content")?.jsonPrimitive?.contentOrNull
-                            ?: deltaObj?.get("reasoning")?.jsonPrimitive?.contentOrNull
-                        
-                        if (!deltaReasoning.isNullOrEmpty()) {
-                            fullThinkingContent += deltaReasoning
+
+                        if (delta.reasoningContent.isNotEmpty()) {
+                            fullThinkingContent += delta.reasoningContent
                             pendingUiUpdate = true
                         }
-                        
-                        if (!deltaContent.isNullOrEmpty()) {
-                            fullContent += deltaContent
+
+                        if (delta.content.isNotEmpty()) {
+                            fullContent += delta.content
                             
                             // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
-                            streamingTokenCount += (deltaContent.length / 4).coerceAtLeast(1)
+                            streamingTokenCount += (delta.content.length / 4).coerceAtLeast(1)
                             
                             pendingUiUpdate = true
                         }
