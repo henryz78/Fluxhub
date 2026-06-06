@@ -1,6 +1,8 @@
 package com.liquidglass.fluxhub
 
+import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,7 +26,10 @@ class MainActivity : ComponentActivity() {
                 layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
             // 设置首选显示模式为最高刷新率
-            val highRefreshMode = display?.supportedModes?.maxByOrNull { it.refreshRate }
+            val highRefreshMode = getSystemService(DisplayManager::class.java)
+                ?.getDisplay(Display.DEFAULT_DISPLAY)
+                ?.supportedModes
+                ?.maxByOrNull { it.refreshRate }
             highRefreshMode?.let {
                 window.attributes = window.attributes.apply {
                     preferredDisplayModeId = it.modeId
