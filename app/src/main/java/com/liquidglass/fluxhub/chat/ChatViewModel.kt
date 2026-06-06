@@ -654,28 +654,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 删除指定消息及其后续所有消息（用于编辑重发）
      */
     fun deleteMessageAndFollowing(messageId: String) {
-        val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex == -1) {
+        val plan = ChatMessageBranchPlanner.deleteMessageAndFollowing(messages, messageId)
+        if (plan == null) {
             Log.w(TAG, "deleteMessageAndFollowing: message not found: $messageId")
             return
         }
         
-        // 获取要删除的消息 ID 列表（从该消息开始到最后）
-        val idsToDelete = messages.drop(messageIndex).map { it.id }
-        
         // 记录 IDs
-        deletedMessageIds.addAll(idsToDelete)
+        deletedMessageIds.addAll(plan.idsToDelete)
         
-        Log.d(TAG, "deleteMessageAndFollowing: deleting ${idsToDelete.size} messages starting from index $messageIndex")
+        Log.d(TAG, "deleteMessageAndFollowing: deleting ${plan.idsToDelete.size} messages starting from index ${plan.startIndex}")
         
         // 立即更新 UI 列表（移除从该索引开始的所有消息）
-        val messagesToKeep = messages.take(messageIndex)
+        val messagesToKeep = messages.take(plan.startIndex)
         messages.clear()
         messages.addAll(messagesToKeep)
         
         // 异步删除数据库记录
         viewModelScope.launch {
-            idsToDelete.forEach { id ->
+            plan.idsToDelete.forEach { id ->
                 messageDao.deleteMessage(id)
             }
             Log.d(TAG, "deleteMessageAndFollowing: database deletion complete")
@@ -702,27 +699,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         
-        val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex < 0) {
+        val plan = ChatMessageBranchPlanner.editMessage(messages, messageId)
+        if (plan == null) {
             cancelEditing()
             return
         }
         
-        Log.d(TAG, "handleMessageEdit: editing message at index $messageIndex")
+        Log.d(TAG, "handleMessageEdit: editing message at index ${plan.messageIndex}")
         
         // 取消当前生成任务
         cancelGeneration()
         
         // 1. 删除该消息之后的所有消息
-        val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
-        deletedMessageIds.addAll(idsToDelete)
+        deletedMessageIds.addAll(plan.idsToDelete)
         
         // 2. 更新 UI 中的消息内容
-        val originalMessage = messages[messageIndex]
-        messages[messageIndex] = originalMessage.copy(content = newContent)
+        val originalMessage = messages[plan.messageIndex]
+        messages[plan.messageIndex] = originalMessage.copy(content = newContent)
         
         // 3. 立即移除后续消息
-        messages.removeAll { idsToDelete.contains(it.id) }
+        messages.removeAll { plan.idsToDelete.contains(it.id) }
         
         // 4. 清除编辑状态
         editingMessageId = null
@@ -731,7 +727,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // 5. 异步更新数据库
         viewModelScope.launch {
             // 删除后续消息
-            idsToDelete.forEach { id ->
+            plan.idsToDelete.forEach { id ->
                 messageDao.deleteMessage(id)
             }
             
@@ -759,7 +755,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * - AI 消息：删除该 AI 消息及其后续所有消息，从上一条用户消息重新生成
      */
     fun regenerate(messageId: String) {
-        val message = messages.find { it.id == messageId } ?: return
+        if (ChatMessageBranchPlanner.regenerateFrom(messages, messageId) == null) return
         val conversationId = currentConversationId ?: return
         
         // 取消当前生成任务
@@ -767,32 +763,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         
         generationJob = viewModelScope.launch {
             try {
-                val messageIndex = messages.indexOfFirst { it.id == messageId }
-                if (messageIndex < 0) return@launch
-                
-                if (message.role == "user") {
-                    // 用户消息：删除该消息之后的所有消息，保留用户消息
-                    val idsToDelete = messages.drop(messageIndex + 1).map { it.id }
-                    deletedMessageIds.addAll(idsToDelete)
-                    
-                    idsToDelete.forEach { id ->
-                        messageDao.deleteMessage(id)
-                    }
-                    messages.removeAll { idsToDelete.contains(it.id) }
-                    // 从该用户消息重新生成 AI 回复
-                    initiateAiResponse(conversationId)
-                } else {
-                    // AI 消息：删除该 AI 消息及其后续所有消息
-                    val idsToDelete = messages.drop(messageIndex).map { it.id }
-                    deletedMessageIds.addAll(idsToDelete)
-                    
-                    idsToDelete.forEach { id ->
-                        messageDao.deleteMessage(id)
-                    }
-                    messages.removeAll { idsToDelete.contains(it.id) }
-                    // 从上一条用户消息重新生成 AI 回复
-                    initiateAiResponse(conversationId)
+                val plan = ChatMessageBranchPlanner.regenerateFrom(messages, messageId) ?: return@launch
+                deletedMessageIds.addAll(plan.idsToDelete)
+
+                plan.idsToDelete.forEach { id ->
+                    messageDao.deleteMessage(id)
                 }
+                messages.removeAll { plan.idsToDelete.contains(it.id) }
+                initiateAiResponse(conversationId)
             } catch (e: Exception) {
                 Log.e(TAG, "regenerate failed", e)
                 showErrorMessage("重试失败: ${e.message}")
