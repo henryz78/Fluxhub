@@ -167,7 +167,7 @@ fun ChatScreen(
     
     // 获取最新状态用于自动滚动 (过滤系统消息以对齐列表索引)
     val loadingState by rememberUpdatedState(isStreaming || viewModel.isLoading)
-    val messagesSnapshot by rememberUpdatedState(viewModel.messages.filter { it.role != "system" })
+    val messagesSnapshot by rememberUpdatedState(ChatMessageDisplayFilter.visibleMessages(viewModel.messages))
     
     // 自动滚动到底部 (精简版官方逻辑)
     LaunchedEffect(listState) {
@@ -572,7 +572,7 @@ private fun LiquidGlassChatContent(
         
         // 缓存过滤后的消息列表，避免每次重组都重新创建
         val displayMessages = remember { derivedStateOf { 
-            viewModel.messages.filter { it.role != "system" }
+            ChatMessageDisplayFilter.visibleMessages(viewModel.messages)
         } }
         
         // 参考 RikkaHub: 判断是否在底部的辅助函数
