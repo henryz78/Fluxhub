@@ -25,12 +25,12 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest --no-configuration-cache
+      run: ./gradlew testDebugUnitTest --no-configuration-cache --warning-mode all
       env:
         GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-configuration-cache
+      run: ./gradlew assembleDebug --no-configuration-cache --warning-mode all
       env:
         GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 

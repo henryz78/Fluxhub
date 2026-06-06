@@ -27,7 +27,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-configuration-cache
+      run: ./gradlew assembleRelease --no-configuration-cache --warning-mode all
       env:
         GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
