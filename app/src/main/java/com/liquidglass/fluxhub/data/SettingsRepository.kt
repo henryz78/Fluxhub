@@ -52,6 +52,22 @@ class SettingsRepository(private val context: Context) {
         // 液态玻璃颜色
         private val GLASS_COLOR = stringPreferencesKey("glass_color") // hex color or "default"
     }
+
+    private suspend fun <T> setPreference(key: Preferences.Key<T>, value: T) {
+        context.dataStore.edit { preferences ->
+            preferences[key] = value
+        }
+    }
+
+    private suspend fun <T> setNullablePreference(key: Preferences.Key<T>, value: T?) {
+        context.dataStore.edit { preferences ->
+            if (value != null) {
+                preferences[key] = value
+            } else {
+                preferences.remove(key)
+            }
+        }
+    }
     
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[API_KEY] ?: ""
@@ -94,70 +110,43 @@ class SettingsRepository(private val context: Context) {
     }
     
     suspend fun setApiKey(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[API_KEY] = value
-        }
+        setPreference(API_KEY, value)
     }
     
     suspend fun setBaseUrl(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[BASE_URL] = value
-        }
+        setPreference(BASE_URL, value)
     }
+
     suspend fun setModel(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[MODEL] = value
-        }
+        setPreference(MODEL, value)
     }
     
     suspend fun setDefaultModel(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[DEFAULT_MODEL] = value
-        }
+        setPreference(DEFAULT_MODEL, value)
     }
     
     suspend fun setCurrentConversationId(value: String?) {
-        context.dataStore.edit { preferences ->
-            if (value != null) {
-                preferences[CURRENT_CONVERSATION_ID] = value
-            } else {
-                preferences.remove(CURRENT_CONVERSATION_ID)
-            }
-        }
+        setNullablePreference(CURRENT_CONVERSATION_ID, value)
     }
     
     suspend fun setThemeMode(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[THEME_MODE] = value
-        }
+        setPreference(THEME_MODE, value)
     }
 
     suspend fun setWallpaperUri(value: String?) {
-        context.dataStore.edit { preferences ->
-            if (value != null) {
-                preferences[WALLPAPER_URI] = value
-            } else {
-                preferences.remove(WALLPAPER_URI)
-            }
-        }
+        setNullablePreference(WALLPAPER_URI, value)
     }
 
     suspend fun setGlassOpacity(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[GLASS_OPACITY] = value
-        }
+        setPreference(GLASS_OPACITY, value)
     }
 
     suspend fun setGlassBlur(value: Float) {
-        context.dataStore.edit { preferences ->
-            preferences[GLASS_BLUR] = value
-        }
+        setPreference(GLASS_BLUR, value)
     }
 
     suspend fun setGlassColor(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[GLASS_COLOR] = value
-        }
+        setPreference(GLASS_COLOR, value)
     }
 
 
@@ -166,9 +155,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setAgreementAccepted(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[AGREEMENT_ACCEPTED] = value
-        }
+        setPreference(AGREEMENT_ACCEPTED, value)
     }
     
     // ========== 工具箱配置项 ==========
@@ -194,27 +181,19 @@ class SettingsRepository(private val context: Context) {
     }
     
     suspend fun setThinkingBudget(value: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[THINKING_BUDGET] = value.coerceIn(0, 32768)
-        }
+        setPreference(THINKING_BUDGET, value.coerceIn(0, 32768))
     }
     
     suspend fun setWebSearchEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[WEB_SEARCH_ENABLED] = value
-        }
+        setPreference(WEB_SEARCH_ENABLED, value)
     }
     
     suspend fun setSearchProvider(value: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[SEARCH_PROVIDER] = value
-        }
+        setPreference(SEARCH_PROVIDER, value)
     }
     
     suspend fun setStreamEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[STREAM_ENABLED] = value
-        }
+        setPreference(STREAM_ENABLED, value)
     }
     
     val hapticFeedbackEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -222,15 +201,11 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setHapticFeedbackEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[HAPTIC_FEEDBACK_ENABLED] = value
-        }
+        setPreference(HAPTIC_FEEDBACK_ENABLED, value)
     }
 
     suspend fun setContextSize(value: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[CONTEXT_SIZE] = value.coerceIn(1, 128)
-        }
+        setPreference(CONTEXT_SIZE, value.coerceIn(1, 128))
     }
     
     // ========== 灵动岛配置项 ==========
@@ -256,33 +231,23 @@ class SettingsRepository(private val context: Context) {
     }
     
     suspend fun setDynamicIslandEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[DYNAMIC_ISLAND_ENABLED] = value
-        }
+        setPreference(DYNAMIC_ISLAND_ENABLED, value)
     }
     
     suspend fun setLoginNotificationMode(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[LOGIN_NOTIFICATION_MODE] = value
-        }
+        setPreference(LOGIN_NOTIFICATION_MODE, value)
     }
     
     suspend fun setDynamicIslandDuration(value: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[DYNAMIC_ISLAND_DURATION] = value.coerceIn(1, 10)
-        }
+        setPreference(DYNAMIC_ISLAND_DURATION, value.coerceIn(1, 10))
     }
     
     suspend fun setShowTokenCount(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[SHOW_TOKEN_COUNT] = value
-        }
+        setPreference(SHOW_TOKEN_COUNT, value)
     }
     
     suspend fun setShowElapsedTime(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[SHOW_ELAPSED_TIME] = value
-        }
+        setPreference(SHOW_ELAPSED_TIME, value)
     }
     
     // ========== 字体样式配置 ==========
@@ -296,14 +261,10 @@ class SettingsRepository(private val context: Context) {
     }
     
     suspend fun setTextColorMode(value: String) {
-        context.dataStore.edit { preferences ->
-            preferences[TEXT_COLOR_MODE] = value
-        }
+        setPreference(TEXT_COLOR_MODE, value)
     }
     
     suspend fun setTextShadowEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[TEXT_SHADOW_ENABLED] = value
-        }
+        setPreference(TEXT_SHADOW_ENABLED, value)
     }
 }
