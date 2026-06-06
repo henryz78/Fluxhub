@@ -63,6 +63,21 @@ class ChatRequestBuilderTest {
     }
 
     @Test
+    fun buildMessagesKeepsNonLeadingImageMarkdownAsText() {
+        val content = "Look at this ![image](content://typed-markdown)"
+
+        val messages = ChatRequestBuilder.buildMessages(
+            history = listOf(UiMessage(id = "u1", role = "user", content = content)),
+            aiMessageId = null,
+            contextSize = 8,
+            systemPrompt = null,
+            imageBase64Loader = { error("Non-leading image markdown should stay as text") }
+        )
+
+        assertEquals(content, messages.single().content?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun buildRequestJsonAddsOpenAiOnlyOptionsOnlyWhenRequested() {
         val openAiReasoning = ChatRequestBuilder.reasoningEffortOrNull(
             effectiveBaseUrl = "https://api.openai.com/v1",

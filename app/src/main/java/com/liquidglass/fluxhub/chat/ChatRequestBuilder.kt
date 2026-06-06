@@ -16,8 +16,6 @@ data class ChatMessage(
 )
 
 object ChatRequestBuilder {
-    private val imageMarkdownPattern = Regex("!\\[image\\]\\((.*?)\\)")
-
     fun buildMessages(
         history: List<UiMessage>,
         aiMessageId: String?,
@@ -94,11 +92,11 @@ object ChatRequestBuilder {
         content: String,
         imageBase64Loader: (String) -> String?
     ): JsonElement {
-        val imageMatch = imageMarkdownPattern.find(content)
-        if (imageMatch != null) {
-            val uriString = imageMatch.groupValues[1]
-            val textContent = content.replace(imageMatch.value, "").trim()
-            val base64 = imageBase64Loader(uriString)
+        val parsedContent = ChatMessageContentParser.parse(content)
+        val imageUrl = parsedContent.imageUrl
+        if (imageUrl != null) {
+            val textContent = parsedContent.text.trim()
+            val base64 = imageBase64Loader(imageUrl)
 
             if (base64 != null) {
                 return buildJsonArray {
