@@ -1489,9 +1489,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val requestBody = json.encodeToString(JsonObject.serializer(), requestJson)
                 Log.d(TAG, "Streaming request prepared, messages=${messagesWithSystem.size}, bodyLength=${requestBody.length}")
                 
-                var fullContent = ""
-                var fullThinkingContent = ""
-                var hasFinished = false
+                val streamAccumulator = ChatStreamAccumulator()
                 
                 // 性能优化：UI 更新节流（每 50ms 最多更新一次）
                 var lastUiUpdateTime = 0L
@@ -1499,8 +1497,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 var pendingUiUpdate = false
 
                 fun completeStreamingResponse(cancelEventSource: Boolean = false) {
-                    if (hasFinished) return
-                    hasFinished = true
+                    if (!streamAccumulator.finish()) return
+                    val snapshot = streamAccumulator.snapshot()
 
                     if (cancelEventSource) {
                         currentEventSource?.cancel()
@@ -1514,20 +1512,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         if (index >= 0) {
                             // 确保最终内容完整更新（节流可能跳过最后几个 chunk）
                             messages[index] = messages[index].copy(
-                                content = fullContent,
-                                thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                                content = snapshot.content,
+                                thinkingContent = snapshot.thinkingContent,
                                 isStreaming = false
                             )
                         }
 
                         // 保存到数据库
-                        if (fullContent.isNotEmpty()) {
+                        if (snapshot.hasContent) {
                             messageDao.insertMessage(MessageEntity(
                                 id = aiMessageId,
                                 conversationId = conversationId,
                                 role = "assistant",
-                                content = fullContent,
-                                thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() },
+                                content = snapshot.content,
+                                thinkingContent = snapshot.thinkingContent,
                                 model = model
                             ))
                         } else {
@@ -1549,26 +1547,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         override fun onDelta(delta: ChatStreamDelta) {
-                            if (hasFinished) return
+                            if (streamAccumulator.isFinished) return
 
                             delta.errorMessage?.let { errorMsg ->
                                 Log.e(TAG, "Streaming API error: $errorMsg")
                                 return
                             }
 
-                            if (delta.reasoningContent.isNotEmpty()) {
-                                fullThinkingContent += delta.reasoningContent
-                                pendingUiUpdate = true
-                            }
-
-                            if (delta.content.isNotEmpty()) {
-                                fullContent += delta.content
-
-                                // 增加 token 计数（简化估计：每个 chunk 约等于其长度/4 个 token）
-                                streamingTokenCount += (delta.content.length / 4).coerceAtLeast(1)
-
-                                pendingUiUpdate = true
-                            }
+                            val snapshot = streamAccumulator.applyDelta(delta) ?: return
+                            streamingTokenCount = snapshot.tokenCount
+                            pendingUiUpdate = true
 
                             // 节流 UI 更新：最多每 50ms 更新一次
                             val now = System.currentTimeMillis()
@@ -1579,8 +1567,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     val index = messages.indexOfFirst { it.id == aiMessageId }
                                     if (index >= 0) {
                                         messages[index] = messages[index].copy(
-                                            content = fullContent,
-                                            thinkingContent = fullThinkingContent.takeIf { it.isNotEmpty() }
+                                            content = snapshot.content,
+                                            thinkingContent = snapshot.thinkingContent
                                         )
                                     }
                                 }
@@ -1588,26 +1576,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         override fun onDone() {
-                            Log.d(TAG, "SSE stream completed with [DONE], content length: ${fullContent.length}")
+                            Log.d(TAG, "SSE stream completed with [DONE], content length: ${streamAccumulator.snapshot().contentLength}")
                             completeStreamingResponse(cancelEventSource = true)
                         }
 
                         override fun onClosed() {
-                            Log.d(TAG, "SSE onClosed, final content length: ${fullContent.length}")
+                            Log.d(TAG, "SSE onClosed, final content length: ${streamAccumulator.snapshot().contentLength}")
                             completeStreamingResponse()
                         }
 
                         override fun onFailure(message: String, throwable: Throwable?, responseCode: Int?) {
                             currentEventSource = null
                             // 特殊处理 stream was reset 错误：如果已经有内容生成，则视为成功
-                            if (message.contains("stream was reset", ignoreCase = true) && fullContent.isNotEmpty()) {
-                                Log.w(TAG, "Stream reset ignored, treating as success (content length: ${fullContent.length})")
+                            if (streamAccumulator.isStreamResetSuccess(message)) {
+                                Log.w(TAG, "Stream reset ignored, treating as success (content length: ${streamAccumulator.snapshot().contentLength})")
                                 completeStreamingResponse()
                                 return
                             }
 
-                            if (hasFinished) return
-                            hasFinished = true
+                            if (!streamAccumulator.finish()) return
 
                             Log.e(TAG, "SSE onFailure: $message, response: $responseCode", throwable)
 
