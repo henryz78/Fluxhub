@@ -454,13 +454,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
 
-                // 获取当前 UI 中存在但数据库中尚未存储的消息（主要是 AI 占位符）
-                val uiOnlyMessages = messages.filter { uiMsg ->
-                    dbMessages.none { dbMsg -> dbMsg.id == uiMsg.id } && !deletedMessageIds.contains(uiMsg.id)
-                }
-                
-                // 组合消息：保留所有 UI 独有的消息（占位符）
-                val finalMessages = (dbMessages + uiOnlyMessages).sortedBy { it.timestamp }
+                // 组合消息：保留所有 UI 独有的消息（主要是 AI 占位符）
+                val finalMessages = ChatMessageSyncPlanner.merge(
+                    dbMessages = dbMessages,
+                    currentMessages = messages,
+                    deletedMessageIds = deletedMessageIds
+                )
+                val uiOnlyMessageCount = finalMessages.size - dbMessages.size
                 
                 // 智能更新 messages 列表
                 // 1. 处理删除或重排
@@ -476,7 +476,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 
-                Log.d(TAG, "Messages synced: ${dbMessages.size} from DB, ${uiOnlyMessages.size} UI-only. Total: ${messages.size}")
+                Log.d(TAG, "Messages synced: ${dbMessages.size} from DB, $uiOnlyMessageCount UI-only. Total: ${messages.size}")
             }
         }
     }
