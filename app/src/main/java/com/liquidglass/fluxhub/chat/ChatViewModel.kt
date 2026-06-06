@@ -17,10 +17,12 @@ import com.liquidglass.fluxhub.data.AssistantEntity
 import com.liquidglass.fluxhub.data.ProviderEntity
 import com.liquidglass.fluxhub.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -259,131 +261,87 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 isSettingsInitialized = true // 即使失败也允许渲染
             }
 
-            // 启动实时监听
-            launch {
-                settingsRepository.apiKey.collect { 
-                    // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
-                    if (currentProvider == null) {
-                        apiKey = it 
-                        if (it.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
-                    }
+            collectSetting(settingsRepository.apiKey) { value ->
+                // 仅在没有当前 Provider 时接受全局配置更新，避免冲突
+                if (currentProvider == null) {
+                    apiKey = value
+                    if (value.isNotBlank() && baseUrl.isNotBlank()) fetchModels()
                 }
             }
-            launch {
-                settingsRepository.baseUrl.collect { 
-                    if (currentProvider == null) {
-                        baseUrl = it
-                        if (it.isNotBlank() && apiKey.isNotBlank()) fetchModels()
-                    }
+            collectSetting(settingsRepository.baseUrl) { value ->
+                if (currentProvider == null) {
+                    baseUrl = value
+                    if (value.isNotBlank() && apiKey.isNotBlank()) fetchModels()
                 }
             }
-            launch {
-                settingsRepository.model.collect { model = it }
-            }
-            launch {
-                settingsRepository.defaultModel.collect { defaultModel = it }
-            }
-            launch {
-                settingsRepository.themeMode.collect { themeMode = it }
-            }
-            launch {
-                settingsRepository.wallpaperUri.collect { wallpaperUri = it }
-            }
-            launch {
-                settingsRepository.glassOpacity.collect { glassOpacity = it }
-            }
-            launch {
-                settingsRepository.glassBlur.collect { glassBlur = it }
-            }
-            launch {
-                settingsRepository.glassColor.collect { glassColor = it }
-            }
-            launch {
-                settingsRepository.agreementAccepted.collect { agreementAccepted = it }
-            }
+            collectSetting(settingsRepository.model) { model = it }
+            collectSetting(settingsRepository.defaultModel) { defaultModel = it }
+            collectSetting(settingsRepository.themeMode) { themeMode = it }
+            collectSetting(settingsRepository.wallpaperUri) { wallpaperUri = it }
+            collectSetting(settingsRepository.glassOpacity) { glassOpacity = it }
+            collectSetting(settingsRepository.glassBlur) { glassBlur = it }
+            collectSetting(settingsRepository.glassColor) { glassColor = it }
+            collectSetting(settingsRepository.agreementAccepted) { agreementAccepted = it }
             // 加载工具箱配置项
-            launch {
-                settingsRepository.thinkingBudget.collect { thinkingBudget = it }
-            }
-            launch {
-                settingsRepository.webSearchEnabled.collect { webSearchEnabled = it }
-            }
-            launch {
-                settingsRepository.searchProvider.collect { searchProvider = it }
-            }
-            launch {
-                settingsRepository.streamEnabled.collect { streamEnabled = it }
-            }
-            launch {
-                settingsRepository.contextSize.collect { contextSize = it }
-            }
+            collectSetting(settingsRepository.thinkingBudget) { thinkingBudget = it }
+            collectSetting(settingsRepository.webSearchEnabled) { webSearchEnabled = it }
+            collectSetting(settingsRepository.searchProvider) { searchProvider = it }
+            collectSetting(settingsRepository.streamEnabled) { streamEnabled = it }
+            collectSetting(settingsRepository.contextSize) { contextSize = it }
             // 加载灵动岛配置项
-            launch {
-                settingsRepository.dynamicIslandEnabled.collect { dynamicIslandEnabled = it }
-            }
-            launch {
-                settingsRepository.loginNotificationMode.collect { loginNotificationMode = it }
-            }
-            launch {
-                settingsRepository.dynamicIslandDuration.collect { dynamicIslandDuration = it }
-            }
-            launch {
-                settingsRepository.showTokenCount.collect { showTokenCount = it }
-            }
-            launch {
-                settingsRepository.showElapsedTime.collect { showElapsedTime = it }
-            }
+            collectSetting(settingsRepository.dynamicIslandEnabled) { dynamicIslandEnabled = it }
+            collectSetting(settingsRepository.loginNotificationMode) { loginNotificationMode = it }
+            collectSetting(settingsRepository.dynamicIslandDuration) { dynamicIslandDuration = it }
+            collectSetting(settingsRepository.showTokenCount) { showTokenCount = it }
+            collectSetting(settingsRepository.showElapsedTime) { showElapsedTime = it }
             // 触感反馈
-            launch {
-                settingsRepository.hapticFeedbackEnabled.collect { hapticFeedbackEnabled = it }
-            }
+            collectSetting(settingsRepository.hapticFeedbackEnabled) { hapticFeedbackEnabled = it }
             // 加载字体样式配置
-            launch {
-                settingsRepository.textColorMode.collect { textColorMode = it }
-            }
-            launch {
-                settingsRepository.textShadowEnabled.collect { textShadowEnabled = it }
-            }
+            collectSetting(settingsRepository.textColorMode) { textColorMode = it }
+            collectSetting(settingsRepository.textShadowEnabled) { textShadowEnabled = it }
+        }
+    }
+
+    private fun <T> CoroutineScope.collectSetting(
+        settingFlow: Flow<T>,
+        onValue: (T) -> Unit
+    ) {
+        launch {
+            settingFlow.collect { value -> onValue(value) }
+        }
+    }
+
+    private fun persistSetting(write: suspend SettingsRepository.() -> Unit) {
+        viewModelScope.launch {
+            settingsRepository.write()
         }
     }
     
     fun updateHapticFeedbackEnabled(enabled: Boolean) {
         hapticFeedbackEnabled = enabled
-        viewModelScope.launch {
-            settingsRepository.setHapticFeedbackEnabled(enabled)
-        }
+        persistSetting { setHapticFeedbackEnabled(enabled) }
     }
     
     fun updateTextColorMode(mode: String) {
-        viewModelScope.launch {
-            settingsRepository.setTextColorMode(mode)
-        }
+        persistSetting { setTextColorMode(mode) }
     }
     
     fun updateTextShadowEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setTextShadowEnabled(enabled)
-        }
+        persistSetting { setTextShadowEnabled(enabled) }
     }
     
     fun updateGlassColor(color: String) {
-        viewModelScope.launch {
-            settingsRepository.setGlassColor(color)
-        }
+        persistSetting { setGlassColor(color) }
     }
     
     fun updateDefaultModel(value: String) {
         defaultModel = value
-        viewModelScope.launch {
-            settingsRepository.setDefaultModel(value)
-        }
+        persistSetting { setDefaultModel(value) }
     }
     
     fun updateGlassBlur(blur: Float) {
         glassBlur = blur
-        viewModelScope.launch {
-            settingsRepository.setGlassBlur(blur)
-        }
+        persistSetting { setGlassBlur(blur) }
     }
     
     fun exportData(onResult: (String?) -> Unit) {
@@ -410,16 +368,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun updateGlassOpacity(opacity: Float) {
         glassOpacity = opacity
-        viewModelScope.launch {
-            settingsRepository.setGlassOpacity(opacity)
-        }
+        persistSetting { setGlassOpacity(opacity) }
     }
     
     fun acceptAgreement() {
         agreementAccepted = true
-        viewModelScope.launch {
-            settingsRepository.setAgreementAccepted(true)
-        }
+        persistSetting { setAgreementAccepted(true) }
     }
     
     fun fetchModels() {
@@ -1109,78 +1063,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun saveApiKey(value: String) {
         apiKey = value
-        viewModelScope.launch {
-            settingsRepository.setApiKey(value)
-        }
+        persistSetting { setApiKey(value) }
     }
     
     fun saveBaseUrl(value: String) {
         baseUrl = value
-        viewModelScope.launch {
-            settingsRepository.setBaseUrl(value)
-        }
+        persistSetting { setBaseUrl(value) }
     }
     
     fun saveModel(value: String) {
         model = value
-        viewModelScope.launch {
-            settingsRepository.setModel(value)
-        }
+        persistSetting { setModel(value) }
     }
 
     fun updateThemeMode(value: String) {
         themeMode = value
-        viewModelScope.launch {
-            settingsRepository.setThemeMode(value)
-        }
+        persistSetting { setThemeMode(value) }
     }
 
     fun updateWallpaperUri(value: String?) {
         wallpaperUri = value
-        viewModelScope.launch {
-            settingsRepository.setWallpaperUri(value)
-        }
+        persistSetting { setWallpaperUri(value) }
     }
 
-    
-    // ========== 工具箱配置项更新方法 ==========
-
-    
     // ========== 工具箱配置项更新方法 ==========
     
     fun updateThinkingBudget(value: Int) {
         thinkingBudget = value
-        viewModelScope.launch {
-            settingsRepository.setThinkingBudget(value)
-        }
+        persistSetting { setThinkingBudget(value) }
     }
     
     fun updateWebSearchEnabled(value: Boolean) {
         webSearchEnabled = value
-        viewModelScope.launch {
-            settingsRepository.setWebSearchEnabled(value)
-        }
+        persistSetting { setWebSearchEnabled(value) }
     }
     
     fun updateSearchProvider(value: Int) {
         searchProvider = value
-        viewModelScope.launch {
-            settingsRepository.setSearchProvider(value)
-        }
+        persistSetting { setSearchProvider(value) }
     }
     
     fun updateStreamEnabled(value: Boolean) {
         streamEnabled = value
-        viewModelScope.launch {
-            settingsRepository.setStreamEnabled(value)
-        }
+        persistSetting { setStreamEnabled(value) }
     }
     
     fun updateContextSize(value: Int) {
         contextSize = value
-        viewModelScope.launch {
-            settingsRepository.setContextSize(value)
-        }
+        persistSetting { setContextSize(value) }
     }
 
     private fun shouldSendOpenAiOnlyOptions(effectiveBaseUrl: String): Boolean {
@@ -1213,37 +1143,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     fun updateDynamicIslandEnabled(value: Boolean) {
         dynamicIslandEnabled = value
-        viewModelScope.launch {
-            settingsRepository.setDynamicIslandEnabled(value)
-        }
+        persistSetting { setDynamicIslandEnabled(value) }
     }
     
     fun updateLoginNotificationMode(value: String) {
         loginNotificationMode = value
-        viewModelScope.launch {
-            settingsRepository.setLoginNotificationMode(value)
-        }
+        persistSetting { setLoginNotificationMode(value) }
     }
     
     fun updateDynamicIslandDuration(value: Int) {
         dynamicIslandDuration = value
-        viewModelScope.launch {
-            settingsRepository.setDynamicIslandDuration(value)
-        }
+        persistSetting { setDynamicIslandDuration(value) }
     }
     
     fun updateShowTokenCount(value: Boolean) {
         showTokenCount = value
-        viewModelScope.launch {
-            settingsRepository.setShowTokenCount(value)
-        }
+        persistSetting { setShowTokenCount(value) }
     }
     
     fun updateShowElapsedTime(value: Boolean) {
         showElapsedTime = value
-        viewModelScope.launch {
-            settingsRepository.setShowElapsedTime(value)
-        }
+        persistSetting { setShowElapsedTime(value) }
     }
     
     fun sendMessage(content: String) {
