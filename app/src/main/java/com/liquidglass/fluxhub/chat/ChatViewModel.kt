@@ -879,31 +879,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 snapshotFlow { currentAssistant },
                 conversationDao.getAllConversations()
             ) { assistant, allConversations ->
-                if (assistant == null) {
-                    allConversations
-                } else {
-                    allConversations.filter { it.assistantId == assistant.id }
-                }
+                ChatConversationSelector.filterForAssistant(assistant, allConversations)
             }.collect { filteredList ->
                 conversations.clear()
                 conversations.addAll(filteredList)
                 
-                // 处理当前会话不存在的情况
-                val currentIdMissing = currentConversationId != null && 
-                    conversations.none { it.id == currentConversationId }
-                val noConversations = conversations.isEmpty()
-                
-                if (currentIdMissing || noConversations) {
-                    // 关键检查：如果是临时会话，不要因为不在 DB 里就切换走！
-                    if (currentConversationId != null && transientConversationIds.contains(currentConversationId)) {
-                        Log.d(TAG, "Current conversation $currentConversationId is transient, staying put.")
-                    } else if (conversations.isNotEmpty()) {
-                        // 如果有其他会话，切换到第一个
-                        switchConversation(conversations.first().id)
-                    } else {
-                        // 会话列表为空，自动创建新对话（解决新用户首次打开的问题）
-                        createNewConversation()
+                when (val selection = ChatConversationSelector.nextSelection(
+                    currentConversationId = currentConversationId,
+                    conversations = conversations,
+                    transientConversationIds = transientConversationIds
+                )) {
+                    ConversationSelection.KeepCurrent -> {
+                        if (currentConversationId != null && transientConversationIds.contains(currentConversationId)) {
+                            Log.d(TAG, "Current conversation $currentConversationId is transient, staying put.")
+                        }
                     }
+                    is ConversationSelection.SwitchTo -> switchConversation(selection.conversationId)
+                    ConversationSelection.CreateNew -> createNewConversation()
                 }
             }
         }
@@ -939,8 +931,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     
                     // 如果没有当前助手，尝试加载默认助手
                     if (currentAssistant == null) {
-                        currentAssistant = list.find { it.isDefault } ?: list.first()
-                        applyAssistantSettings(currentAssistant!!)
+                        currentAssistant = ChatAssistantSelector.defaultAssistant(list)
+                        currentAssistant?.let { applyAssistantSettings(it) }
                     }
                 }
             }
@@ -1013,7 +1005,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             assistantDao.deleteAssistant(assistantId)
             if (currentAssistant?.id == assistantId) {
-                currentAssistant = assistants.firstOrNull { it.id != assistantId }
+                currentAssistant = ChatAssistantSelector.fallbackAfterDelete(assistantId, assistants)
                 currentAssistant?.let { applyAssistantSettings(it) }
             }
             // 显示删除成功通知
