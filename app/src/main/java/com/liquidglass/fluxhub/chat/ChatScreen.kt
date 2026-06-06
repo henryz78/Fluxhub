@@ -1396,16 +1396,11 @@ private fun LiquidGlassChatBubble(
                     ) else null
 
                     // 解析并显示图片 (Vision 格式) - 使用 remember 缓存结果
-                    val imageMatch = remember(message.content) {
-                        Regex("^!\\[image\\]\\((.+?)\\)").find(message.content)
+                    val parsedContent = remember(message.content) {
+                        ChatMessageContentParser.parse(message.content)
                     }
-                    val imageUrl = imageMatch?.groupValues?.get(1)
-                    // 缓存 textContent 避免每次重组时重新计算
-                    val textContent = remember(message.content, imageUrl) {
-                        if (imageMatch != null) {
-                            message.content.substring(imageMatch.range.last + 1).trimStart()
-                        } else message.content
-                    }
+                    val imageUrl = parsedContent.imageUrl
+                    val textContent = parsedContent.text
 
                     // 图片预览状态
                     var showImagePreview by remember { mutableStateOf(false) }
