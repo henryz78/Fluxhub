@@ -54,7 +54,7 @@ class ChatMessageVersionPlannerTest {
     @Test
     fun `clamps version to last available index`() {
         val plan = ChatMessageVersionPlanner.planSwitch(
-            messages = listOf(message(id = "m1", versionIndex = 1, totalVersions = 2)),
+            messages = listOf(message(id = "m1", versionIndex = 0, totalVersions = 2)),
             messageId = "m1",
             direction = 5
         )
