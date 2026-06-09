@@ -767,17 +767,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 切换消息版本 (用于消息分支)
      */
     fun switchMessageVersion(messageId: String, direction: Int) {
-        val messageIndex = messages.indexOfFirst { it.id == messageId }
-        if (messageIndex < 0) return
-        
-        val currentMessage = messages[messageIndex]
-        val newVersionIndex = (currentMessage.versionIndex + direction).coerceIn(0, currentMessage.totalVersions - 1)
-        
-        if (newVersionIndex != currentMessage.versionIndex) {
-            // TODO: 从数据库加载对应版本的消息内容
-            // 目前简化处理：只更新版本索引
-            messages[messageIndex] = currentMessage.copy(versionIndex = newVersionIndex)
-        }
+        val plan = ChatMessageVersionPlanner.planSwitch(messages, messageId, direction) ?: return
+
+        // TODO: 从数据库加载对应版本的消息内容
+        // 目前简化处理：只更新版本索引
+        messages[plan.messageIndex] = plan.updatedMessage
     }
     
     /**
